@@ -1,0 +1,608 @@
+{
+  "topic": "位运算",
+  "problems": [
+    {
+      "id": 67,
+      "title": "Add Binary",
+      "titleCn": "二进制求和",
+      "difficulty": "easy",
+      "frequency": 4,
+      "companies": [
+        "华为",
+        "字节跳动"
+      ],
+      "question": "给你两个二进制字符串 a 和 b，以二进制字符串的形式返回它们的和。\n\n示例 1：输入 a = '11', b = '1'，输出 '100'。\n示例 2：输入 a = '1010', b = '1011'，输出 '10101'。\n\n提示：1 <= a.length, b.length <= 10^4；a 和 b 仅由字符 '0' 或 '1' 组成；字符串如果不是 '0' 就不含前导零。",
+      "samples": [
+        {
+          "input": "a = \"11\", b = \"1\"",
+          "output": "\"100\"",
+          "explain": "3 + 1 = 4，二进制为 100"
+        },
+        {
+          "input": "a = \"1010\", b = \"1011\"",
+          "output": "\"10101\"",
+          "explain": "10 + 11 = 21，二进制为 10101"
+        }
+      ],
+      "hints": [
+        "审题诀窍：输入是字符串不是数字，长度可达 10^4。Python 里转整数再运算可行，但面试官通常想听『逐位模拟』的实现，两种思路都要能写。",
+        "审题诀窍：两个字符串长度可能不同，用两个下标分别从各自末尾往前走即可对齐低位；千万别漏掉『两位都走完后还剩进位』的情况。",
+        "突破口：竖式加法——当前位之和 = 两数的位 + 进位；本位 = 和 % 2，进位 = 和 // 2，循环直到两边走完且进位为 0。",
+        "追问预备：如何推广到 k 进制或十进制大数？（total % k、total // k 换底即成模板）；两串长度悬殊或全 0 输入时边界在哪？（or carry 保证最高进位，全 0 输出 '0'）"
+      ],
+      "keyPoints": [
+        "从最低位（字符串末尾）开始逐位相加，两个下标分别向左移动",
+        "每位之和含进位：本位 = total % 2，新进位 = total // 2",
+        "循环条件 i >= 0 or j >= 0 or carry，保证最长串与最后进位都被处理",
+        "低位先拼进结果列表，最后反转再 join，避免字符串头部拼接的 O(n²) 开销"
+      ],
+      "structureTags": [
+        "math",
+        "bit"
+      ],
+      "approaches": [
+        {
+          "name": "转十进制相加",
+          "idea": "用 int(a, 2) + int(b, 2) 求和，再用 bin() 转回二进制字符串。一行搞定，但完全绕开了加法本质，依赖语言内建大整数，Java/C++ 中长度 10^4 的二进制串会直接溢出。",
+          "complexity": "时间 O(m+n)，空间 O(m+n)",
+          "detail": "推导：Python 的 int 支持任意精度，int(a, 2) 把二进制串按 2 进制解析成整数，相加后 bin() 转回。以 '11'+'1' 走查：int('11',2)=3、int('1',2)=1，和为 4，bin(4)='0b100'，去掉前缀即 '100'。为什么正确：数值加法与进制表示无关，Python 大整数保证不溢出。\n易错点：① bin() 结果带 '0b' 前缀，必须切片 [2:] 去掉；② 和为 0 时 bin(0)='0b0' → 切片后 '0'，恰好正确，无需特判；③ 该解法依赖语言内建大整数——Java 的 long 只有 64 位、C++ 更短，串长 10^4 时会直接溢出；面试官常以『不用内建大数怎么做』追问，引出竖式模拟。",
+          "code": "def addBinary_convert(a, b):\n    # 借助 Python 任意精度整数：按 2 进制解析相加再转回\n    return bin(int(a, 2) + int(b, 2))[2:]   # 去掉前缀 0b"
+        },
+        {
+          "name": "竖式逐位模拟",
+          "idea": "模仿手工竖式加法：双下标从两个字符串的末尾出发，每次取出对应位与进位相加；本位写 total % 2，进位更新为 total // 2。两边都走完且进位为 0 时结束，反转拼接结果。只扫描一遍，与数值大小无关。",
+          "complexity": "时间 O(max(m,n))，空间 O(1)（不计返回结果）",
+          "optimal": true,
+          "detail": "逐位模拟竖式加法：双下标 i、j 从两个字符串的末尾（最低位）出发，每轮 total = carry + a[i] + b[j]（缺位当 0），本位写 total % 2，新进位 total // 2；循环条件 i >= 0 or j >= 0 or carry 保证最长串与最后的进位都被处理。以 '1010'+'1011' 走查：位 0：0+1=1 → 写 1 进 0；位 1：1+1=2 → 写 0 进 1；位 2：0+0+1=1 → 写 1 进 0；位 3：1+1=2 → 写 0 进 1；两串走完但 carry=1 → 再写一位 1，得 '10101'。为什么正确：竖式加法的不变量——已完成位的结果只依赖更低位的输入与进位，且二进制进位恒为 0/1。\n易错点：① 循环条件漏掉 or carry，'11'+'1' 会丢最高进位得 '10' 而不是 '100'；② out 是低位在前拼的，返回前必须 reversed；③ 别用字符串头部拼接 out = ch + out——每个字符触发一次整串拷贝，O(n²)。",
+          "code": "def addBinary(a, b):\n    i, j = len(a) - 1, len(b) - 1  # 从最低位（末尾字符）出发\n    carry = 0\n    out = []\n    while i >= 0 or j >= 0 or carry:\n        total = carry\n        if i >= 0:\n            total += int(a[i])   # 取 a 的当前位并左移下标\n            i -= 1\n        if j >= 0:\n            total += int(b[j])   # 取 b 的当前位并左移下标\n            j -= 1\n        out.append(str(total % 2))  # 本位 = 和 % 2\n        carry = total // 2          # 新进位 = 和 // 2\n    return ''.join(reversed(out))   # 低位在前拼的，反转后输出"
+        }
+      ],
+      "code": "class Solution:\n    def addBinary(self, a: str, b: str) -> str:\n        i, j = len(a) - 1, len(b) - 1   # 从两个字符串的最低位（末尾字符）出发\n        carry = 0                       # 进位，二进制逢二进一\n        out = []\n        while i >= 0 or j >= 0 or carry:  # 还有位没加、或还剩进位，都要继续\n            total = carry\n            if i >= 0:\n                total += int(a[i])      # 取 a 的当前位并左移下标\n                i -= 1\n            if j >= 0:\n                total += int(b[j])      # 取 b 的当前位并左移下标\n                j -= 1\n            out.append(str(total % 2))  # 本位结果 = 和对 2 取余\n            carry = total // 2          # 新进位 = 和整除 2\n        return ''.join(reversed(out))   # 低位在前拼的，反转后输出",
+      "acmCode": "# ACM 模式：完整可运行程序（stdin -> stdout）\n# 输入格式：\n#   第一行：两个二进制字符串 a 和 b（空格分隔）\n# 输出格式：一行，二进制和（无前导零；结果为 0 时输出 0）\nimport sys\n\ndef main():\n    data = sys.stdin.read().split()\n    a, b = data[0], data[1]\n    i, j, carry = len(a) - 1, len(b) - 1, 0\n    out = []\n    while i >= 0 or j >= 0 or carry:    # 还有位没加、或还剩进位，都要继续\n        total = carry\n        if i >= 0:\n            total += int(a[i])          # 取 a 的当前位\n            i -= 1\n        if j >= 0:\n            total += int(b[j])          # 取 b 的当前位\n            j -= 1\n        out.append(str(total % 2))      # 本位 = 和对 2 取余\n        carry = total // 2              # 新进位 = 和整除 2\n    print(''.join(reversed(out)) or '0')\n\nif __name__ == '__main__':\n    main()\n",
+      "templates": [
+        "进制竖式加法模板：while i >= 0 or j >= 0 or carry: total = 位a + 位b + carry; out.append(total % k); carry = total // k，把 2 换成任意进制 k 通吃",
+        "『末尾对齐 + 低位先拼接 + 最后反转』是所有字符串位运算题的固定套路"
+      ],
+      "codeCpp": "class Solution {\npublic:\n    string addBinary(string a, string b) {\n        int i = (int)a.size() - 1, j = (int)b.size() - 1; // 从最低位（末尾字符）出发\n        int carry = 0;                  // 进位，二进制逢二进一\n        string out;\n        while (i >= 0 || j >= 0 || carry) { // 还有位没加、或还剩进位，都要继续\n            int total = carry;\n            if (i >= 0) total += a[i--] - '0'; // 取 a 的当前位并左移下标\n            if (j >= 0) total += b[j--] - '0'; // 取 b 的当前位并左移下标\n            out.push_back(char('0' + total % 2)); // 本位结果 = 和对 2 取余\n            carry = total / 2;                 // 新进位 = 和整除 2\n        }\n        reverse(out.begin(), out.end()); // 低位在前拼的，反转后输出\n        return out;\n    }\n};",
+      "acmCodeCpp": "// ACM 模式：完整可运行程序（stdin -> stdout）\n// 输入格式：\n//   第一行：两个二进制字符串 a 和 b（空格分隔）\n// 输出格式：一行，二进制和（无前导零；结果为 0 时输出 0）\n#include <iostream>\n#include <string>\n#include <algorithm>\nusing namespace std;\n\nint main() {\n    string a, b;\n    cin >> a >> b;\n    int i = (int)a.size() - 1, j = (int)b.size() - 1; // 从最低位出发\n    int carry = 0;\n    string out;\n    while (i >= 0 || j >= 0 || carry) {   // 还有位没加、或还剩进位，都要继续\n        int total = carry;\n        if (i >= 0) total += a[i--] - '0'; // 取 a 的当前位\n        if (j >= 0) total += b[j--] - '0'; // 取 b 的当前位\n        out.push_back(char('0' + total % 2)); // 本位 = 和对 2 取余\n        carry = total / 2;                 // 新进位 = 和整除 2\n    }\n    reverse(out.begin(), out.end());\n    cout << (out.empty() ? \"0\" : out) << endl; // 空结果兜底输出 0\n    return 0;\n}",
+      "codeJava": "class Solution {\n    public String addBinary(String a, String b) {\n        StringBuilder out = new StringBuilder();    // 低位在前收集结果\n        int i = a.length() - 1, j = b.length() - 1; // 从最低位（末尾字符）出发\n        int carry = 0;                              // 进位，二进制逢二进一\n        while (i >= 0 || j >= 0 || carry > 0) { // 还有位没加、或还剩进位，都要继续\n            int total = carry;\n            if (i >= 0) total += a.charAt(i--) - '0'; // 取 a 的当前位并左移下标\n            if (j >= 0) total += b.charAt(j--) - '0'; // 取 b 的当前位并左移下标\n            out.append((char) ('0' + total % 2)); // 本位结果 = 和对 2 取余\n            carry = total / 2;                    // 新进位 = 和整除 2\n        }\n        return out.reverse().toString(); // 低位在前拼的，反转后输出\n    }\n}",
+      "codeJs": "/**\n * @param {string} a\n * @param {string} b\n * @return {string}\n */\nvar addBinary = function (a, b) {\n  let i = a.length - 1, j = b.length - 1; // 从最低位（末尾字符）出发\n  let carry = 0;                          // 进位，二进制逢二进一\n  const out = [];\n  while (i >= 0 || j >= 0 || carry > 0) { // 还有位没加、或还剩进位，都要继续\n    let total = carry;\n    if (i >= 0) total += Number(a[i--]);  // 取 a 的当前位并左移下标\n    if (j >= 0) total += Number(b[j--]);  // 取 b 的当前位并左移下标\n    out.push(total % 2);                  // 本位结果 = 和对 2 取余\n    carry = Math.floor(total / 2);        // 新进位 = 和整除 2\n  }\n  return out.reverse().join(\"\") || \"0\";   // 低位在前拼的，反转后输出\n};",
+      "codeGo": "func addBinary(a string, b string) string {\n\ti, j := len(a)-1, len(b)-1 // 从最低位（末尾字符）出发\n\tcarry := 0                 // 进位，二进制逢二进一\n\tout := []byte{}\n\tfor i >= 0 || j >= 0 || carry > 0 { // 还有位没加、或还剩进位，都要继续\n\t\ttotal := carry\n\t\tif i >= 0 { // 取 a 的当前位并左移下标\n\t\t\ttotal += int(a[i] - '0')\n\t\t\ti--\n\t\t}\n\t\tif j >= 0 { // 取 b 的当前位并左移下标\n\t\t\ttotal += int(b[j] - '0')\n\t\t\tj--\n\t\t}\n\t\tout = append(out, byte('0'+total%2)) // 本位结果 = 和对 2 取余\n\t\tcarry = total / 2                    // 新进位 = 和整除 2\n\t}\n\t// 低位在前拼的，反转后输出；空结果兜底输出 0\n\tfor l, r := 0, len(out)-1; l < r; l, r = l+1, r-1 {\n\t\tout[l], out[r] = out[r], out[l]\n\t}\n\tif len(out) == 0 {\n\t\treturn \"0\"\n\t}\n\treturn string(out)\n}"
+    },
+    {
+      "id": 136,
+      "title": "Single Number",
+      "titleCn": "只出现一次的数字",
+      "difficulty": "easy",
+      "frequency": 5,
+      "companies": [
+        "腾讯",
+        "快手"
+      ],
+      "question": "给定一个非空整数数组 nums，除了某个元素只出现一次以外，其余每个元素均出现两次。找出那个只出现了一次的元素。进阶要求：你的算法应该具有线性时间复杂度，且不使用额外空间来实现。\n\n示例 1：输入 nums = [2,2,1]，输出 1。\n示例 2：输入 nums = [4,1,2,1,2]，输出 4。\n示例 3：输入 nums = [1]，输出 1。",
+      "samples": [
+        {
+          "input": "nums = [2,2,1]",
+          "output": "1",
+          "explain": "2 出现两次异或抵消，1 出现一次保留"
+        },
+        {
+          "input": "nums = [4,1,2,1,2]",
+          "output": "4",
+          "explain": "1 与 2 均成对出现，只有 4 落单"
+        },
+        {
+          "input": "nums = [1]",
+          "output": "1",
+          "explain": "单元素数组，答案就是它本身"
+        }
+      ],
+      "hints": [
+        "审题诀窍：进阶要求 O(n) 时间且 O(1) 空间——哈希表好想但费空间，排序不改变空间但多一个 log，两个条件同时满足的只有位运算。",
+        "审题诀窍：异或三条性质背熟：x^x=0、x^0=x、交换结合律成立——异或结果与顺序无关，成对的数全部抵消为 0。",
+        "突破口：把所有数异或到一起，出现两次的数互相湮灭，最终剩下的就是只出现一次的那个数。",
+        "追问预备：有两个只出现一次的数怎么办？（异或 + lowbit 分组，即 260）；其余元素出现 3 次怎么办？（模 3 计数 / 双掩码，即 137）"
+      ],
+      "keyPoints": [
+        "异或运算：相同为 0，不同为 1，且 x^x=0、x^0=x",
+        "交换律与结合律保证异或结果与运算顺序无关",
+        "出现两次的数抵消，只出现一次的数保留在结果中",
+        "时间 O(n)、空间 O(1)，一步到位满足进阶要求"
+      ],
+      "structureTags": [
+        "bit",
+        "single_pass"
+      ],
+      "approaches": [
+        {
+          "name": "哈希表计数",
+          "idea": "用哈希表统计每个数出现的次数，最后遍历找次数为 1 的那个。思路自然，但需要 O(n) 额外空间，不满足进阶要求。",
+          "complexity": "时间 O(n)，空间 O(n)",
+          "detail": "推导：用字典（或 Counter）统计每个数出现次数，再遍历找次数为 1 的那个。以 [2,2,1] 走查：统计得 {2:2, 1:1}，遍历返回 1。为什么正确：计数精确刻画出现次数，落单元素的次数必为 1。\n易错点：① 空间 O(n) 不满足进阶要求，面试只能说『这是保底做法』再引出位运算；② 遍历字典找 c == 1 时返回的是键不是值，别写反；③ 若场景可能有多个落单元素（260 的设定），要收集成列表而不是找到就返回。",
+          "code": "from collections import Counter\n\ndef singleNumber_hash(nums):\n    cnt = Counter(nums)         # 值 -> 出现次数\n    for x, c in cnt.items():\n        if c == 1:              # 找出现一次的键\n            return x\n    return -1                   # 题目保证有解，此行仅为完整性"
+        },
+        {
+          "name": "排序后线性扫描",
+          "idea": "排序后相同的数一定相邻，两两一组检查，落单的那个就是答案。空间比哈希表省，但时间多出排序的 log 因子。",
+          "complexity": "时间 O(n log n)，空间 O(log n)",
+          "detail": "推导：排序后相同的数必然相邻，从头两两一组检查：下标 0-1、2-3……若 nums[i] != nums[i+1]，说明 nums[i] 落单；全部配对成功则最后一个元素落单。以 [4,1,2,1,2] 走查：排序得 [1,1,2,2,4]，i=0 配对 1/1、i=2 配对 2/2、i=4 越出循环 → 返回末尾 4。为什么正确：排序把『出现两次』转成『相邻相等』，配对扫描等价于成对消元。\n易错点：① 步长必须 i += 2 且循环上界 len-1，最后落单的元素要单独返回；② 排序会打乱原数组顺序，调用方还需要原序时要先拷贝；③ 时间 O(n log n) 仍不满足进阶的 O(n)，仅作为向位运算解的过渡。",
+          "code": "def singleNumber_sort(nums):\n    nums = sorted(nums)         # 排序后成对相邻（不改动调用方数组）\n    for i in range(0, len(nums) - 1, 2):\n        if nums[i] != nums[i + 1]:\n            return nums[i]      # 配对断裂处即落单数\n    return nums[-1]             # 全部配对成功，末尾落单"
+        },
+        {
+          "name": "全体异或",
+          "idea": "利用 x^x=0 与 x^0=x：把所有数从头到尾异或到同一个变量里。出现两次的数无论顺序如何都会抵消成 0，最后剩下的恰好是只出现一次的数。一遍扫描、一个变量，同时满足线性时间与常数空间。",
+          "complexity": "时间 O(n)，空间 O(1)",
+          "optimal": true,
+          "detail": "逐步推导：ans 初值 0（任何数异或 0 不变），每来一个数执行 ans ^= x。利用交换律与结合律把数组重排成相同数相邻的形式：a^a^b^b^…^z = (a^a)^(b^b)^…^z = 0^0^…^z = z——成对的数全部湮灭，只剩出现一次的数。以 [4,1,2,1,2] 走查：0^4=4 → ^1=5 → ^2=7 → ^1=6 → ^2=4，中间值来回跳没关系，逐位看：每个出现两次的数在对应二进制位上贡献偶数个 1，异或抵消为 0，只有 4 的置 1 位保留。为什么正确：x^x=0 且 x^0=x，异或结果与运算顺序无关，一遍扫描 O(n)、一个变量 O(1)，同时满足进阶要求。\n易错点：① 初值必须是 0，用 1 会整体多异或一个 1；② 前提是『其余元素恰好出现 2 次』——出现 3 次时异或会把它们留下（137 需要模 3 计数）；③ 负数按补码参与异或同样成立，无需转正数特判。",
+          "code": "def singleNumber(nums):\n    ans = 0                     # 任何数异或 0 都不变，作累异或初值\n    for x in nums:\n        ans ^= x                # x^x=0：成对的数互相抵消\n    return ans                  # 只剩出现一次的那个数"
+        }
+      ],
+      "code": "class Solution:\n    def singleNumber(self, nums: List[int]) -> int:\n        ans = 0                    # 任何数异或 0 都不变，作为累异或的初值\n        for x in nums:\n            ans ^= x               # 异或：同 0 异 1；x^x=0，成对的数互相抵消\n        return ans                 # 扫描结束后只剩出现一次的那个数",
+      "acmCode": "# ACM 模式：完整可运行程序（stdin -> stdout）\n# 输入格式：\n#   第一行：n（数组长度）\n#   第二行：n 个整数（恰有一个数出现一次，其余均出现两次）\n# 输出格式：一行，只出现一次的那个数\nimport sys\n\ndef main():\n    data = sys.stdin.read().split()\n    n = int(data[0])\n    nums = [int(x) for x in data[1:1 + n]]\n    ans = 0\n    for x in nums:\n        ans ^= x                    # 成对的数异或抵消，剩落单的数\n    print(ans)\n\nif __name__ == '__main__':\n    main()\n",
+      "templates": [
+        "『找唯一/找落单』模板：元素成对出现、只有一个落单 → 全体异或，时间 O(n) 空间 O(1)",
+        "异或三件套 x^x=0、x^0=x、交换结合律，是位运算消元类题目的基石（136/260 同源）"
+      ],
+      "codeCpp": "class Solution {\npublic:\n    int singleNumber(vector<int>& nums) {\n        int ans = 0;                   // 任何数异或 0 都不变，作为累异或的初值\n        for (int x : nums) {\n            ans ^= x;                  // 异或：同 0 异 1；x^x=0，成对的数互相抵消\n        }\n        return ans;                    // 扫描结束后只剩出现一次的那个数\n    }\n};",
+      "acmCodeCpp": "// ACM 模式：完整可运行程序（stdin -> stdout）\n// 输入格式：\n//   第一行：n（数组长度）\n//   第二行：n 个整数（恰有一个数出现一次，其余均出现两次）\n// 输出格式：一行，只出现一次的那个数\n#include <iostream>\nusing namespace std;\n\nint main() {\n    int n;\n    cin >> n;\n    int ans = 0;\n    for (int i = 0; i < n; ++i) {\n        int x;\n        cin >> x;\n        ans ^= x;                      // 成对的数异或抵消，剩落单的数\n    }\n    cout << ans << endl;\n    return 0;\n}",
+      "codeJava": "class Solution {\n    public int singleNumber(int[] nums) {\n        int ans = 0;                // 任何数异或 0 都不变，作为累异或的初值\n        for (int x : nums) {\n            ans ^= x;               // 异或：同 0 异 1；x^x=0，成对的数互相抵消\n        }\n        return ans;                 // 扫描结束后只剩出现一次的那个数\n    }\n}",
+      "codeJs": "/**\n * @param {number[]} nums\n * @return {number}\n */\nvar singleNumber = function (nums) {\n  let ans = 0;            // 任何数异或 0 都不变，作为累异或的初值\n  for (const x of nums) {\n    ans ^= x;             // 异或：同 0 异 1；x^x=0，成对的数互相抵消\n  }\n  return ans;             // 扫描结束后只剩出现一次的那个数\n};",
+      "codeGo": "func singleNumber(nums []int) int {\n\tans := 0 // 任何数异或 0 都不变，作为累异或的初值\n\tfor _, x := range nums {\n\t\tans ^= x // 异或：同 0 异 1；x^x=0，成对的数互相抵消\n\t}\n\treturn ans // 扫描结束后只剩出现一次的那个数\n}"
+    },
+    {
+      "id": 137,
+      "title": "Single Number II",
+      "titleCn": "只出现一次的数字 II",
+      "difficulty": "medium",
+      "frequency": 3,
+      "companies": [
+        "腾讯",
+        "字节跳动"
+      ],
+      "question": "给你一个整数数组 nums，除某个元素仅出现一次外，其余每个元素都恰出现三次。请你找出并返回那个只出现了一次的元素。进阶要求：你的算法应该具有线性时间复杂度，且不使用额外空间来实现。\n\n示例 1：输入 nums = [2,2,3,2]，输出 3。\n示例 2：输入 nums = [0,1,0,1,0,1,99]，输出 99。",
+      "samples": [
+        {
+          "input": "nums = [2,2,3,2]",
+          "output": "3",
+          "explain": "2 出现三次按位归零，3 出现一次保留"
+        },
+        {
+          "input": "nums = [0,1,0,1,0,1,99]",
+          "output": "99",
+          "explain": "0 和 1 各出现三次，99 落单"
+        }
+      ],
+      "hints": [
+        "审题诀窍：出现次数是 3（奇数）——136 的全体异或会把出现 3 次的数留下而不是消掉，直接照搬失效，必须改造。",
+        "审题诀窍：按位思考——把每个数二进制的第 i 位单独拿出来：出现 3 次的数在该位贡献 3 个 1（或 0 个），对 3 取余后归零；只出现一次的数则留下该位。",
+        "突破口：用两个变量 ones/twos 当『模 3 计数器』：某位出现 1 次记在 ones，第 2 次记到 twos，第 3 次清零；全部处理完后看 ones。",
+        "追问预备：如何推广到『其余出现 k 次』？（逐位计数 % k，需要 k-1 个状态位）；ones/twos 两行更新的顺序为什么不能反？（twos 要用更新后的 ones 做屏蔽）"
+      ],
+      "keyPoints": [
+        "逐位独立分析：所有数第 i 位之和 % 3 就是答案在该位的值",
+        "双掩码 ones/twos 给每一位实现模 3 计数，一次遍历完成",
+        "固定更新式：ones = (ones ^ x) & ~twos，twos = (twos ^ x) & ~ones",
+        "出现 3 次的位在连续两步更新后自动归零，答案留在 ones"
+      ],
+      "structureTags": [
+        "bit",
+        "single_pass"
+      ],
+      "approaches": [
+        {
+          "name": "哈希表计数",
+          "idea": "统计每个数的出现次数，返回次数为 1 的那个。写起来最快，但空间 O(n)，不满足进阶要求。",
+          "complexity": "时间 O(n)，空间 O(n)",
+          "detail": "推导：Counter 统计出现次数，返回次数为 1 的键。以 [2,2,3,2] 走查：{2:3, 3:1} → 返回 3。为什么正确：计数直接反映题目的『恰出现三次 / 一次』结构。\n易错点：① 空间 O(n) 不满足进阶要求；② 与 136 不同，这里若照搬『异或所有数』会得到 2^3（出现三次的数抵消不掉），结果是错的——这正是需要新技巧的原因；③ 判断条件是次数 == 1，别误写成次数为奇数。",
+          "code": "from collections import Counter\n\ndef singleNumber2_hash(nums):\n    cnt = Counter(nums)         # 值 -> 出现次数\n    for x, c in cnt.items():\n        if c == 1:\n            return x\n    return -1"
+        },
+        {
+          "name": "逐位统计",
+          "idea": "开 32 个计数器，统计所有数在每个二进制位上 1 的个数，分别对 3 取余后拼回答案。逻辑清晰，且该思想可推广到『出现 k 次』的一般情形；Python 中负数以补码语义处理时最高位（第 31 位）需单独判断符号。",
+          "complexity": "时间 O(32n)，空间 O(1)",
+          "detail": "推导：把所有数按二进制位拆开，第 i 位独立处理：统计该位上 1 的总个数，对 3 取余——出现三次的数在该位贡献 3 个 1（余 0）或 0 个，只有出现一次的数会留下 1，把余 1 的位拼回答案。以 [2,2,3,2] 走查：2=10b、3=11b；第 0 位：只有 3 贡献 1 个 1 → 1%3=1；第 1 位：三个 2 加一个 3 共 4 个 1 → 4%3=1；答案二进制 11b = 3。为什么正确：每一位都是独立的『模 3 计数』，该思想可直接推广到『其余出现 k 次』（取 % k）。\n易错点：① Python 没有固定位宽，负数要用补码语义处理：统计 32 位后若第 31 位余数非 0，答案为负，需要 ans -= (1 << 32) 还原；② 循环固定 32 次，别用 while x 的逐个数技巧；③ 32n 次操作比双掩码版慢一档，但胜在直观、易推广。",
+          "code": "def singleNumber2_bits(nums):\n    ans = 0\n    for i in range(32):         # 第 i 位独立做模 3 计数\n        bit = sum((x >> i) & 1 for x in nums) % 3\n        if bit:\n            ans |= 1 << i       # 该位余 1，答案的这一位就是 1\n    if ans >= 1 << 31:          # 补码语义：最高位为 1 表示负数\n        ans -= 1 << 32\n    return ans"
+        },
+        {
+          "name": "双掩码数字电路",
+          "idea": "把每一位看成一个三态状态机（出现 0/1/2 次），用 ones 记录『出现 1 次』的位、twos 记录『出现 2 次』的位。每来一个数 x：ones = (ones ^ x) & ~twos 先把 x 的新位记入 ones，但已在 twos（即将第 3 次出现）的位被 ~twos 屏蔽归零；twos = (twos ^ x) & ~ones 同理把第 2 次出现的位记入 twos、刚记入 ones 的位被屏蔽。出现 3 次的位走完 0→ones→twos→0 的循环，扫描结束答案就是 ones。",
+          "complexity": "时间 O(n)，空间 O(1)",
+          "optimal": true,
+          "detail": "每一位都是独立的三态状态机：该位累计出现 0/1/2 次记为 00→01→10，第三次出现归零（模 3 计数）。用两个整数 ones/twos 按位记账：ones=1 表示出现 1 次，twos=1 表示出现 2 次。固定更新式（顺序不可反）：ones = (ones ^ x) & ~twos；twos = (twos ^ x) & ~ones。单一位推演：初始 (one,two)=(0,0)；来 1：ones^x=1 且 ~twos=1 → one=1，twos^x=1 但被更新后的 ~ones=0 屏蔽 → (1,0)；再来 1：ones^x=0 → one=0，twos^x=1 且 ~ones=1 → (0,1)；再来 1：ones^x=1 但 ~twos=0 → 0，twos^x=0 → (0,0)，完成 0→1→2→0 循环。以 [2,2,3,2] 验证：值 2 的那一位（第 1 位）出现 3 次归零，第 0 位只有 3 出现 1 次 → ones=11b=3。为什么正确：32 位各自独立做同一个模 3 状态转移，出现三次的数对每一位的净贡献为 0，扫描结束 ones 恰是只出现一次的数。\n易错点：① 两行更新顺序不能颠倒，twos 要用更新后的 ones 屏蔽；② 返回 ones 不是 twos；③ 掩码技巧是逐位并行的，32 位各自独立转移，不要误解为对整个数做状态机。",
+          "code": "def singleNumber2(nums):\n    ones = twos = 0             # ones: 出现 1 次的位；twos: 出现 2 次的位\n    for x in nums:\n        ones = (ones ^ x) & ~twos  # x 的新位记入 ones；已在 twos 的位被屏蔽\n        twos = (twos ^ x) & ~ones  # 第 2 次出现记入 twos；刚进 ones 的位被屏蔽\n    return ones                  # 出现 3 次的位走完 0→ones→twos→0，答案即 ones"
+        }
+      ],
+      "code": "class Solution:\n    def singleNumber(self, nums: List[int]) -> int:\n        ones = twos = 0                # ones: 出现 1 次的位；twos: 出现 2 次的位\n        for x in nums:\n            ones = (ones ^ x) & ~twos  # x 的新位记入 ones；已在 twos 的位（第 3 次）被 ~twos 屏蔽\n            twos = (twos ^ x) & ~ones  # x 的位再记入 twos；刚进 ones 的位被 ~ones 屏蔽\n        return ones                    # 出现 3 次的位走完 0→ones→twos→0 归零，答案即 ones",
+      "acmCode": "# ACM 模式：完整可运行程序（stdin -> stdout）\n# 输入格式：\n#   第一行：n（数组长度）\n#   第二行：n 个整数（恰有一个数出现一次，其余均出现三次）\n# 输出格式：一行，只出现一次的那个数\nimport sys\n\ndef main():\n    data = sys.stdin.read().split()\n    n = int(data[0])\n    nums = [int(x) for x in data[1:1 + n]]\n    ones = twos = 0\n    for x in nums:\n        ones = (ones ^ x) & ~twos   # 三态状态机：0 次 -> 1 次 -> 2 次 -> 0 次\n        twos = (twos ^ x) & ~ones\n    print(ones)                     # 出现三次的位全部归零，答案即 ones\n\nif __name__ == '__main__':\n    main()\n",
+      "templates": [
+        "『每个元素出现 k 次、找出现 1 次的数』模板：逐位计数 % k；k=2 单变量异或，k=3 用 ones/twos 双掩码，一般 k 需要 k-1 个状态位",
+        "状态机式位计数套路：ones = (ones ^ x) & ~twos —— 『先异或记账，再用高位状态屏蔽』，每一位是独立的三态状态机"
+      ],
+      "codeCpp": "class Solution {\npublic:\n    int singleNumber(vector<int>& nums) {\n        int ones = 0, twos = 0;    // ones: 出现 1 次的位；twos: 出现 2 次的位\n        for (int x : nums) {\n            ones = (ones ^ x) & ~twos; // x 的新位记入 ones；已在 twos 的位（第 3 次）被 ~twos 屏蔽\n            twos = (twos ^ x) & ~ones; // x 的位再记入 twos；刚进 ones 的位被 ~ones 屏蔽\n        }\n        return ones;               // 出现 3 次的位走完 0→ones→twos→0 归零，答案即 ones\n    }\n};",
+      "acmCodeCpp": "// ACM 模式：完整可运行程序（stdin -> stdout）\n// 输入格式：\n//   第一行：n（数组长度）\n//   第二行：n 个整数（恰有一个数出现一次，其余均出现三次）\n// 输出格式：一行，只出现一次的那个数\n#include <iostream>\nusing namespace std;\n\nint main() {\n    int n;\n    cin >> n;\n    int ones = 0, twos = 0;\n    for (int i = 0; i < n; ++i) {\n        int x;\n        cin >> x;\n        ones = (ones ^ x) & ~twos; // 三态状态机：0 次 -> 1 次 -> 2 次 -> 0 次\n        twos = (twos ^ x) & ~ones;\n    }\n    cout << ones << endl;          // 出现三次的位全部归零，答案即 ones\n    return 0;\n}",
+      "codeJava": "class Solution {\n    public int singleNumber(int[] nums) {\n        int ones = 0, twos = 0;      // ones: 出现 1 次的位；twos: 出现 2 次的位\n        for (int x : nums) {\n            ones = (ones ^ x) & ~twos; // x 的新位记入 ones；已在 twos 的位被 ~twos 屏蔽\n            twos = (twos ^ x) & ~ones; // x 的位再记入 twos；刚进 ones 的位被 ~ones 屏蔽\n        }\n        return ones;                 // 出现 3 次的位走完 0→ones→twos→0 归零，答案即 ones\n    }\n}",
+      "codeJs": "/**\n * @param {number[]} nums\n * @return {number}\n */\nvar singleNumber = function (nums) {\n  let ones = 0, twos = 0;       // ones: 出现 1 次的位；twos: 出现 2 次的位\n  for (const x of nums) {\n    ones = (ones ^ x) & ~twos;  // x 的新位记入 ones；已在 twos 的位被 ~twos 屏蔽\n    twos = (twos ^ x) & ~ones;  // x 的位再记入 twos；刚进 ones 的位被 ~ones 屏蔽\n  }\n  return ones;                  // 出现 3 次的位全部归零，答案即 ones\n};",
+      "codeGo": "func singleNumber(nums []int) int {\n\tones, twos := 0, 0 // ones: 出现 1 次的位；twos: 出现 2 次的位\n\tfor _, x := range nums {\n\t\tones = (ones ^ x) & ^twos // x 的新位记入 ones；已在 twos 的位被 ^twos 屏蔽\n\t\ttwos = (twos ^ x) & ^ones // x 的位再记入 twos；刚进 ones 的位被 ^ones 屏蔽\n\t}\n\treturn ones // 出现 3 次的位走完 0→ones→twos→0 归零，答案即 ones\n}"
+    },
+    {
+      "id": 190,
+      "title": "Reverse Bits",
+      "titleCn": "颠倒二进制位",
+      "difficulty": "easy",
+      "frequency": 3,
+      "companies": [
+        "华为",
+        "字节跳动"
+      ],
+      "question": "颠倒给定的 32 位无符号整数的二进制位。\n\n示例 1：输入 n = 00000010100101000001111010011100（二进制，十进制 43261596），输出 00111001011110000010100101000000（二进制，十进制 964176192）。解释：输入的二进制串反转后得到 00111001011110000010100101000000。\n示例 2：输入 n = 11111111111111111111111111111101（十进制 4294967293），输出 10111111111111111111111111111111（十进制 3221225471）。\n\n提示：多次调用本函数时需要尽可能优化（如分治思路）。",
+      "samples": [
+        {
+          "input": "n = 00000010100101000001111010011100",
+          "output": "00111001011110000010100101000000",
+          "explain": "十进制 43261596 颠倒后为 964176192"
+        },
+        {
+          "input": "n = 11111111111111111111111111111101",
+          "output": "10111111111111111111111111111111",
+          "explain": "十进制 4294967293 颠倒后为 3221225471"
+        }
+      ],
+      "hints": [
+        "审题诀窍：注意是固定 32 位——Python 整数不限位数，必须把 32 位全部处理（含前导零），只反转有效位会漏掉高位。",
+        "审题诀窍：核心动作只有两个——取 n 的最低位（n & 1）和把该位接到结果上（ans 先左移腾出最低位，再 | 进来）。",
+        "突破口：固定循环 32 次：ans = (ans << 1) | (n & 1)，然后 n >>= 1。最低位被逐个搬到高位，第 1 轮的最低位最终落在第 31 位，恰好完成颠倒。",
+        "追问预备：分治掩码五步各自交换多大的组？（16/8/4/2/1 位组内互换）；要反转任意 w 位怎么做？（循环 w 次或按掩码递推）"
+      ],
+      "keyPoints": [
+        "固定循环 32 次，与数值大小无关，天然处理前导零",
+        "n & 1 取最低位；ans << 1 给新位腾位置；n >>= 1 丢弃已处理位",
+        "循环结束后结果自动就是 32 位反转，无需额外补零",
+        "进阶：分治掩码交换（16/8/4/2/1 位成对交换）用常数次位运算完成"
+      ],
+      "structureTags": [
+        "bit"
+      ],
+      "approaches": [
+        {
+          "name": "字符串拼接",
+          "idea": "bin(n)[2:].zfill(32) 补齐 32 位后用切片 [::-1] 反转，再 int(s, 2) 转回整数。借助语言特性，思路最省事，但把位问题绕成了字符串问题，且额外开 O(32) 的字符串空间。",
+          "complexity": "时间 O(32)，空间 O(32)",
+          "detail": "推导：bin(n)[2:] 得到不含前缀的二进制串，zfill(32) 补齐前导零，[::-1] 切片反转，int(s, 2) 转回整数。以 n=8 走查：bin 得 '1000'，补齐 32 位 '000…01000'，反转 '00010…000'，即第 3 位跑到第 28 位 = 2^28 = 268435456。为什么正确：字符串反转与位反转在补齐定长后一一对应。\n易错点：① 必须 zfill(32)——bin() 不输出前导零，漏补会把高位 0 全部丢掉，n=1 时错误尤其明显（应为 2^31）；② bin() 前缀 '0b' 要去掉；③ 本题输入是无符号 32 位，若在别的题目遇到负数，Python 的 bin(-1) 会带负号，需先 & 0xffffffff。",
+          "code": "def reverseBits_str(n):\n    s = bin(n)[2:].zfill(32)    # 补齐 32 位（含前导零）\n    return int(s[::-1], 2)      # 字符串反转后转回整数"
+        },
+        {
+          "name": "逐位颠倒",
+          "idea": "维护结果 ans = 0，循环 32 次：每轮把 n 的最低位取出（n & 1），接到 ans 的最低位（ans 先整体左移一位腾位，再按位或），然后 n 右移一位丢弃已处理位。32 轮后第 0 位被搬到第 31 位、第 31 位落到第 0 位，反转完成。",
+          "complexity": "时间 O(32)=O(1)，空间 O(1)",
+          "optimal": true,
+          "detail": "逐步推导镜像关系：第 k 轮取出的是 n 的第 k 位（n & 1，随后 n >>= 1 丢弃），把它接到 ans 末尾（ans = (ans << 1) | (n & 1)）。到 32 轮结束时，原第 0 位被左移了 31 次 → 落在第 31 位；原第 i 位恰好落在 31-i 位——这正是『颠倒』的定义。以 8 位示意（32 位同理）：n=00000011 → 第 1 轮取 1 接到 ans=1；第 2 轮取 1 → ans=11；之后 6 轮取 0，ans 不断左移 → 最终 11000000，原最低两位跑到了最高两位。为什么正确：固定 32 轮保证每一位都被搬运恰好一次，且天然处理前导零（n 很小时高位 0 被搬到低位）。\n易错点：① 循环必须固定 32 次，写成 while n 会在有效位走完后提前停止，前导零不参与反转导致结果错（n=1 应得 2^31）；② 32 轮内 ans 不会超过 32 位，无需额外截断；③ 输入保证 < 2^32，无需处理负数。",
+          "code": "def reverseBits(n):\n    ans = 0\n    for _ in range(32):         # 固定 32 轮，前导零同样参与反转\n        ans = (ans << 1) | (n & 1)  # 取最低位接到 ans 末尾\n        n >>= 1                 # 丢弃已处理位\n    return ans"
+        },
+        {
+          "name": "分治掩码交换",
+          "idea": "把 32 位看成两半，先交换高低 16 位（(n >> 16) | (n << 16)），再在每半内部交换高低 8 位，依次 4、2、1 位，用固定掩码 0x00ff00ff、0x0f0f0f0f、0x33333333、0x55555555 完成分组内互换。5 步、常数条位运算指令，不依赖数据内容，适合多次调用场景。",
+          "complexity": "时间 O(1)，空间 O(1)",
+          "detail": "分治思想：反转 32 位 = 交换高低 16 位 + 各自内部反转 16 位；16 位同理递推到相邻位交换。用固定掩码逐级展开成 5 条位运算：① (n >> 16) | (n << 16) 交换高低 16 位；② 掩码 0x00ff00ff / 0xff00ff00 交换每 16 位内的高低 8 位；③ 0x0f0f0f0f / 0xf0f0f0f0 交换每 8 位内的高低 4 位；④ 0x33333333 / 0xcccccccc 交换每 4 位内的高低 2 位；⑤ 0x55555555 / 0xaaaaaaaa 交换相邻位。以 8 位示意：n=11001010 → 交换高低 4 位组得 10101100 → 组内交换 2 位组得 10100011 → 交换相邻位得 01010011 = 原串反转 ✓。为什么正确：每一层只交换『组与组』的位置，组内部顺序留给下一层处理，log 层后等价于完全镜像；5 步常数条指令，不依赖数据内容。\n易错点：① 掩码与移位方向必须成对匹配（0x55555555 配 <<1，0xaaaaaaaa 配 >>1），一位配错全盘皆错；② Python 整数无位宽限制，左移会产生高位增长，最后要 & 0xffffffff；③ 优势在多次调用场景（题目进阶），单次调用与逐位法同阶。",
+          "code": "def reverseBits_divide(n):\n    n = (n >> 16) | (n << 16)   # 交换高低 16 位\n    n = ((n & 0xff00ff00) >> 8) | ((n & 0x00ff00ff) << 8)  # 交换高低 8 位\n    n = ((n & 0xf0f0f0f0) >> 4) | ((n & 0x0f0f0f0f) << 4)  # 交换高低 4 位\n    n = ((n & 0xcccccccc) >> 2) | ((n & 0x33333333) << 2)  # 交换高低 2 位\n    n = ((n & 0xaaaaaaaa) >> 1) | ((n & 0x55555555) << 1)  # 交换相邻位\n    return n & 0xffffffff"
+        }
+      ],
+      "code": "class Solution:\n    def reverseBits(self, n: int) -> int:\n        ans = 0\n        for _ in range(32):              # 固定处理 32 个二进制位（含前导零）\n            ans = (ans << 1) | (n & 1)   # 位技巧①：n & 1 取出最低位\n                                         # 位技巧②：ans 左移 1 位腾出最低位，再 | 接上取出的位\n            n >>= 1                      # 位技巧③：n 右移 1 位，丢弃已处理的最低位\n        return ans",
+      "acmCode": "# ACM 模式：完整可运行程序（stdin -> stdout）\n# 输入格式：\n#   第一行：一个 32 位二进制串（含前导零）\n# 输出格式：一行，反转后的 32 位二进制串（保留前导零）\nimport sys\n\ndef main():\n    data = sys.stdin.read().split()\n    n = int(data[0], 2)             # 按二进制读入\n    ans = 0\n    for _ in range(32):             # 固定 32 轮，前导零同样参与反转\n        ans = (ans << 1) | (n & 1)  # 取 n 的最低位接到 ans 末尾\n        n >>= 1                     # 丢弃已处理位\n    print(format(ans, '032b'))      # 补齐 32 位输出（含前导零）\n\nif __name__ == '__main__':\n    main()\n",
+      "templates": [
+        "『逐位搬运』模板：循环位数次 ans = (ans << 1) | (n & 1); n >>= 1，适用于进制反转、按位提取类题",
+        "处理固定位宽（32/64 位）的题，Python 中要补前导零或固定循环次数，避免变长整数的坑"
+      ],
+      "codeCpp": "#include <cstdint>\n\nclass Solution {\npublic:\n    uint32_t reverseBits(uint32_t n) {\n        uint32_t ans = 0;\n        for (int i = 0; i < 32; ++i) { // 固定处理 32 个二进制位（含前导零）\n            ans = (ans << 1) | (n & 1); // 位技巧①：n & 1 取出最低位\n                                        // 位技巧②：ans 左移 1 位腾出最低位，再 | 接上\n            n >>= 1;                    // 位技巧③：n 右移 1 位，丢弃已处理的最低位\n        }\n        return ans;\n    }\n};",
+      "acmCodeCpp": "// ACM 模式：完整可运行程序（stdin -> stdout）\n// 输入格式：\n//   第一行：一个 32 位二进制串（含前导零）\n// 输出格式：一行，反转后的 32 位二进制串（保留前导零）\n#include <iostream>\n#include <string>\nusing namespace std;\n\nint main() {\n    string s;\n    cin >> s;\n    unsigned int n = 0;\n    for (char c : s) n = (n << 1) | unsigned(c - '0'); // 按二进制读入\n    unsigned int ans = 0;\n    for (int i = 0; i < 32; ++i) {  // 固定 32 轮，前导零同样参与反转\n        ans = (ans << 1) | (n & 1); // 取 n 的最低位接到 ans 末尾\n        n >>= 1;                    // 丢弃已处理位\n    }\n    string out;\n    for (int i = 31; i >= 0; --i)   // 补齐 32 位输出（含前导零）\n        out.push_back(char('0' + int((ans >> i) & 1)));\n    cout << out << endl;\n    return 0;\n}",
+      "codeJava": "class Solution {\n    public int reverseBits(int n) {\n        int ans = 0;\n        for (int i = 0; i < 32; i++) {  // 固定处理 32 个二进制位（含前导零）\n            ans = (ans << 1) | (n & 1); // 位技巧①：n & 1 取出最低位接到 ans\n            n >>>= 1;                   // 位技巧③：无符号右移，丢弃已处理的最低位\n        }\n        return ans;\n    }\n}",
+      "codeJs": "/**\n * @param {number} n - 按 32 位无符号整数处理的输入\n * @return {number} 颠倒二进制位后的无符号结果\n */\nvar reverseBits = function (n) {\n  let ans = 0;\n  for (let i = 0; i < 32; i++) { // 固定处理 32 个二进制位（含前导零）\n    ans = ans * 2 + (n & 1);     // 取出最低位接到 ans 末尾（乘法避免溢出为负）\n    n = n >>> 1;                 // 无符号右移，丢弃已处理的最低位\n  }\n  return ans;\n};",
+      "codeGo": "func reverseBits(n uint32) uint32 {\n\tans := uint32(0)\n\tfor i := 0; i < 32; i++ {   // 固定处理 32 个二进制位（含前导零）\n\t\tans = ans<<1 | n&1      // 位技巧：取出 n 的最低位接到 ans 末尾\n\t\tn >>= 1                 // 丢弃已处理的最低位\n\t}\n\treturn ans\n}"
+    },
+    {
+      "id": 191,
+      "title": "Number of 1 Bits",
+      "titleCn": "位 1 的个数",
+      "difficulty": "easy",
+      "frequency": 4,
+      "companies": [
+        "字节跳动"
+      ],
+      "question": "编写一个函数，输入是一个无符号整数（以二进制串的形式），返回其二进制表达式中数字位数为 '1' 的个数（也被称为汉明重量）。\n\n示例 1：输入 n = 00000000000000000000000000001011，输出 3。解释：输入的二进制串中共有三位为 '1'。\n示例 2：输入 n = 00000000000000000000000010000000，输出 1。\n示例 3：输入 n = 11111111111111111111111111111101，输出 31。",
+      "samples": [
+        {
+          "input": "n = 00000000000000000000000000001011",
+          "output": "3",
+          "explain": "二进制串中共有 3 位为 1"
+        },
+        {
+          "input": "n = 00000000000000000000000010000000",
+          "output": "1",
+          "explain": "仅第 7 位（从 0 数）为 1"
+        },
+        {
+          "input": "n = 11111111111111111111111111111101",
+          "output": "31",
+          "explain": "32 位中仅 1 位为 0，其余全 1"
+        }
+      ],
+      "hints": [
+        "审题诀窍：想消去最右边的 1？n & (n-1) 是标配技巧——n-1 会把最低位的 1 变成 0、它右边的 0 全变成 1，与 n 按位与恰好只清掉这一位。",
+        "审题诀窍：循环次数可以从固定 32 次优化为『1 的个数』次——n & (n-1) 每执行一次恰好消掉一个 1。",
+        "突破口：count 统计 n &= n - 1 的执行次数，n 变成 0 时停止。",
+        "追问预备：能否 O(1) 完成？（SWAR 分治并行统计，常数步位运算）；n & (n-1) == 0 还能判断什么？（n 是不是 2 的幂）"
+      ],
+      "keyPoints": [
+        "n & (n-1) 每次消去 n 二进制中最低位的 1",
+        "循环次数恰好等于 1 的个数，优于逐位检查的固定 32 次",
+        "同一技巧可判断 2 的幂：n & (n-1) == 0 当且仅当 n 是 2 的幂",
+        "输入是无符号 32 位整数，位运算直接按补码语义处理即可"
+      ],
+      "structureTags": [
+        "bit"
+      ],
+      "approaches": [
+        {
+          "name": "逐位检查",
+          "idea": "循环 32 次，每次看 n 的最低位是否为 1（n & 1）并累加，然后 n >>= 1。简单直观，但与 1 的个数无关，1 很少时也跑满 32 轮。",
+          "complexity": "时间 O(32)，空间 O(1)",
+          "detail": "推导：固定循环 32 次，每轮看最低位 n & 1 是否为 1 并累加，然后 n >>= 1 丢弃已处理位。以 n=0b1011 走查：第 1 轮 1 → count=1；第 2 轮 1 → count=2；第 3 轮 0；第 4 轮 1 → count=3；剩余 28 轮全 0。为什么正确：逐位提取覆盖全部 32 位，与 1 的分布无关。\n易错点：① 固定 32 次与数值无关，1 很少时也跑满——这是下一版优化的空间；② Python 中非负数右移就是逻辑右移，本题输入无符号无需特殊处理；③ count 累加的是 (n & 1) 的返回值 0/1，别写成 if 判断时漏加 else 分支。",
+          "code": "def hammingWeight_check(n):\n    count = 0\n    for _ in range(32):         # 固定 32 位逐位检查\n        count += n & 1          # 最低位是 1 就计数\n        n >>= 1                 # 丢弃已处理位\n    return count"
+        },
+        {
+          "name": "Brian Kernighan 消最低位 1",
+          "idea": "利用 n & (n-1) 恰好把 n 二进制中最低位的 1 清零这一性质：每执行一次计数 +1，直到 n 变成 0。循环次数正好等于 1 的个数，1 稀疏时远少于 32 次。",
+          "complexity": "时间 O(k)，k 为 1 的个数（最坏 32），空间 O(1)",
+          "optimal": true,
+          "detail": "n & (n-1) 的机理逐步推导：减 1 会把 n 最低位的 1 变成 0，它右边的所有 0 变成 1，左边不变；再与 n 按位与——右边新变出的 1 与 n 的 0 相与归零，最低位的 1 也被清掉，其余位保持。结果：恰好消去最低位的 1，其余位不变。以 n=0b101100 走查：n-1=0b101011，与 → 0b101000（消掉 2 号位的 1）；继续：101000 → 100000 → 0，共 3 次 → count=3，而 101100 恰有 3 个 1。以题目示例 n=0b1011 走查：1011 → 1010 → 1000 → 0，3 次 → 输出 3。为什么正确：每次操作严格消去一个 1 且不产生新 1，循环次数恰等于 1 的个数——1 稀疏时远少于 32 次。\n易错点：① 该技巧依赖无符号语义，Python 中本题输入保证非负即可；② 与判断 2 的幂同源：n & (n-1) == 0 当且仅当 n 是 2 的幂（只有一个 1）；③ 循环条件是 while n，别写成 while n > 1 之类的 off-by-one。",
+          "code": "def hammingWeight(n):\n    count = 0\n    while n:                    # 循环次数 = 二进制中 1 的个数\n        n &= n - 1              # 消去最低位的 1\n        count += 1\n    return count"
+        },
+        {
+          "name": "分治并行统计",
+          "idea": "SWAR 思想：先每 2 位一组内部相加，再每 4 位、8 位、16 位……用掩码 0x55555555、0x33333333、0x0f0f0f0f 分组求和，5 步得到全部 32 位的 1 总数。常数次运算，适合对大量整数反复调用。",
+          "complexity": "时间 O(1)，空间 O(1)",
+          "detail": "分治并行统计（SWAR）：让 32 位按组并行做加法。第 1 步每 2 位一组统计组内 1 数：x = x - ((x >> 1) & 0x55555555)（2 位组 11 表示 2 个 1，11 - 01 = 10 = 2 ✓）；第 2 步相邻 2 位组合并成 4 位组：x = (x & 0x33333333) + ((x >> 2) & 0x33333333)；第 3 步 4 位组合并成 8 位组：x = (x + (x >> 4)) & 0x0f0f0f0f；第 4、5 步继续按 16、32 位合并，最后 & 0x3f 取结果（32 个 1 最多需要 6 位）。以 4 位示意：x=0b1011 → 每 2 位组内 1 数为 [1,2] → 合并得 3。为什么正确：每组计数不超过组宽（2 位组最多 2 < 4），组内加法不会溢出污染相邻组，log 步归并到全宽。\n易错点：① 掩码与移位量必须成对（0x5555…配 >>1、0x3333…配 >>2），写错一位统计全错；② 最后一步必须 & 0x3f，高位脏数据会混进结果；③ 优势在批量反复调用场景；单次调用常数不比循环法优。",
+          "code": "def hammingWeight_swar(n):\n    n = n - ((n >> 1) & 0x55555555)   # 每 2 位一组：组内 1 的个数\n    n = (n & 0x33333333) + ((n >> 2) & 0x33333333)  # 每 4 位一组求和\n    n = (n + (n >> 4)) & 0x0f0f0f0f   # 每 8 位一组求和\n    n = n + (n >> 8)                  # 每 16 位一组求和\n    n = n + (n >> 16)                 # 全 32 位求和\n    return n & 0x3f                   # 结果最多 32，占 6 位"
+        }
+      ],
+      "code": "class Solution:\n    def hammingWeight(self, n: int) -> int:\n        count = 0\n        while n:                     # 循环次数 = 二进制中 1 的个数\n            n &= n - 1               # 位技巧：n-1 把最低位的 1 变 0、其右的 0 变 1，\n                                     # 与 n 按位与恰好消去最低位的 1，其余位不变\n            count += 1               # 每消一个 1 计数一次\n        return count",
+      "acmCode": "# ACM 模式：完整可运行程序（stdin -> stdout）\n# 输入格式：\n#   第一行：一个 32 位二进制串（含前导零）\n# 输出格式：一行，二进制中 1 的个数（汉明重量）\nimport sys\n\ndef main():\n    data = sys.stdin.read().split()\n    n = int(data[0], 2)             # 按二进制读入\n    count = 0\n    while n:                        # 每轮消去最低位的 1，循环次数 = 1 的个数\n        n &= n - 1\n        count += 1\n    print(count)\n\nif __name__ == '__main__':\n    main()\n",
+      "templates": [
+        "n & (n-1) 三大用途：① 统计 1 的个数 ② 判断 2 的幂（结果为 0）③ 消去最低位的 1；模板 while n: n &= n-1; count += 1",
+        "与『最低位的 1』相关的另一件套：lowbit = n & (-n) 取最低位的 1 及其后缀 0，见 260 的分组用法"
+      ],
+      "codeCpp": "#include <cstdint>\n\nclass Solution {\npublic:\n    int hammingWeight(uint32_t n) {\n        int count = 0;\n        while (n) {                  // 循环次数 = 二进制中 1 的个数\n            n &= n - 1;              // 位技巧：n-1 把最低位的 1 变 0、其右的 0 变 1，\n                                     // 与 n 按位与恰好消去最低位的 1，其余位不变\n            count++;                 // 每消一个 1 计数一次\n        }\n        return count;\n    }\n};",
+      "acmCodeCpp": "// ACM 模式：完整可运行程序（stdin -> stdout）\n// 输入格式：\n//   第一行：一个 32 位二进制串（含前导零）\n// 输出格式：一行，二进制中 1 的个数（汉明重量）\n#include <iostream>\n#include <string>\nusing namespace std;\n\nint main() {\n    string s;\n    cin >> s;\n    unsigned int n = 0;\n    for (char c : s) n = (n << 1) | unsigned(c - '0'); // 按二进制读入\n    int count = 0;\n    while (n) {                     // 每轮消去最低位的 1，循环次数 = 1 的个数\n        n &= n - 1;\n        count++;\n    }\n    cout << count << endl;\n    return 0;\n}",
+      "codeJava": "class Solution {\n    public int hammingWeight(int n) {\n        int count = 0;\n        while (n != 0) {        // 循环次数 = 二进制中 1 的个数\n            n &= n - 1;         // 位技巧：n-1 把最低位的 1 变 0，按位与恰好消去它\n            count++;            // 每消一个 1 计数一次\n        }\n        return count;\n    }\n}",
+      "codeJs": "/**\n * @param {number} n - 按 32 位无符号整数处理的输入\n * @return {number} 二进制中 1 的个数（汉明重量）\n */\nvar hammingWeight = function (n) {\n  let count = 0;\n  n = n >>> 0;              // 统一按 32 位无符号数处理（含符号位上的 1）\n  while (n !== 0) {         // 循环次数 = 二进制中 1 的个数\n    n &= n - 1;             // 位技巧：每轮消去最低位的 1，其余位不变\n    count++;                // 每消一个 1 计数一次\n  }\n  return count;\n};",
+      "codeGo": "func hammingWeight(n uint32) int {\n\tcount := 0\n\tfor n != 0 {     // 循环次数 = 二进制中 1 的个数\n\t\tn &= n - 1   // 位技巧：n-1 把最低位的 1 变 0，按位与恰好消去它\n\t\tcount++      // 每消一个 1 计数一次\n\t}\n\treturn count\n}"
+    },
+    {
+      "id": 201,
+      "title": "Bitwise AND of Numbers Range",
+      "titleCn": "数字范围按位与",
+      "difficulty": "medium",
+      "frequency": 3,
+      "companies": [
+        "字节跳动",
+        "快手"
+      ],
+      "question": "给你两个整数 left 和 right，表示区间 [left, right]，返回此区间内所有数字按位与的结果（包含 left、right 端点）。\n\n示例 1：输入 left = 5, right = 7，输出 4。\n示例 2：输入 left = 0, right = 0，输出 0。\n示例 3：输入 left = 1, right = 2147483647，输出 0。",
+      "samples": [
+        {
+          "input": "left = 5, right = 7",
+          "output": "4",
+          "explain": "101 & 110 & 111 = 100"
+        },
+        {
+          "input": "left = 0, right = 0",
+          "output": "0",
+          "explain": "区间只有一个数 0"
+        },
+        {
+          "input": "left = 1, right = 2147483647",
+          "output": "0",
+          "explain": "区间跨越多个 2 的幂边界，所有位都出现过 0，只剩公共前缀 0"
+        }
+      ],
+      "hints": [
+        "审题诀窍：区间长度可达 2^31，逐个相与必然超时——必须利用『连续整数』的结构性质，而不是硬算。",
+        "审题诀窍：连续区间内（left < right 时），最低若干位一定既有 0 又有 1——比如从 5 到 7，末位经历了 1、0、1；所以低位按位与必然是 0，能留下的是 left 与 right 二进制的公共前缀。",
+        "突破口：把 left、right 同时右移直到两者相等（找到公共前缀），记下移位数 shift，再把结果左移 shift 补零；或反复 right &= (right - 1) 消最低位直到 right <= left。",
+        "追问预备：为什么答案等于公共前缀？（+1 的进位会把尾部连续的 1 清成 0）；Kernighan 变体 right &= right-1 每次剪掉的是什么？（一个在区间内既出现过 0 又出现过 1 的低位）"
+      ],
+      "keyPoints": [
+        "区间按位与的结果 = left 与 right 的二进制公共前缀",
+        "公共前缀之后的低位在区间内必然既有 0 又有 1，按位与全为 0",
+        "右移对齐法：shift 记录右移次数，最后 left << shift 补零",
+        "Brian Kernighan 变体：right &= right - 1 消最低位 1，直到 right <= left"
+      ],
+      "structureTags": [
+        "bit",
+        "math"
+      ],
+      "approaches": [
+        {
+          "name": "暴力逐个相与",
+          "idea": "令 ans = left，依次与区间内每个数按位与。写法最直接，但区间最长可达 2^31 个数，left=1、right=2147483647 这类用例直接超时。",
+          "complexity": "时间 O(n)，空间 O(1)",
+          "detail": "推导：ans 初值取 left，依次与区间内每个数按位与。以 [5,7] 走查：101 & 110 = 100，100 & 111 = 100 → 4。为什么正确：按位与的定义就是逐个累积；连续区间的结构性质（公共前缀）决定了答案，只是暴力没有利用。\n易错点：① 初值别用 0（与 0 相与恒为 0），用 left 或全 1 掩码；② 区间长度可达 2^31，left=1、right=2147483647 这类用例直接超时——必须转结构解法；③ 本题保证非负，若含负数按补码语义按位与依然成立但结论需重新推导。",
+          "code": "def rangeBitwiseAnd_brute(left, right):\n    ans = left                    # 初值取 left（不能取 0）\n    for x in range(left + 1, right + 1):\n        ans &= x                  # 逐个累积按位与\n    return ans"
+        },
+        {
+          "name": "Brian Kernighan 逼近",
+          "idea": "不断执行 right &= right - 1（消去 right 最低位的 1），直到 right <= left。每次操作抹掉一个低位 1，被抹掉的位在区间内必然出现过 0，按位与为 0；停止时 right 恰为 left 与原 right 的公共前缀，即答案。",
+          "complexity": "时间 O(log n)，空间 O(1)",
+          "detail": "推导：反复执行 right &= right - 1，消去 right 最低位的 1，直到 right <= left。为什么被消掉的位按位与后必为 0：n-1 会把最低位的 1 及其下所有位翻转，这次翻转恰好发生在区间内的某个数上——该低位在区间里既出现过 0 又出现过 1，按位与必为 0。以 [5,7] 走查：right=7(111) > 5 → 消位得 110；仍 > 5 → 消位得 100=4；4 ≤ 5 停止 → 答案 4 ✓。再走查 [1, 2147483647]：right 一路消位直到 0 ≤ 1，答案 0。为什么正确：结束时 right 是 left 与原 right 的公共前缀，其余低位全部被证明过为 0。\n易错点：① 循环条件是 while right > left，别写成 while right != left（一次消位可能跨过 left 导致死循环）；② 该法隐含 left ≤ right，输入颠倒会出问题；③ 与『公共前缀右移』法本质相同，一个从低位删、一个从高位找。",
+          "code": "def rangeBitwiseAnd_kern(left, right):\n    while right > left:           # 消去 right 最低位的 1，向公共前缀逼近\n        right &= right - 1\n    return right                  # 停止时 right 即公共前缀"
+        },
+        {
+          "name": "公共前缀右移",
+          "idea": "把 left 和 right 同时右移一位并让 shift 计数，直到两者相等——此时剩下的就是公共前缀；再把 left 左移 shift 位补回低位 0。本质与 Kernighan 法相同，但两个数同步收缩，思维更直观。",
+          "complexity": "时间 O(log n)，空间 O(1)",
+          "optimal": true,
+          "detail": "结论推导：只要 left < right，区间内最低位一定 0/1 都出现过（连续整数末位循环 0,1），按位与该位必为 0——所以答案 = left 与 right 的公共二进制前缀，后面全是 0。做法：把 left、right 同时右移一位并让 shift 计数，直到两者相等（公共前缀浮现），再把 left 左移 shift 位补回低位 0。以 [5,7] 走查：5=101、7=111 → 右移后 2、3（10、11）不等 → 再右移 1、1 相等，shift=2 → 1 << 2 = 4 ✓。再走查 [1, 2147483647]：要右移 31 次才相等，公共前缀为 0 → 答案 0。为什么正确：每次右移等价于丢弃一位低位，丢弃的位在区间内必有 0；相等时剩余部分是两数共有前缀，区间内每个数都以它开头。\n易错点：① shift 要在右移时累计，最后左移补零，漏掉 shift 会直接输出公共前缀的数值；② 输入保证 left ≤ right，循环条件 left < right 才安全；③ left == right 时循环不进，直接返回 left 本身——这恰好就是答案。",
+          "code": "def rangeBitwiseAnd(left, right):\n    shift = 0\n    while left < right:           # 未对齐到公共前缀就继续右移\n        left >>= 1                # 同时右移一位\n        right >>= 1\n        shift += 1                # 记录右移位数\n    return left << shift          # 左移补 0：公共前缀之后低位按位与必为 0"
+        }
+      ],
+      "code": "class Solution:\n    def rangeBitwiseAnd(self, left: int, right: int) -> int:\n        shift = 0\n        while left < right:          # 未相等说明还没对齐到公共前缀\n            left >>= 1               # 位技巧：同时右移一位，比较去掉最低位后的部分\n            right >>= 1\n            shift += 1               # 记录一共右移了多少位\n        return left << shift         # 左移回去补 0：公共前缀之后的低位按位与必为 0",
+      "acmCode": "# ACM 模式：完整可运行程序（stdin -> stdout）\n# 输入格式：\n#   第一行：两个整数 left 和 right（left <= right）\n# 输出格式：一行，[left, right] 区间内所有数按位与的结果\nimport sys\n\ndef main():\n    data = sys.stdin.read().split()\n    left, right = int(data[0]), int(data[1])\n    shift = 0\n    while left < right:             # 未对齐到公共前缀就继续右移\n        left >>= 1                  # 位技巧：同时右移一位，比较去掉最低位后的部分\n        right >>= 1\n        shift += 1                  # 记录一共右移了多少位\n    print(left << shift)            # 左移回去补 0：公共前缀之后低位按位与必为 0\n\nif __name__ == '__main__':\n    main()\n",
+      "templates": [
+        "『区间按位与 = 公共前缀』结论模板：while left < right: 左右同除 2 计数 shift；最后左移补零",
+        "连续整数的位结构题先想公共前后缀：+1 的进位会把尾部连续的 1 清成 0，这些位在区间按位与时必为 0"
+      ],
+      "codeCpp": "class Solution {\npublic:\n    int rangeBitwiseAnd(int left, int right) {\n        int shift = 0;\n        while (left < right) {   // 未相等说明还没对齐到公共前缀\n            left >>= 1;          // 位技巧：同时右移一位，比较去掉最低位后的部分\n            right >>= 1;\n            shift++;             // 记录一共右移了多少位\n        }\n        return left << shift;    // 左移回去补 0：公共前缀之后的低位按位与必为 0\n    }\n};",
+      "acmCodeCpp": "// ACM 模式：完整可运行程序（stdin -> stdout）\n// 输入格式：\n//   第一行：两个整数 left 和 right（left <= right）\n// 输出格式：一行，[left, right] 区间内所有数按位与的结果\n#include <iostream>\nusing namespace std;\n\nint main() {\n    long long left, right;\n    cin >> left >> right;\n    int shift = 0;\n    while (left < right) {          // 未对齐到公共前缀就继续右移\n        left >>= 1;                 // 位技巧：同时右移一位，比较去掉最低位后的部分\n        right >>= 1;\n        shift++;                    // 记录一共右移了多少位\n    }\n    cout << (left << shift) << endl; // 左移回去补 0：公共前缀之后低位按位与必为 0\n    return 0;\n}",
+      "codeJava": "class Solution {\n    public int rangeBitwiseAnd(int left, int right) {\n        int shift = 0;\n        while (left < right) {  // 未相等说明还没对齐到公共前缀\n            left >>= 1;         // 位技巧：同时右移一位，比较去掉最低位后的部分\n            right >>= 1;\n            shift++;            // 记录一共右移了多少位\n        }\n        return left << shift;   // 左移回去补 0：公共前缀之后的低位按位与必为 0\n    }\n}",
+      "codeJs": "/**\n * @param {number} left\n * @param {number} right\n * @return {number}\n */\nvar rangeBitwiseAnd = function (left, right) {\n  let shift = 0;\n  while (left < right) {   // 未相等说明还没对齐到公共前缀\n    left >>>= 1;           // 位技巧：同时无符号右移一位，比较去掉最低位后的部分\n    right >>>= 1;\n    shift++;               // 记录一共右移了多少位\n  }\n  return left << shift;    // 左移回去补 0：公共前缀之后的低位按位与必为 0\n};",
+      "codeGo": "func rangeBitwiseAnd(left int, right int) int {\n\tshift := 0\n\tfor left < right { // 未相等说明还没对齐到公共前缀\n\t\tleft >>= 1     // 位技巧：同时右移一位，比较去掉最低位后的部分\n\t\tright >>= 1\n\t\tshift++        // 记录一共右移了多少位\n\t}\n\treturn left << shift // 左移回去补 0：公共前缀之后的低位按位与必为 0\n}"
+    },
+    {
+      "id": 260,
+      "title": "Single Number III",
+      "titleCn": "只出现一次的数字 III",
+      "difficulty": "medium",
+      "frequency": 3,
+      "companies": [
+        "腾讯",
+        "快手"
+      ],
+      "question": "给你一个整数数组 nums，其中恰好有两个元素只出现一次，其余所有元素均出现两次。找出只出现一次的那两个元素。你可以按任意顺序返回答案。进阶要求：你的算法应该具有线性时间复杂度，且仅使用常数空间复杂度来实现。\n\n示例 1：输入 nums = [1,2,1,3,2,5]，输出 [3,5]。解释：[5, 3] 也是有效的答案。\n示例 2：输入 nums = [-1,0]，输出 [-1,0]。\n示例 3：输入 nums = [0,1]，输出 [1,0]。",
+      "samples": [
+        {
+          "input": "nums = [1,2,1,3,2,5]",
+          "output": "[3,5]",
+          "explain": "3 与 5 各出现一次，答案顺序可互换"
+        },
+        {
+          "input": "nums = [-1,0]",
+          "output": "[-1,0]",
+          "explain": "两个数都只出现一次，负数按补码语义处理"
+        }
+      ],
+      "hints": [
+        "审题诀窍：两个落单数 a、b 的全体异或 xorsum 中，a、b 相同的位全部抵消——所以 xorsum 里任意一个 1 的位都是 a、b 的『分界位』。",
+        "审题诀窍：xorsum & -xorsum 取最低位的 1（lowbit）——按这一位是 0 还是 1 把数组分成两组：a、b 必分属两组，其余成对的数落在同一组。",
+        "突破口：分组后各组内做全体异或，成对的数互相抵消，各自剩下的就是 a 和 b。",
+        "追问预备：x & -x 对负数为什么成立？（补码 -x = ~x + 1，与运算只保留最低位的 1）；若落单数有 k 个怎么做？（逐个用 lowbit 分治拆分）"
+      ],
+      "keyPoints": [
+        "全体异或得到 a ^ b，出现两次的数全部消掉",
+        "lowbit = xorsum & (-xorsum) 取最低位的 1，该位上 a、b 必定不同",
+        "按该位是 0/1 分成两组，两组分别全体异或即得两个答案",
+        "时间 O(n)、空间 O(1)，满足进阶要求"
+      ],
+      "structureTags": [
+        "bit"
+      ],
+      "approaches": [
+        {
+          "name": "哈希表计数",
+          "idea": "统计每个数出现次数，返回次数为 1 的两个数。思路直接，但空间 O(n)，不满足进阶要求。",
+          "complexity": "时间 O(n)，空间 O(n)",
+          "detail": "推导：Counter 统计次数，收集次数为 1 的两个键。以 [1,2,1,3,2,5] 走查：{1:2, 2:2, 3:1, 5:1} → 返回 [3,5]。为什么正确：计数直接刻画『恰有两个落单数』的结构。\n易错点：① 要收集成列表而不是找到第一个就返回；② 空间 O(n) 不满足进阶要求，只能当保底；③ 题目允许任意顺序，但固定实现顺序便于对拍。",
+          "code": "from collections import Counter\n\ndef singleNumber3_hash(nums):\n    cnt = Counter(nums)\n    return [x for x, c in cnt.items() if c == 1]  # 收集两个落单数"
+        },
+        {
+          "name": "排序后扫描",
+          "idea": "排序后相同的数相邻，落单的两个数会打断相邻配对，扫描时即可识别。省了哈希表，但引入排序开销。",
+          "complexity": "时间 O(n log n)，空间 O(log n)",
+          "detail": "推导：排序后相同的数相邻，从头两两配对扫描，配对失败处的 nums[i] 是第一个落单数；跳过它后对剩余部分重复同样的扫描得第二个。以 [1,2,1,3,2,5] 走查：排序 [1,1,2,2,3,5]，i=0/2 配对成功，i=4 时 3≠5 → 3 是第一个落单；剩余 [5] 单独成组 → 第二个落单 5。为什么正确：排序把『成对』转为『相邻相等』，扫描即消元。\n易错点：① 第一个落单数找到后要跳过它继续找第二个，别返回就完事；② 负数排序同样成立；③ 时间 O(n log n) 仍不满足进阶 O(n)。",
+          "code": "def singleNumber3_sort(nums):\n    nums = sorted(nums)\n    res = []\n    i = 0\n    while i < len(nums):        # 两两配对扫描\n        if i == len(nums) - 1 or nums[i] != nums[i + 1]:\n            res.append(nums[i])  # 配对断裂处即落单数\n            i += 1\n        else:\n            i += 2\n    return res"
+        },
+        {
+          "name": "异或 + lowbit 分组",
+          "idea": "三步走：① 全体异或得 xorsum = a ^ b；② 取 lowbit = xorsum & (-xorsum)，这是 a、b 二进制第一个不同的位；③ 以该位是 0 还是 1 把所有数分成两组（负数按补码语义判断同样成立），a、b 分属两组，组内各自全体异或，成对的数抵消后剩下的就是两个答案。",
+          "complexity": "时间 O(n)，空间 O(1)",
+          "optimal": true,
+          "detail": "三步推导：① 全体异或——成对的数按 x^x=0 湮灭，剩下 xorsum = a ^ b（a、b 是两个落单数），必不为 0，至少存在一个 1 的位。② 取 lowbit = xorsum & (-xorsum)：补码下 -xorsum = ~xorsum + 1，与运算只保留最低位的 1——该位上 a、b 必不同（相同则异或为 0）。③ 分组：以该位是 0 还是 1 把数组分成两组，a、b 分属两组；每组内其余元素仍成对出现，各自全体异或即得两个答案。以 [1,2,1,3,2,5] 走查：xorsum = 3^5 = 110b，lowbit = 010b；该位为 1 的组 {2,2,3} → 异或得 3；为 0 的组 {1,1,5} → 得 5。为什么正确：分组不拆散任何一对（成对的两数该位相同），每组恰好包含一个落单数，136 的结论在组内适用。\n易错点：① xorsum 可能是负数（如 [-1,0]），Python 的补码语义下 x & -x 依然正确，无需特判；② 分组判断是 x & lowbit 非零与否，别误用 x & 1；③ 两次遍历缺一不可：第一次求 xorsum，第二次分组异或。",
+          "code": "def singleNumber3(nums):\n    xorsum = 0\n    for x in nums:\n        xorsum ^= x             # ① 全体异或：剩 a ^ b\n    lowbit = xorsum & -xorsum   # ② 取最低位的 1：a、b 在该位必不同\n    a = b = 0\n    for x in nums:\n        if x & lowbit:          # ③ 按该位 0/1 分组，组内异或消元\n            a ^= x\n        else:\n            b ^= x\n    return [a, b]"
+        }
+      ],
+      "code": "class Solution:\n    def singleNumber(self, nums: List[int]) -> List[int]:\n        xorsum = 0\n        for x in nums:\n            xorsum ^= x               # 位技巧①：全体异或，成对的数消掉，剩 a ^ b\n        lowbit = xorsum & -xorsum     # 位技巧②：x & -x 取最低位的 1；a、b 在该位必不同\n        a = b = 0\n        for x in nums:\n            if x & lowbit:            # 位技巧③：以该位是 1 还是 0 分组\n                a ^= x                # 同组内成对的数互相抵消，最后只剩落单的那个\n            else:\n                b ^= x\n        return [a, b]",
+      "acmCode": "# ACM 模式：完整可运行程序（stdin -> stdout）\n# 输入格式：\n#   第一行：n（数组长度）\n#   第二行：n 个整数（恰有两个数出现一次，其余均出现两次）\n# 输出格式：一行，两个只出现一次的数，空格分隔（顺序任意）\nimport sys\n\ndef main():\n    data = sys.stdin.read().split()\n    n = int(data[0])\n    nums = [int(x) for x in data[1:1 + n]]\n    xorsum = 0\n    for x in nums:\n        xorsum ^= x                 # 位技巧①：全体异或，成对的数消掉，剩 a ^ b\n    lowbit = xorsum & -xorsum       # 位技巧②：取最低位的 1；a、b 在该位必不同\n    a = b = 0\n    for x in nums:\n        if x & lowbit:              # 位技巧③：按该位是 1 还是 0 分组\n            a ^= x                  # 组内成对的数互相抵消\n        else:\n            b ^= x\n    print(a, b)\n\nif __name__ == '__main__':\n    main()\n",
+      "templates": [
+        "『两个落单数』模板：全体异或 → lowbit 分组 → 组内异或，三步固定流程，O(n) 时间 O(1) 空间",
+        "lowbit 技巧 x & -x：取二进制最低位的 1；按该位 0/1 分组可保证两个目标对象分属不同组"
+      ],
+      "codeCpp": "class Solution {\npublic:\n    vector<int> singleNumber(vector<int>& nums) {\n        long long xorsum = 0;\n        for (int x : nums) {\n            xorsum ^= x;              // 位技巧①：全体异或，成对的数消掉，剩 a ^ b\n        }\n        long long lowbit = xorsum & (-xorsum); // 位技巧②：x & -x 取最低位的 1；a、b 在该位必不同\n        long long a = 0, b = 0;\n        for (int x : nums) {\n            if (x & lowbit) {         // 位技巧③：以该位是 1 还是 0 分组\n                a ^= x;               // 同组内成对的数互相抵消，最后只剩落单的那个\n            } else {\n                b ^= x;\n            }\n        }\n        return {(int)a, (int)b};\n    }\n};",
+      "acmCodeCpp": "// ACM 模式：完整可运行程序（stdin -> stdout）\n// 输入格式：\n//   第一行：n（数组长度）\n//   第二行：n 个整数（恰有两个数出现一次，其余均出现两次）\n// 输出格式：一行，两个只出现一次的数，空格分隔（顺序任意）\n#include <iostream>\n#include <vector>\nusing namespace std;\n\nint main() {\n    int n;\n    cin >> n;\n    vector<long long> nums(n);\n    for (auto& x : nums) cin >> x;\n    long long xorsum = 0;\n    for (long long x : nums) {\n        xorsum ^= x;                // 位技巧①：全体异或，成对的数消掉，剩 a ^ b\n    }\n    long long lowbit = xorsum & (-xorsum); // 位技巧②：取最低位的 1；a、b 在该位必不同\n    long long a = 0, b = 0;\n    for (long long x : nums) {\n        if (x & lowbit) {           // 位技巧③：按该位是 1 还是 0 分组\n            a ^= x;                 // 组内成对的数互相抵消\n        } else {\n            b ^= x;\n        }\n    }\n    cout << a << \" \" << b << endl;\n    return 0;\n}",
+      "codeJava": "class Solution {\n    public int[] singleNumber(int[] nums) {\n        long xorsum = 0;\n        for (int x : nums) {\n            xorsum ^= x;                  // 位技巧①：全体异或，成对的数消掉，剩 a ^ b\n        }\n        long lowbit = xorsum & (-xorsum); // 位技巧②：取最低位的 1；a、b 在该位必不同\n        int a = 0, b = 0;\n        for (int x : nums) {\n            if ((x & lowbit) != 0) {      // 位技巧③：按该位分组（x 符号扩展到 long）\n                a ^= x;                   // 同组内成对的数互相抵消\n            } else {\n                b ^= x;\n            }\n        }\n        return new int[]{a, b};\n    }\n}",
+      "codeJs": "/**\n * @param {number[]} nums\n * @return {number[]} 两个只出现一次的数（顺序任意）\n */\nvar singleNumber = function (nums) {\n  let xorsum = 0;\n  for (const x of nums) {\n    xorsum ^= x;                    // 位技巧①：全体异或，成对的数消掉，剩 a ^ b\n  }\n  const lowbit = xorsum & -xorsum;  // 位技巧②：取最低位的 1；a、b 在该位必不同\n  let a = 0, b = 0;\n  for (const x of nums) {\n    if (x & lowbit) {               // 位技巧③：按该位是 1 还是 0 分组\n      a ^= x;                       // 同组内成对的数互相抵消\n    } else {\n      b ^= x;\n    }\n  }\n  return [a, b];\n};",
+      "codeGo": "func singleNumber(nums []int) []int {\n\txorsum := 0\n\tfor _, x := range nums {\n\t\txorsum ^= x // 位技巧①：全体异或，成对的数消掉，剩 a ^ b\n\t}\n\tlowbit := xorsum & -xorsum // 位技巧②：取最低位的 1；a、b 在该位必不同\n\ta, b := 0, 0\n\tfor _, x := range nums {\n\t\tif x&lowbit != 0 { // 位技巧③：按该位是 1 还是 0 分组\n\t\t\ta ^= x // 同组内成对的数互相抵消\n\t\t} else {\n\t\t\tb ^= x\n\t\t}\n\t}\n\treturn []int{a, b}\n}"
+    },
+    {
+      "id": 338,
+      "title": "Counting Bits",
+      "titleCn": "比特位计数",
+      "difficulty": "easy",
+      "frequency": 4,
+      "companies": [
+        "华为"
+      ],
+      "question": "给你一个整数 n，对于 0 <= i <= n 中的每个 i，计算其二进制表示中 1 的个数，返回一个长度为 n + 1 的数组 ans 作为答案。进阶要求：你能设计一个 O(n) 时间复杂度且不使用任何内置函数的算法吗？\n\n示例 1：输入 n = 2，输出 [0,1,1]。解释：0 --> 0，1 --> 1，2 --> 10。\n示例 2：输入 n = 5，输出 [0,1,1,2,1,2]。解释：0 --> 0，1 --> 1，2 --> 10，3 --> 11，4 --> 100，5 --> 101。",
+      "samples": [
+        {
+          "input": "n = 2",
+          "output": "[0,1,1]",
+          "explain": "0→0，1→1，2→10"
+        },
+        {
+          "input": "n = 5",
+          "output": "[0,1,1,2,1,2]",
+          "explain": "0~5 的二进制依次为 0,1,10,11,100,101"
+        }
+      ],
+      "hints": [
+        "审题诀窍：逐个数用 n & (n-1) 统计是 O(n log n)；注意 i 与 i >> 1 的二进制只差最低一位——大问题的答案能由更小下标递推，子问题大量重叠。",
+        "审题诀窍：dp[i] = dp[i >> 1] + (i & 1)：i 右移一位即去掉最低位，其 1 的个数已知；最低位是 1（i & 1）就再加 1。",
+        "突破口：另一种递推 dp[i] = dp[i & (i-1)] + 1——i & (i-1) 恰好比 i 少一个最低位的 1，两者任选其一。",
+        "追问预备：两个递推式怎么选？（i>>1 版每次严格 O(1)；i&(i-1) 版与 191 的消位技巧同源）；输出数组本身算不算额外空间？（题目约定不计）"
+      ],
+      "keyPoints": [
+        "动态规划：f(i) 的答案由更小的下标递推而来",
+        "递推式 dp[i] = dp[i >> 1] + (i & 1)，最低位单独判断",
+        "i >> 1 与 i & (i-1) 都小于 i，递推顺序天然无后效性",
+        "时间 O(n)，输出数组不计入额外空间"
+      ],
+      "structureTags": [
+        "bit",
+        "dp"
+      ],
+      "approaches": [
+        {
+          "name": "逐个数暴力统计",
+          "idea": "对每个 i 单独计算：循环执行 i &= (i - 1) 直到 0，数执行次数；或直接 bin(i).count('1')。每个数 O(log i)，n 个数累计 O(n log n)，没有利用相邻数之间的信息。",
+          "complexity": "时间 O(n log n)，空间 O(1)（不计输出）",
+          "detail": "推导：对每个 i 独立计算 1 的个数——循环执行 i &= i-1（Brian Kernighan）数到 0，或直接 bin(i).count('1')。以 n=5 走查：0→0、1→1、10→1、11→2、100→1、101→2，答案 [0,1,1,2,1,2]。为什么正确：逐个数按定义计算 popcount，结果显然正确。\n易错点：① 单个数 O(log i)，n 个数累计 O(n log n)，没有利用相邻数之间大量重叠的子问题信息，n 大时明显慢于线性 DP；② 进阶要求『不使用任何内置函数』时 bin(i).count('1') 违规，要能手写 Kernighan 循环；③ 数组下标从 0 开始、长度 n+1，别漏 dp[0]=0。",
+          "code": "def countBits_brute(n):\n    def popcount(x):\n        c = 0\n        while x:\n            x &= x - 1          # 每次消去最低位的 1\n            c += 1\n        return c\n\n    return [popcount(i) for i in range(n + 1)]   # 每个数独立计算"
+        },
+        {
+          "name": "动态规划（拆最低位）",
+          "idea": "观察 i 与 i >> 1：把 i 的二进制去掉最低一位就是 i >> 1，因此 dp[i] = dp[i >> 1] + (i & 1)。i >> 1 < i 已算好，一遍线性递推出 0..n 的全部答案，每个数只做一次移位、一次与、一次加法。",
+          "complexity": "时间 O(n)，空间 O(n)",
+          "optimal": true,
+          "detail": "递推式推导：i 的二进制 = (i >> 1) 的二进制再接上最低位，因此 popcount(i) = popcount(i >> 1) + (i & 1)——右移丢掉的只是最低位，其余位的 1 完整保留；i >> 1 < i 已算好，一遍线性递推。以 n=5 走查：dp[1] = dp[0] + 1 = 1；dp[2] = dp[1] + 0 = 1（10 → 去掉最低位是 1）；dp[3] = dp[1] + 1 = 2（11 → 1）；dp[4] = dp[2] + 0 = 1；dp[5] = dp[2] + 1 = 2 → [0,1,1,2,1,2] ✓。为什么正确：最低位独立贡献 0/1，子问题 dp[i>>1] 与 i 仅差一位，重叠子问题被 DP 表完整复用，总时间 O(n)。\n易错点：① 表达式必须写成 dp[i >> 1] + (i & 1)——Python 里 + 的优先级高于 >>，漏括号会变成 i >> 2 之类的错误；② 循环从 1 开始，dp[0] = 0 直接初始化；③ 输出长度是 n+1 不是 n。",
+          "code": "def countBits(n):\n    dp = [0] * (n + 1)          # dp[i]: i 的二进制中 1 的个数\n    for i in range(1, n + 1):\n        dp[i] = dp[i >> 1] + (i & 1)   # 拆最低位：更小的子问题 + 最低位\n    return dp"
+        },
+        {
+          "name": "动态规划（消最低位 1）",
+          "idea": "利用 Brian Kernighan 技巧做状态转移：dp[i] = dp[i & (i-1)] + 1，其中 i & (i-1) 恰好是 i 去掉最低位 1 之后的结果。与右移法同阶，常数为每次消去一个 1。",
+          "complexity": "时间 O(n)，空间 O(n)",
+          "detail": "递推式推导：i & (i-1) 恰好把 i 最低位的 1 清零（Brian Kernighan），所以 popcount(i) = popcount(i & (i-1)) + 1。以 n=5 走查：dp[1] = dp[0] + 1 = 1；dp[2] = dp[0] + 1 = 1（10 消位得 0）；dp[3] = dp[2] + 1 = 2（11 → 10）；dp[4] = dp[0] + 1 = 1（100 → 000）；dp[5] = dp[4] + 1 = 2（101 → 100）→ [0,1,1,2,1,2] ✓。为什么正确：每次消去一个 1 且结果严格小于 i，递推无后效性；与 i>>1 版同阶，均摊 O(1) 完成单个转移（消位次数等于 1 的个数）。\n易错点：① i=0 时 i & (i-1) = 0 会自指，循环必须从 1 开始；② 该式与 191 的统计技巧同源，可对照记忆；③ 两种 DP 结果一致，面试说出『两个递推式及各自直觉』是加分项。",
+          "code": "def countBits_kern(n):\n    dp = [0] * (n + 1)\n    for i in range(1, n + 1):\n        dp[i] = dp[i & (i - 1)] + 1   # 消最低位的 1：更小的子问题 + 1\n    return dp"
+        }
+      ],
+      "code": "class Solution:\n    def countBits(self, n: int) -> List[int]:\n        dp = [0] * (n + 1)               # dp[i]: i 的二进制中 1 的个数\n        for i in range(1, n + 1):\n            dp[i] = dp[i >> 1] + (i & 1) # 位技巧：i >> 1 去掉最低位（更小的子问题），\n                                         # i & 1 取最低位，是 1 就补上这一个\n        return dp",
+      "acmCode": "# ACM 模式：完整可运行程序（stdin -> stdout）\n# 输入格式：\n#   第一行：n\n# 输出格式：一行 n+1 个整数（0..n 各自二进制中 1 的个数），空格分隔\nimport sys\n\ndef main():\n    data = sys.stdin.read().split()\n    n = int(data[0])\n    dp = [0] * (n + 1)\n    for i in range(1, n + 1):\n        dp[i] = dp[i >> 1] + (i & 1)   # 去掉最低位的子问题 + 最低位贡献\n    print(' '.join(map(str, dp)))\n\nif __name__ == '__main__':\n    main()\n",
+      "templates": [
+        "位计数 DP 两板斧：dp[i] = dp[i>>1] + (i&1)（拆最低位）或 dp[i] = dp[i&(i-1)] + 1（消最低位的 1），都能 O(n) 求出 0..n 全部答案",
+        "见到『对所有 i 求 f(i) 且 f 可按二进制位拆解出递推关系』，优先想线性 DP 而不是逐个暴力计算"
+      ],
+      "codeCpp": "class Solution {\npublic:\n    vector<int> countBits(int n) {\n        vector<int> dp(n + 1, 0);        // dp[i]: i 的二进制中 1 的个数\n        for (int i = 1; i <= n; ++i) {\n            dp[i] = dp[i >> 1] + (i & 1); // 位技巧：i >> 1 去掉最低位（更小的子问题），\n                                          // i & 1 取最低位，是 1 就补上这一个\n        }\n        return dp;\n    }\n};",
+      "acmCodeCpp": "// ACM 模式：完整可运行程序（stdin -> stdout）\n// 输入格式：\n//   第一行：n\n// 输出格式：一行 n+1 个整数（0..n 各自二进制中 1 的个数），空格分隔\n#include <iostream>\n#include <vector>\nusing namespace std;\n\nint main() {\n    int n;\n    cin >> n;\n    vector<int> dp(n + 1, 0);\n    for (int i = 1; i <= n; ++i) {\n        dp[i] = dp[i >> 1] + (i & 1); // 去掉最低位的子问题 + 最低位贡献\n    }\n    for (int i = 0; i <= n; ++i) {\n        if (i) cout << ' ';\n        cout << dp[i];\n    }\n    cout << endl;\n    return 0;\n}",
+      "codeJava": "class Solution {\n    public int[] countBits(int n) {\n        int[] dp = new int[n + 1];      // dp[i]: i 的二进制中 1 的个数\n        for (int i = 1; i <= n; i++) {\n            dp[i] = dp[i >> 1] + (i & 1); // 位技巧：去掉最低位的子问题 + 最低位贡献\n        }\n        return dp;\n    }\n}",
+      "codeJs": "/**\n * @param {number} n\n * @return {number[]} 0..n 每个数二进制中 1 的个数\n */\nvar countBits = function (n) {\n  const dp = new Array(n + 1).fill(0); // dp[i]: i 的二进制中 1 的个数\n  for (let i = 1; i <= n; i++) {\n    dp[i] = dp[i >> 1] + (i & 1); // 位技巧：i>>1 去掉最低位的子问题 + 最低位贡献\n  }\n  return dp;\n};",
+      "codeGo": "func countBits(n int) []int {\n\tdp := make([]int, n+1) // dp[i]: i 的二进制中 1 的个数\n\tfor i := 1; i <= n; i++ {\n\t\tdp[i] = dp[i>>1] + i&1 // 位技巧：i>>1 去掉最低位的子问题 + 最低位贡献\n\t}\n\treturn dp\n}"
+    }
+  ]
+}

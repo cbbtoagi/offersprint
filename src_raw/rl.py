@@ -1,0 +1,1131 @@
+# -*- coding: utf-8 -*-
+# 强化学习与推理模型题库（纯数据文件，顶部不 import）
+# 覆盖：RL 基础 / 策略梯度与 PPO / GRPO 深入 / RLVR 与推理模型 / 改进算法 / Agent RL / 奖励设计 / 前沿讨论
+
+QUESTIONS = [
+    # ---------------------------------------------------------------- RL 基础
+    {
+        "id": "rl-001",
+        "topic": "RL 基础",
+        "type": "八股",
+        "difficulty": 3,
+        "frequency": 4,
+        "companies": ["字节", "腾讯", "百度"],
+        "years": ["2023", "2024", "2025"],
+        "question": "写一下 MDP 的五元组与贝尔曼方程，期望形式和最优形式分别是什么？",
+        "answerMd": r'''**一句话核心**：MDP 由 $(S, A, P, R, \gamma)$ 描述，贝尔曼方程把值函数分解成「即时奖励 + 折扣后继值」；期望形式刻画给定策略的值，最优形式取动作最大化，二者分别是策略评估与值迭代的内核。
+
+**1. 五元组。** 状态空间 $S$、动作空间 $A$、转移 $P(s'|s,a)$、奖励 $R(s,a)$（或 $R(s,a,s')$）、折扣因子 $\gamma \in [0, 1)$。策略 $\pi(a|s)$ 是从状态到动作分布的映射。回报 $G_t = \sum_{k \ge 0} \gamma^k r_{t+k+1}$。
+
+**2. 贝尔曼期望方程。** $V^\pi(s) = \mathbb{E}_{a \sim \pi} \left[ R(s,a) + \gamma \mathbb{E}_{s' \sim P} V^\pi(s') \right]$；$Q^\pi(s,a) = \mathbb{E}\left[ R + \gamma \mathbb{E}_{a' \sim \pi} Q^\pi(s', a') \right]$，两式互推的关系是 $V^\pi(s) = \mathbb{E}_{a \sim \pi} Q^\pi(s,a)$。这是策略评估（动态规划、TD 学习）的依据。
+
+**3. 贝尔曼最优方程。** $V^*(s) = \max_a \mathbb{E}\left[ R(s,a) + \gamma V^*(s') \right]$，$Q^*(s,a) = \mathbb{E}\left[ R + \gamma \max_{a'} Q^*(s',a') \right]$。max 的非线性使它成为不动点方程：因为 $\gamma < 1$ 时算子是 $\gamma$-压缩映射，存在唯一不动点 $V^*$，值迭代收敛正是靠压缩性。LLM 语境下，语言生成天然是 MDP：状态是 prompt 加已生成 token，动作是词表，稀疏结果奖励对应 RLVR 设定。
+
+**4. 期望与最优的关系。** 期望方程是线性方程组，给定策略可以直接解（小规模）或迭代解（大规模）；最优方程因含 max 是非线性的，只能迭代逼近。两者通过广义策略迭代连接：反复「用期望方程评估当前策略、用最优备份做改进」，是值迭代与策略迭代的公共推广。
+
+回答这道题时把「压缩映射 → 唯一不动点 → 收敛性」这条链讲顺，比单背公式更能体现理解；再补一句语言生成天然满足 MDP 设定，就把经典 RL 与 LLM 场景接上了。''',
+        "keyPoints": [
+            r"五元组 $(S, A, P, R, \gamma)$ + 策略 $\pi(a|s)$",
+            r"期望方程：$V^\pi = R + \gamma P V^\pi$，用于策略评估",
+            "最优方程带 max，是压缩映射的不动点问题",
+            r"$\gamma < 1$ 保证收敛；语言生成可自然建模为 MDP",
+        ],
+        "followUps": [
+            {"q": "为什么折扣因子要严格小于 1？", "a": r"数学上保证回报级数有界、贝尔曼算子是压缩映射从而有唯一不动点；工程上控制视野长度。若 $\gamma = 1$ 需要任务保证终止（吸收态）才能定义良好，某些 episodic 任务可以放宽。"},
+        ],
+    },
+    {
+        "id": "rl-002",
+        "topic": "RL 基础",
+        "type": "八股",
+        "difficulty": 3,
+        "frequency": 3,
+        "companies": ["字节", "快手", "NVIDIA"],
+        "years": ["2023", "2024"],
+        "question": "值迭代和策略迭代的区别是什么？各自什么时候收敛、什么场景用哪个？",
+        "answerMd": r'''**一句话核心**：策略迭代是「完整评估 + 贪心改进」的外循环，有限 MDP 有限步收敛；值迭代把评估压缩成一步最优备份直接逼近 $V^*$，每轮更快但迭代更多；现代方法基本都在广义策略迭代（GPI）框架里混合两者。
+
+**1. 策略迭代。** 两步循环：策略评估——解贝尔曼期望方程得到 $V^{\pi_k}$（迭到收敛或近似）；策略改进——$\pi_{k+1}(s) = \arg\max_a Q^{\pi_k}(s,a)$。由策略改进定理，除非已最优，新策略严格更好；有限 MDP 下策略数有限，因此有限步终止。缺点：每次评估本身是一个完整迭代过程，代价高。
+
+**2. 值迭代。** 直接对最优方程做不动点迭代：$V \leftarrow \max_a \left[ R + \gamma P V \right]$，每轮只是一次备份；压缩映射保证几何速度收敛 $\|V_k - V^*\| \le \gamma^k \|V_0 - V^*\|$。缺点：中间的 V 不对应任何策略的值，纯规划视角。
+
+**3. GPI 视角与延伸。** 两者是同一光谱的两端：评估做多少与改进做多少可以任意混合，只要评估与改进过程互相一致就趋向最优——TD 学习、Q-learning、Actor-Critic 都是这个框架的实例。表格型小问题用值迭代即可；状态空间巨大时评估必须函数逼近，就进入深度 RL 的世界，这也是面试把这道题与 DQN 串起来的原因。''',
+        "keyPoints": [
+            "策略迭代：评估（解期望方程）+ 贪心改进，有限步终止",
+            r"值迭代：一步最优备份的不动点迭代，$\gamma^k$ 速度收敛",
+            "策略改进定理保证单调不降",
+            "GPI 统一两者，深度 RL 是其函数逼近版",
+        ],
+        "followUps": [
+            {"q": "策略改进定理的内容是什么？", "a": r"对任意 $s$，若 $\pi'$ 在每个状态都按 $Q^\pi$ 贪心选取，即 $Q^\pi(s, \pi'(s)) \ge V^\pi(s)$，则处处 $V^{\pi'} \ge V^\pi$；等号成立当且仅当原策略已最优。这是策略单调收敛的根基。补一句延伸：改进步的单调性依赖「评估准确」，实践中评估用函数逼近必有误差，所以 PPO/TRPO 都要限制单步改进幅度——这正是它们的理论出身。"},
+        ],
+    },
+    {
+        "id": "rl-003",
+        "topic": "RL 基础",
+        "type": "八股",
+        "difficulty": 3,
+        "frequency": 4,
+        "companies": ["字节", "阿里", "百度"],
+        "years": ["2023", "2024", "2025"],
+        "question": "写 Q-learning 的更新公式，为什么说它是 off-policy 的？收敛需要什么条件？",
+        "answerMd": r'''**一句话核心**：$Q(s,a) \leftarrow Q(s,a) + \alpha \left[ r + \gamma \max_{a'} Q(s',a') - Q(s,a) \right]$，目标项里的 max 与产生数据的策略无关，直接向 $Q^*$ 备份，所以是 off-policy；表格情形在 Robbins-Monro 步长与全状态-动作持续探索条件下收敛到 $Q^*$。
+
+**1. 更新规则。** TD 误差 $\delta = r + \gamma \max_{a'} Q(s',a') - Q(s,a)$，按 $\alpha \delta$ 方向更新。关键在目标用 $\max_{a'} Q$（贪心的最优性备份）而不是行为策略实际执行的动作，评估的是贪婪目标策略，采样可以来自任意探索策略（如 $\epsilon$-greedy）——学习与行为解耦就是 off-policy 的定义。
+
+**2. 收敛条件。** 表格型 Q-learning 收敛需要：每对 $(s,a)$ 被无限次访问（探索充分，常用 $\epsilon$-greedy 保证 $\epsilon > 0$）、步长满足 Robbins-Monro（$\sum \alpha_t = \infty$、$\sum \alpha_t^2 < \infty$）、MDP 平稳。贪婪部分的 max 操作会让 Q 值系统性高估，因为对带噪声的期望取最大值大于期望的最大值——Double Q-learning 用两个网络解耦「选动作」与「评估动作」来缓解。
+
+**3. 到 DQN 的桥。** 函数逼近 + 自举 + 离线数据三者组合（deadly triad）破坏了表格收敛保证，DQN 靠经验回放与目标网络两大技巧把不稳定压到可用，这是下一题的内容。
+
+**4. 高估的直觉。** max 是偏差的根源：对带零均值噪声的 Q 值取最大，期望上 $\mathbb{E}[\max X] \ge \max \mathbb{E}[X]$，噪声被系统性吸收成向上偏差，再经自举沿更新链放大。策略梯度系没有这个 max，所以 GRPO/PPO 不存在 Q 高估问题，但换来的是方差问题——两类方法的稳定性攻坚方向不同，这条对照在面试里很能加分。''',
+        "keyPoints": [
+            r"更新式：$Q \leftarrow Q + \alpha [r + \gamma \max Q' - Q]$",
+            "目标与行为策略解耦 → off-policy",
+            "收敛条件：全 $(s,a)$ 充分探索 + Robbins-Monro 步长",
+            "max 引入高估，Double Q 解耦选择与评估",
+        ],
+        "followUps": [
+            {"q": "SARSA 和 Q-learning 的本质区别是什么？", "a": "SARSA 的目标用实际执行的下一动作 $Q(s', a')$，评估当前行为策略本身，是 on-policy，学到的值包含探索风险；Q-learning 目标用 max，直接学最优值。因此悬崖问题里 SARSA 学保守路径、Q-learning 学最优但危险的路径。"},
+        ],
+    },
+    {
+        "id": "rl-004",
+        "topic": "RL 基础",
+        "type": "八股",
+        "difficulty": 3,
+        "frequency": 4,
+        "companies": ["字节", "腾讯", "小米", "华为"],
+        "years": ["2023", "2024", "2025"],
+        "question": "DQN 的两个核心技巧分别解决什么问题？后续有哪些重要改进？",
+        "answerMd": r'''**一句话核心**：DQN 靠经验回放打破样本相关性并复用数据、靠目标网络稳定自举目标，两者共同压制「函数逼近 + 自举 + 离线数据」的不稳定；后续 Double DQN 治高估、Dueling 拆 V 与优势、优先回放提样本效率、Rainbow 集大成。
+
+**1. 经验回放。** 转移 $(s, a, r, s')$ 存进大 buffer，随机小批采样训练。作用：一是相邻样本强相关，SGD 假设近似独立分布，随机采样抹平相关性；二是每条经验可参与多次更新，样本效率高；三是有利于平滑数据分布。代价：天然 off-policy（所以配 Q-learning 型目标）。
+
+**2. 目标网络。** TD 目标 $r + \gamma \max_{a'} Q_{\bar\theta}(s',a')$ 里的 $\bar\theta$ 是滞后参数（周期性硬拷贝或 EMA 软更新）。作用：让回归目标在一段时间内固定，避免「追自己影子」式的振荡与发散——本质是把非平稳回归暂时平稳化。
+
+**3. 改进谱系。** Double DQN：目标改为 $\gamma Q_{\bar\theta}(s', \arg\max_{a'} Q_\theta(s',a'))$，选择与评估解耦，压过估；Dueling：网络输出 $V(s)$ 与 $A(s,a)$，按 $Q = V + A - \mathrm{mean}_a A$ 合成，把「状态好坏」与「动作差异」解耦；Prioritized Replay：按 TD 误差重要性采样并做重要性权重校正；Distributional（C51）学回报分布；Noisy Net 参数化探索。Rainbow 组合后全面超越，这些模块也是后来 Actor-Critic 系（含 LLM RL 的 value/credit 设计）反复借用的工具箱。''',
+        "keyPoints": [
+            "回放：去相关 + 数据复用，天然 off-policy",
+            "目标网络：固定回归目标，抑制自举振荡",
+            "Double 治高估、Dueling 解耦 V/A、优先回放提效率",
+            "deadly triad 是不稳定的根源，技巧都是对症下药",
+        ],
+        "followUps": [
+            {"q": "为什么 Q-learning 的 max 会高估？", "a": r"目标 $r + \gamma \max_a Q(s',a)$ 是对估计值取 max，若 Q 有零均值噪声 $E[\max(X)] \ge \max(E[X])$，噪声被系统性吸收为向上偏差；自举让该偏差沿 bootstrapping 链放大，Double DQN 把选动作和评估动作交给不同参数以去相关。"},
+        ],
+    },
+    {
+        "id": "rl-005",
+        "topic": "RL 基础",
+        "type": "八股",
+        "difficulty": 3,
+        "frequency": 4,
+        "companies": ["字节", "DeepSeek", "月之暗面"],
+        "years": ["2023", "2024", "2025"],
+        "question": "on-policy 和 off-policy 的本质区别是什么？这对 LLM 的 RL 训练意味着什么？",
+        "answerMd": r'''**一句话核心**：区别在于「被改进的策略」与「产生数据的策略」是否同一分布：on-policy 数据即用即弃但无偏差，off-policy 可复用旧数据但需要重要性采样等修正；LLM 的 RL 里 rollout 成本极高，on-policy 要求大规模同步采样，off-policy/异步化能省算力但要付偏差与方差代价。
+
+**1. 定义与含义。** on-policy：$\pi_\theta$ 用自己刚采的轨迹更新，一步后数据就「过期」，PPO 里 clip 限制多 epoch 复用就是承认这点；off-policy：行为策略 $\beta$ 产生数据，目标策略 $\pi_\theta$ 学习，理论上需要重要性比率 $\rho = \pi_\theta(a|s)/\beta(a|s)$ 修正分布差。Q-learning 的 max 目标天然 off-policy，不需要显式 IS。
+
+**2. 修正的代价。** 序列级重要性比是逐 token 比率的乘积，长序列下方差爆炸；截断、率限制（如 GRPO 复用有限步内数据）只能缓解。LLM RL 的实践位置：PPO/GRPO 名义 on-policy，但实现里 rollout 与训练的解耦、多 epoch 复用、异步 rollout 都引入轻度 off-policy，工程上表现为「权重同步间隔」这一超参——间隔越大越省卡、偏差越大。
+
+**3. 对系统设计的指导。** 判断一个 LLM RL 框架的定位：看 rollout 与训练是否共享策略版本、数据用几遍、有没有 IS 修正。完全同步（严格 on-policy）最稳但吞吐低；异步管线（rollout 旧权重、train 新权重）接近 off-policy，需要监控 rollout 与训练策略的 KL 来控制失效。''',
+        "keyPoints": [
+            "本质：学习策略与行为策略是否同一分布",
+            "off-policy 需重要性修正，长序列 IS 方差爆炸",
+            "PPO clip/多 epoch、异步 rollout 都是轻度 off-policy",
+            "工程核心超参：权重同步间隔 = 稳定性与吞吐的交换",
+        ],
+        "followUps": [
+            {"q": "为什么长序列的重要性采样方差会爆炸？", "a": "序列级比率是各 token 比率的乘积，$T$ 长的序列其比率的对数是 $T$ 个随机变量之和，方差随 $T$ 线性涨、比率本身的分布呈重尾；一个 token 的偏差就可能让整条轨迹权重畸变，所以实践中都用 token 级截断或干脆只用一步内数据。"},
+        ],
+    },
+    {
+        "id": "rl-006",
+        "topic": "RL 基础",
+        "type": "八股",
+        "difficulty": 4,
+        "frequency": 4,
+        "companies": ["字节", "阿里", "腾讯", "NVIDIA"],
+        "years": ["2023", "2024", "2025"],
+        "question": "推导一下为什么 baseline 不引入偏差，再讲 GAE 怎么在偏差和方差之间权衡。",
+        "answerMd": r'''**一句话核心**：策略梯度里减去只依赖状态的 $b(s)$ 不改变期望，因为 $\mathbb{E}_{a \sim \pi}[\nabla \log \pi(a|s) b(s)] = b(s) \nabla \mathbb{E}[1] = 0$，却能大幅降方差；GAE 把不同步长的优势估计按 $\lambda$ 指数加权——λ 小偏向一步 TD（低方差高偏差），λ 大偏向蒙特卡洛（低偏差高方差）。
+
+**1. baseline 无偏性。** 策略梯度 $\nabla_\theta J = \mathbb{E}_{\tau \sim \pi_\theta}\left[\sum_t \nabla_\theta \log \pi_\theta(a_t|s_t) \, G_t\right]$。对固定状态加 $b(s_t)$：$\mathbb{E}_{a \sim \pi_\theta(\cdot|s)}\left[\nabla_\theta \log \pi_\theta(a|s)\right] = \sum_a \pi_\theta(a|s) \frac{\nabla \pi_\theta(a|s)}{\pi_\theta(a|s)} = \nabla \sum_a \pi_\theta(a|s) = \nabla 1 = 0$，故期望不变。最优 baseline 近似取 $\mathbb{E}[G_t^2]/\mathbb{E}[G_t^2 上的分母]$，实践用 $V(s)$ 估计即可，得到优势 $\hat A = G_t - V(s_t)$。
+
+**2. 优势估计谱系。** 定义 TD 残差 $\delta_t = r_t + \gamma V(s_{t+1}) - V(s_t)$。一步：$\hat A^{(1)} = \delta_t$（依赖 V 的准确性，方差小偏差随 V）；蒙特卡洛：$\hat A^{(\infty)} = G_t - V(s_t)$（无偏于真实优势但方差大）；广义：$\hat A^{(\lambda)} = \sum_{l \ge 0} (\gamma \lambda)^l \delta_{t+l}$，是二者的指数插值，递推 $\hat A_t = \delta_t + \gamma \lambda \hat A_{t+1}$。
+
+**3. λ 的选择直觉。** 任务短且 V 学得准 → 小 λ；奖励稀疏、长 horizon、V 不可靠 → 大 λ。LLM RL 里结果奖励在句末、序列几十到几千 token，这也是为什么长 CoT 训练里价值估计质量成为核心矛盾（VAPO 等工作的切入点）。
+
+**4. 符号与实现提醒。** 优势的正式定义是 $\hat A^\pi(s,a) = Q^\pi(s,a) - V^\pi(s)$，即「该动作比状态平均水平好多少」；baseline 合法的本质原因是它不改变动作间的相对排序。工程实现见 rl-007 的倒序递推；另外实践中对 advantage 做 batch 级白化（减均值除 std）会引入轻微偏差，但几乎人人都在用，属于「实践赢过理论纯洁性」的又一案例。''',
+        "keyPoints": [
+            r"无偏性：$E[\nabla\log\pi \cdot b(s)] = 0$（对动作求期望）",
+            "baseline 只降方差，最优取值近似 $V(s)$",
+            r"GAE：$\hat A_t = \delta_t + \gamma\lambda\hat A_{t+1}$，指数加权 TD 残差",
+            "λ 是偏差-方差旋钮；稀疏长序列倾向大 λ",
+        ],
+        "followUps": [
+            {"q": "为什么不用真实回报直接减均值当优势？", "a": "那是 REINFORCE with baseline，无偏但每条轨迹一个标量、方差极大；用 $V(s_t)$ 可以按状态区分回报差异并复用自举信息，配合 GAE 在偏差可控时显著降方差。均值 baseline 只在状态同质（如纯结果奖励、同 prompt 内）时等价好用——GRPO 的组内均值正是这个特例。"},
+        ],
+    },
+    {
+        "id": "rl-007",
+        "topic": "RL 基础",
+        "type": "手撕",
+        "difficulty": 3,
+        "frequency": 3,
+        "companies": ["字节", "快手"],
+        "years": ["2024", "2025"],
+        "question": "手写 GAE：给定一条轨迹的 rewards、values 和 next_value，计算 advantages 与 returns。",
+        "answerMd": r'''**一句话核心**：从后往前递推 $\hat A_t = \delta_t + \gamma \lambda \hat A_{t+1}$，其中 $\delta_t = r_t + \gamma V_{t+1} - V_t$；returns = advantages + values 供价值网络回归。
+
+**易错点。** 一是方向必须倒序，正序会把未计算的 $\hat A_{t+1}$ 当零；二是终止边界：最后一步的 $V_{t+1}$ 用传入的 next_value，若 episode 结束要乘 done 置零；三是 LLM 场景下 done 恒为序列结束，γ 与 λ 常取 1.0 和 0.95 或都取 1（R1 系很多实现直接用结果奖励广播，等价于 λ 退化）；四是数值上建议对 advantages 做 batch 级白化再进 loss。
+
+**与 GRPO 的对照。** 本题的 GAE 与 GRPO 的组相对优势是一对镜像：GAE 用「学出来的 V + 自举」，GRPO 用「同题采样均值 + 蒙特卡洛」，都是 baseline 的实例。LLM 场景还有一个高频追问：结果奖励只挂在最后一个 token 时，若取 γ=λ=1，GAE 退化为整条序列共享同一优势——与 GRPO 的广播完全等价；若 λ<1，越靠前的 token 优势越小，等价于把终局奖励指数折扣回传。能画出两种设定下优势沿 token 位置的曲线，基本可以证明你真的写过这段代码。
+
+**自测建议。** 用两条手工轨迹做断言：全零价值、λ=γ=1 时输出应等于累积回报；done=1 的轨迹不受 next_value 污染。这两个断言能抓住绝大多数实现错误。''',
+        "keyPoints": [
+            "倒序递推，最后一步用 next_value 收尾",
+            "done/终止要把自举项置零",
+            "returns = advantages + values 用于 critic 回归",
+            "LLM 结果奖励设定下常退化为结果广播或 λ≈1",
+        ],
+        "followUps": [
+            {"q": "如果 reward 是只有最后一个 token 的 0/1，GAE 会怎么传播？", "a": r"倒序递推下优势从句尾往回按 $(\gamma\lambda)^k$ 衰减，等价于把终局奖励指数折扣分配到各 token；λ=1、γ=1 时整条序列拿到同一优势（结果广播），这正是 GRPO 的做法，二者的取舍在偏差与 credit 精度之间。"},
+        ],
+        "code": {
+            "lang": "python",
+            "caption": "GAE 优势估计",
+            "content": '''import torch
+
+def gae(rewards, values, next_value, gamma=1.0, lam=0.95, dones=None):
+    """rewards, values, dones: [T] 一条轨迹；next_value: 终止后自举值"""
+    if dones is None:
+        dones = [0.0] * len(rewards)      # 默认无中断
+    T = len(rewards)
+    adv = torch.zeros(T)
+    gae_ = 0.0
+    for t in reversed(range(T)):          # 必须倒序递推
+        v_next = next_value if t == T - 1 else values[t + 1]
+        nonterminal = 1.0 - dones[t]
+        delta = rewards[t] + gamma * v_next * nonterminal - values[t]
+        gae_ = delta + gamma * lam * nonterminal * gae_
+        adv[t] = gae_
+    returns = adv + values                # 价值网络回归目标
+    # 常见后处理：adv = (adv - adv.mean()) / (adv.std() + 1e-8)
+    return adv, returns'''
+        },
+    },
+    {
+        "id": "rl-008",
+        "topic": "RL 基础",
+        "type": "八股",
+        "difficulty": 3,
+        "frequency": 3,
+        "companies": ["月之暗面", "字节", "DeepSeek"],
+        "years": ["2024", "2025"],
+        "question": "探索与利用的权衡有哪些经典手段？LLM 的 RL 里熵塌缩是怎么回事？",
+        "answerMd": r'''**一句话核心**：经典手段是 ε-greedy、乐观初始化/UCB、熵正则与 Thompson 采样；LLM RL 的熵塌缩是策略分布过早收窄到少数高频回答，导致探索消失、组内优势全零、能力停滞——本质是同一个权衡在大动作空间上的放大，应对包括熵 bonus、DAPO 的 clip-higher、采样温度与数据多样性控制。
+
+**1. 经典谱系。** ε-greedy 简单但探索无信息；UCB/乐观初始化给「没试过的动作」加不确定性红利，有理论保证；Thompson 采样按后验采样保持软探索；策略梯度里的熵 bonus $\beta H(\pi)$ 显式奖励分布熵。多臂老虎机只是最小案例，RL 的探索还要考虑状态空间的组合性。
+
+**2. LLM RL 的熵塌缩。** 训练中策略迅速把概率质量集中到几种「安全」回答模式，表现：输出多样性骤降、组内回答趋同 → GRPO 优势全零无梯度、pass@k 下降而 pass@1 缓涨、温度调不高。成因：优势信号只奖励当前正确模式，重复模式自我强化；KL/熵没有强约束时 RL 天然收缩分布。
+
+**3. 对策。** 算法层：DAPO 的 clip-higher——放宽比值上界 $\epsilon_{high} > \epsilon_{low}$，让低概率 token 更容易涨概率，维持探索；熵正则与熵目标值控制；批内 prompt 难度与领域多样性。数据层：题目课程保持新鲜度，防「会做的题反复刷」。监控层：熵、组内答案多样性、pass@k 曲线都要盯，熵掉太快宁可提前停或回滚。''',
+        "keyPoints": [
+            "经典：ε-greedy / UCB / Thompson / 熵 bonus",
+            "熵塌缩：分布过早收窄，组内趋同优势为零",
+            "症状：pass@k 下降、多样性骤降、温度失效",
+            "对策：clip-higher、熵正则、题目课程与多样性",
+        ],
+        "followUps": [
+            {"q": "熵正则会不会损害最终性能？", "a": "会有一点：熵项在收尾阶段会阻止策略收敛到确定性最优，所以通常做退火——前期高熵鼓励探索、后期把系数降为零允许收敛；DAPO 的 clip-higher 是更精细的替代，只放宽上界而不在整个分布上加压。"},
+        ],
+    },
+    # ---------------------------------------------------------------- 策略梯度与 PPO
+    {
+        "id": "rl-009",
+        "topic": "策略梯度与 PPO",
+        "type": "八股",
+        "difficulty": 4,
+        "frequency": 4,
+        "companies": ["字节", "阿里", "DeepSeek", "月之暗面"],
+        "years": ["2023", "2024", "2025"],
+        "question": "从目标函数出发完整推导 REINFORCE，说明为什么可以用未来奖励和 baseline。",
+        "answerMd": r'''**一句话核心**：对目标 $J(\theta) = \mathbb{E}_{\tau \sim \pi_\theta}[R(\tau)]$ 用对数导数技巧得 $\nabla_\theta J = \mathbb{E}\left[\sum_t \nabla_\theta \log \pi_\theta(a_t|s_t) \, G_t\right]$；环境动态与 θ 无关使其可去，奖励按因果只保留未来部分，减 baseline 不改期望。
+
+**1. 主推导。** 轨迹分布 $p_\theta(\tau) = \rho_0(s_0) \prod_t \pi_\theta(a_t|s_t) P(s_{t+1}|s_t,a_t)$。目标 $J(\theta) = \int p_\theta(\tau) R(\tau) d\tau$，梯度：
+$\nabla_\theta J = \int \nabla_\theta p_\theta(\tau) R(\tau) d\tau = \int p_\theta(\tau) \nabla_\theta \log p_\theta(\tau) R(\tau) d\tau = \mathbb{E}_{\tau}\left[\nabla_\theta \log p_\theta(\tau) R(\tau)\right]$
+关键一步是 $\nabla p = p \nabla \log p$。而 $\nabla_\theta \log p_\theta(\tau) = \sum_t \nabla_\theta \log \pi_\theta(a_t|s_t)$：初始分布与转移概率不含 θ，对数求导后消失——这就是「模型可以不可微、只要能采样」的原因。
+
+**2. 两个简化。** 因果性：$\sum_t \nabla\log\pi(a_t|s_t) \sum_{k<t} r_k$ 项中，历史奖励与当前动作独立，期望为 $\mathbb{E}[\nabla\log\pi \cdot c] = c \cdot 0$，可删，得到只用未来回报 $G_t = \sum_{k \ge t} \gamma^{k-t} r_k$。方差削减：减去 $b(s_t)$ 期望不变（见 rl-006），得到 $\nabla_\theta J = \mathbb{E}\left[\sum_t \nabla_\theta \log \pi_\theta(a_t|s_t) (G_t - b(s_t))\right]$。
+
+**3. 算法形态与缺陷。** 采样 N 条轨迹、对每个 $t$ 做 $\theta \leftarrow \theta + \alpha \nabla\log\pi(a_t|s_t)\hat A_t$ 即 REINFORCE：无偏但方差大、样本效率低、步长难选——整条轨迹一个采样率，一次更新过猛就毁掉策略，这正是引出 TRPO/PPO 的动机。顺带一提，蒙特卡洛回报在不同状态间的尺度差异巨大，这也是批内白化能稳定起作用的原因。
+
+**4. 方差为什么大。** 三个来源叠加：回报 $G_t$ 是整条未来轨迹的函数，方差随 horizon 累积；$\nabla\log\pi$ 在低概率动作上幅值巨大；轨迹间尺度差异大且无归一控制。所以现代策略梯度一定配 baseline/优势估计（见 rl-006）、批内白化，再套 PPO 的 clip——REINFORCE 是理解一切的起点，但裸用几乎训不出东西。''',
+        "keyPoints": [
+            r"核心恒等式 $\nabla p = p \nabla \log p$",
+            "转移与初始分布不含 θ，从梯度中消失",
+            "历史奖励项期望为零可删，只留未来回报",
+            "baseline 无偏降方差；高方差是 PPO 的出发点",
+        ],
+        "followUps": [
+            {"q": "REINFORCE 里步长为什么难选？", "a": "策略梯度是似然比加权，样本方差大且轨迹级尺度不一，固定学习率在一次大优势更新上可能把策略推离数据支撑区、性能崩塌且难以恢复；TRPO 用 KL 信赖域、PPO 用 clip 把单步更新幅度约束住，本质都是限制『一步走多远』。"},
+        ],
+    },
+    {
+        "id": "rl-010",
+        "topic": "策略梯度与 PPO",
+        "type": "八股",
+        "difficulty": 4,
+        "frequency": 5,
+        "companies": ["字节", "DeepSeek", "阿里", "OpenAI"],
+        "years": ["2023", "2024", "2025"],
+        "question": "写出 PPO 的 clipped objective 并解释每一项的动机。",
+        "answerMd": r'''**一句话核心**：PPO 用重要性比率 $r_t(\theta) = \frac{\pi_\theta(a_t|s_t)}{\pi_{\theta_{old}}(a_t|s_t)}$ 代替 TRPO 的 KL 约束，目标 $L^{CLIP}(\theta) = \mathbb{E}_t\left[\min\left(r_t \hat A_t,\, \mathrm{clip}(r_t, 1-\epsilon, 1+\epsilon)\hat A_t\right)\right]$：min 与 clip 联手保证「正优势时比率不会无界变大、负优势时比率不会掉得太低」，一阶可信区域内复用数据多轮更新。
+
+**1. 逐项拆解。** $r_t \hat A_t$ 是带重要性修正的策略梯度目标（从 TRPO 的替代目标简化而来）；$\mathrm{clip}(r_t, 1-\epsilon, 1+\epsilon)$ 把比率限制在 $[1-\epsilon, 1+\epsilon]$（ε 常取 0.2）；外层 min 取未裁剪与裁剪后目标的较小者。
+
+**2. 不对称设计的逻辑。** 分优势符号看：$\hat A_t > 0$ 时目标随 $r_t$ 增大而增大，但一旦 $r_t > 1+\epsilon$，min 选中被夹住的 $(1+\epsilon)\hat A_t$，梯度消失 → 阻止单步贪多；$r_t < 1-\epsilon$（本来该加强的动作被削弱过头）时目标为负梯度会把策略拉回。$\hat A_t < 0$ 时对称：阻止把差动作的概率压得过低。总结：clip 只在「更新方向错误/过猛」的一侧起作用，好方向的小步更新不受影响。
+
+**3. 为什么这样能复用数据。** 一批数据上跑 K 个 epoch：只要比率不离 $[1-\epsilon,1+\epsilon]$ 太远，目标仍是原目标的下界近似，更新近似安全；clip 是一阶惩罚——出界后梯度为零而非二阶弹回，因此不会硬拉，只停止恶化。配套：多 epoch 后比率普遍贴边就该换数据；实现里通常配合 value clip、KL 早停（若可选）与 advantage 白化。与 TRPO 的关系：PPO 把二阶约束（KL 信赖域）换成一阶罚则，牺牲一些理论保证换来简单与可扩展，是「工程上赢了的简化」的典型。''',
+        "keyPoints": [
+            r"$L = E[\min(r_t \hat A_t, \mathrm{clip}(r_t) \hat A_t)]$",
+            "clip 只在错误方向的一侧起作用，好更新不受限",
+            "正优势封顶、负优势托底，允许 K epoch 复用数据",
+            "一阶罚则替代 TRPO 二阶约束，简单可扩展",
+        ],
+        "followUps": [
+            {"q": "如果训练中大量比率都贴在 clip 边界，说明什么？", "a": "说明单次更新幅度已超出可信区，多 epoch 复用太久或学习率过大；继续训练会退化成有偏更新。对策是减少 epoch、降 LR、增大 batch 或提高 ε；也有工作把『贴边比例』当早停信号监控。"},
+        ],
+    },
+    {
+        "id": "rl-011",
+        "topic": "策略梯度与 PPO",
+        "type": "八股",
+        "difficulty": 4,
+        "frequency": 4,
+        "companies": ["字节", "NVIDIA", "智谱"],
+        "years": ["2023", "2024", "2025"],
+        "question": "PPO 的完整损失除 clip 外还有什么？value 损失和熵项各起什么作用？",
+        "answerMd": r'''**一句话核心**：完整损失 $L = L^{CLIP} - c_1 L^{VF} + c_2 H(\pi)$：value 项回归状态价值供 advantage 用（带 value clip 防止目标剧烈漂移），熵项奖励分布多样性防止过早收敛；三个头的权重与各自的「 clip/衰减」策略是 PPO 稳定性的另一半。
+
+**1. 价值损失。** $L^{VF} = \mathbb{E}_t\left[(V_\theta(s_t) - V_t^{targ})^2\right]$，目标 $V_t^{targ} = \hat A_t + V_{old}(s_t)$。原版 PPO 还加了 value clip：与策略比率同理，把 $V_\theta$ 相对 $V_{old}$ 的变化也裁剪，取两个平方误差的最大者，防止单批数据上价值函数剧烈摆动带坏 advantage。LLM 场景附加：价值目标尺度差异大，常对 return 白化或分位数归一，超长序列要防个别样本主导梯度。
+
+**2. 熵项。** $+c_2 H[\pi_\theta(\cdot|s_t)]$ 鼓励保持随机性，防策略过早确定化丢失探索；系数通常很小并随训练退火。LLM 里对应的就是防止熵塌缩（见 rl-008），但过强的熵奖励会导致胡言乱语式多样性，要平衡。
+
+**3. 系数与整体协调。** $c_1$（value 系数）典型 0.5~1，$c_2$ 典型 0~0.01。三者隐含冲突：策略想动、价值想稳、熵想散；训练诊断时要分开看三条曲线——policy loss 与 ratio 分布、value explained variance（应逐步上升）、熵曲线（缓慢下降而非跳水）。任何一条异常先修对应头，而不是全局调学习率。''',
+        "keyPoints": [
+            "$L = L^{CLIP} - c_1 L^{VF} + c_2 H$，三头各有职责",
+            "value clip 防目标漂移，return 白化稳尺度",
+            "熵项防早熟，系数小且退火",
+            "诊断分头看：ratio 贴边率、explained variance、熵",
+        ],
+        "followUps": [
+            {"q": "value 的 explained variance 怎么算、多少算健康？", "a": r"$1 - \mathrm{Var}(R - V)/\mathrm{Var}(R)$，衡量价值函数解释回报方差的能力；健康训练应从近 0 缓慢爬升到 0.5 以上。长期为负说明 critic 完全没用甚至有害，advantage 全靠 baseline 均值——这时该查 critic 初始化或干脆换免 critic 算法。"},
+        ],
+    },
+    {
+        "id": "rl-012",
+        "topic": "策略梯度与 PPO",
+        "type": "八股",
+        "difficulty": 4,
+        "frequency": 3,
+        "companies": ["字节", "月之暗面", "阶跃星辰"],
+        "years": ["2024", "2025"],
+        "question": "为什么 PPO 用在 LLM 上特别难训？除了算法本身，工程上还难在哪？",
+        "answerMd": r'''**一句话核心**：难在三层：算法层——超大状态/动作空间下 critic 难学、credit assignment 长且稀疏、超参敏感；系统层——四个模型共存、rollout 吞吐是瓶颈、权重同步复杂；评测层——奖励信号噪声大、真实质量难以实时验证，训练稳定性问题会被放大成不可逆的模型退化。
+
+**1. 算法层。** LLM 的动作空间是十万级词表、序列长度千级，状态空间无限；critic 要在「prompt + 部分生成」上回归最终奖励，天然高方差。奖励稀疏（整条回答一个标量）使 token 级优势全靠自举传播，λ、γ 的选择直接影响信号衰减。超参互相耦合：KL 系数、clip、LR、batch、温度动一个全盘变，社区共识是 PPO 结果对种子和实现细节都敏感，复现困难。
+
+**2. 系统层。** 训练态（actor+critic）与推理态（ref+RM）四模型驻留，显存调度复杂；rollout 生成占 60%~90% 时间，要用独立推理引擎 + 参数同步，同步越频繁越 on-policy 但越慢；异步化又引 off-policy 偏差。长序列下 attention 显存与 KV cache 管理是硬约束。
+
+**3. 评测层。** RM 分数是代理指标，与真实质量的偏离要靠人工评测回检，反馈周期长；一次跑飞可能毁掉几十小时训练。所以实践中的「PPO 训练」一半工作量在监控系统：KL、RM 分、长度、熵、多样性的实时看板与自动回滚。这也是 GRPO 这类简化算法流行的原因——把算法复杂度换成系统可控性。''',
+        "keyPoints": [
+            "算法难：大状态空间、critic 难学、超参耦合敏感",
+            "系统难：四模型、rollout 瓶颈、同步与偏差权衡",
+            "评测难：代理奖励噪声大，需实时监控与回滚",
+            "简化算法流行 = 用算法复杂度换系统可控性",
+        ],
+        "followUps": [
+            {"q": "新手跑 PPO 最常见的三个失败是什么？", "a": "一，KL 系数太小，RM 分涨但人工评测崩（reward hacking）；二，value 学习率或初始化不对，explained variance 长期为负，advantage 全是噪声；三，温度过高加上 KL 太弱，策略漂移出语言分布出现乱码。三者都可以通过监控曲线提前发现。"},
+        ],
+    },
+    {
+        "id": "rl-013",
+        "topic": "策略梯度与 PPO",
+        "type": "手撕",
+        "difficulty": 3,
+        "frequency": 4,
+        "companies": ["字节", "百度", "快手"],
+        "years": ["2023", "2024", "2025"],
+        "question": "手写 PPO 的 policy loss：给定新旧策略的 token 级 log 概率与优势，实现 clip 目标。",
+        "answerMd": r'''**一句话核心**：ratio = exp(logp_new - logp_old)，目标 $\min(\rho \hat A, \mathrm{clip}(\rho, 1-\epsilon, 1+\epsilon)\hat A)$ 取负号求均值；关键细节是 token 级 loss 的归一化方式（按全部有效 token 还是按序列数）以及优势白化放在哪一步。
+
+**易错点。** 一是 logp 要在旧策略所在的数据分布上 gather 出来，错位一个 token 全错；二是 ratio 不需要 detach logp_old（它在旧图里已无梯度），但要防 exp 上溢——实际实现用 log 形式比较或对 ratio clamp；三是归一化：标准 PPO 按样本均值，LLM 里按 token 求和再除以总 token 数（token-level loss）与按序列平均会产生长度偏置差异（DAPO 的发现之一）；四是优势白化要在进入 loss 前 batch 级做，且不能用含未来信息的方式。
+
+**与完整 PPO 循环的对接。** 本题只写了 policy 头；完整训练器还有 value 平方损失（常带 value clip）与熵 bonus。最关键的工程约定：logp_old 必须来自 rollout 时保存的张量或 no_grad 重新前向，绝不能用当前图里带梯度的 logp 充当旧策略——否则 ratio 恒为 1、clip 永不触发，训练会静默退化成普通策略梯度。
+
+**单测建议。** 构造 logp_new 等于 logp_old 的情形，loss 应恰为优势负均值；再构造 ratio 超出 $[1-\epsilon, 1+\epsilon]$ 的情形，验证 min/clip 分支取值正确。这两个断言覆盖了实现错误的主要来源。''',
+        "keyPoints": [
+            "ratio = exp(logp_new - logp_old)，token 级",
+            "min + clip 结构，ε 常取 0.2",
+            "归一化方式决定长度偏置，按 token 与按序列不同",
+            "优势白化在 loss 前，注意别用旧图里的梯度",
+        ],
+        "followUps": [
+            {"q": "为什么要对 logp_new - logp_old 用 exp，而不是直接用概率比值？", "a": "数值稳定性：概率相乘在长序列上下溢，log 域相减再 exp 精度可控；且框架的 log_softmax 是 fused kernel，直接算 logp 更准。同理梯度也天然落在 log 空间，避免除零问题。补充：ratio 宜做上限截断防 exp 上溢，白化只应施加在 advantage 上而非 ratio 上，否则会破坏重要性修正的无偏性。"},
+        ],
+        "code": {
+            "lang": "python",
+            "caption": "PPO clipped policy loss（token 级）",
+            "content": '''import torch
+import torch.nn.functional as F
+
+def ppo_policy_loss(token_logp, token_logp_old, advantages, attn_mask,
+                    eps=0.2, token_level=True):
+    """token_logp / token_logp_old: [B, T]; advantages: [B, T] 或 [B, 1]"""
+    ratio = torch.exp(token_logp - token_logp_old)      # 重要性比率
+    adv = advantages
+    if adv.dim() == 1:                                   # 结果奖励广播到 token
+        adv = adv.unsqueeze(-1).expand_as(ratio)
+    adv = (adv - adv.mean()) / (adv.std() + 1e-8)        # 白化
+    surr1 = ratio * adv
+    surr2 = torch.clamp(ratio, 1.0 - eps, 1.0 + eps) * adv
+    per_token = torch.min(surr1, surr2)                  # 负号在最后取
+    mask = attn_mask.to(per_token.dtype)
+    if token_level:   # 全 batch 有效 token 平均（DAPO 风格，弱化长度偏置）
+        return -(per_token * mask).sum() / mask.sum().clamp(min=1)
+    return -((per_token * mask).sum(-1) / mask.sum(-1).clamp(min=1)).mean()'''
+        },
+    },
+    {
+        "id": "rl-014",
+        "topic": "策略梯度与 PPO",
+        "type": "八股",
+        "difficulty": 4,
+        "frequency": 3,
+        "companies": ["DeepSeek", "字节", "MiniMax"],
+        "years": ["2024", "2025"],
+        "question": "RLHF 里 PPO 的超参一般怎么设？哪些参数对结果最敏感？",
+        "answerMd": r'''**一句话核心**：最敏感的三件套是 KL 系数（0.01~0.05 量级，决定有没有 hacking）、critic 相关（初始化与学习率，决定 advantage 质量）和批量与 epoch（决定更新噪声）；策略 LR 在 1e-6 量级、ε=0.2、优势白化是默认项，这些都只是「在正确监控下的起点」，必须按曲线微调。
+
+**1. 敏感度排序。** 第一 KL 系数 β：偏大训练无效（RM 分几乎不涨），偏小立刻 hacking 与分布漂移，是「方向性」超参。第二 critic：学习率通常比 actor 大（1e-5 vs 1e-6 量级）、要热启动，explained variance 上不去一切白搭。第三数据批量与 epoch：LLM RL 有效 batch 常以「prompt 数 × 每题采样数」计，太小噪声大，太大样本效率低；每批多 epoch 要盯 ratio 贴边率。
+
+**2. 常规起点。** 策略 LR 1e-6 上下（比 SFT 低一个量级）、线性或 cosine 衰减；ε=0.2；GAE λ=0.95~1.0、γ=1.0（LLM 常不用折扣）；KL 用 k3 估计；温度 0.7~1.0；全局 batch 数百到数千 response。所有数值都应视模型规模与奖励形态调整，没有万能配置。
+
+**3. 调参方法论。** 先小规模代理实验扫「方向性」超参（β、LR），找到 RM 分与人工评测同向上升的区间；再上大跑，训练中监控四条曲线（KL、RM、长度、熵）设自动报警与回滚阈值。把「超参敏感性」当作工程问题而不是玄学：敏感的根源是信号弱、方差大，改善信号（更好的 RM/规则奖励、更干净的 prompt 分布）比精调数字更有效。''',
+        "keyPoints": [
+            "最敏感：KL 系数、critic 初始化与学习率、batch/epoch",
+            "常规起点：策略 LR 1e-6 量级、ε=0.2、γ=1、白化",
+            "每批 epoch 盯 ratio 贴边率",
+            "调参思路：小规模扫方向性超参 + 四曲线监控",
+        ],
+        "followUps": [
+            {"q": "温度在 RL 采样里怎么影响训练？", "a": "温度低探索不足、组内答案趋同优势为零；温度高样本质量差、正确率过低同样无梯度且易出乱码。经验是从 1.0 附近起步，随策略变强逐步降温，或按题目难度自适应——本质是把探索预算花在有希望的题上。"},
+        ],
+    },
+    # ---------------------------------------------------------------- GRPO 深入
+    {
+        "id": "rl-015",
+        "topic": "GRPO 深入",
+        "type": "八股",
+        "difficulty": 5,
+        "frequency": 5,
+        "companies": ["DeepSeek", "字节", "月之暗面", "智谱"],
+        "years": ["2024", "2025"],
+        "question": "详细写出 GRPO 的优势计算与目标函数，它和 REINFORCE 的 baseline 是什么关系？",
+        "answerMd": r'''**一句话核心**：GRPO 对每个问题采 $G$ 条回答，用组内奖励的标准化 $\hat A_{i,t} = \frac{r_i - \mathrm{mean}(\{r_j\})}{\mathrm{std}(\{r_j\})}$ 作为该条回答所有 token 的优势，目标仍是 PPO 式 clip 加 KL；它的 baseline 就是「同题组内均值」——REINFORCE 里最优 baseline 的蒙特卡洛实现，因此不需要 critic。
+
+**1. 组相对优势。** 对问题 $q$，从旧策略采 $o_1, ..., o_G \sim \pi_{\theta_{old}}$，用规则或 RM 打分得 $\{r_1, ..., r_G\}$：
+$\hat A_{i,t} = \frac{r_i - \frac{1}{G}\sum_{j=1}^{G} r_j}{\sqrt{\frac{1}{G}\sum_{j=1}^{G}(r_j - \bar r)^2}}$（对 $t$ 不变，结果奖励广播到每个 token）。同一题内的比较消掉了题目难度带来的基线差异——难题组整体低分也不影响相对排序。
+
+**2. 目标函数。**
+$\mathcal{J}_{GRPO}(\theta) = \mathbb{E}\left[\frac{1}{G}\sum_{i=1}^{G} \frac{1}{|o_i|}\sum_{t=1}^{|o_i|} \left(\min\left(\rho_{i,t} \hat A_{i,t},\, \mathrm{clip}(\rho_{i,t}, 1 \pm \epsilon)\hat A_{i,t}\right) - \beta \, \hat{D}_{KL}[\pi_\theta \| \pi_{ref}]\right)\right]$
+其中 $\rho_{i,t} = \frac{\pi_\theta(o_{i,t}|q, o_{i,<t})}{\pi_{\theta_{old}}(o_{i,t}|q, o_{i,<t})}$，KL 用 k3 无偏估计（见 rl-017）。
+
+**3. 与 REINFORCE 的谱系。** 把 $b = \mathrm{mean}(r)$ 看作组内 baseline、整条回答视作一个动作，GRPO 的策略梯度部分就是 REINFORCE with baseline 的多实例版本；clip 与 KL 是稳定化外挂。由此也能看出它的信息结构：每条回答只有一个标量信号，token 级信用分配靠「整条同分 + 比率调制」实现，这既是它省 critic 的原因，也是局限（长序列信用模糊、std 归一化引入偏差）的根源。
+
+**实现提示。** 采样时每题一组、温度保持较高（常用 1.0）以维持组内多样性；loss 聚合建议用 batch 总有效 token 数平均而非逐序列平均；监控除 reward 与 KL 外，要加「组内方差分布 / 零方差组占比」——它是采样效率与题目难度匹配度的直接指标，也是动态采样类改进的依据。''',
+        "keyPoints": [
+            "组内标准化得分即优势，广播到所有 token",
+            "目标 = PPO clip + k3 KL，仅 policy+ref 两个模型",
+            "baseline 是同题组均值，蒙特卡洛式、免 critic",
+            "信用分配粗粒度是其局限的根源",
+        ],
+        "followUps": [
+            {"q": "std 归一化除不除有什么讲究？", "a": r"除 std 让不同难度题的优势尺度统一，训练更稳；但 Dr.GRPO 指出它有系统性偏差：简单题 std 小会放大微小差距、难题组 std 大会压缩信号，且与长度偏差叠加造成输出长度虚高。改用 $r_i - \bar r$ 不除 std 是 Dr.GRPO 的修正之一，代价是要配合其他稳定手段。"},
+        ],
+    },
+    {
+        "id": "rl-016",
+        "topic": "GRPO 深入",
+        "type": "八股",
+        "difficulty": 4,
+        "frequency": 4,
+        "companies": ["DeepSeek", "字节", "NVIDIA"],
+        "years": ["2024", "2025"],
+        "question": "GRPO 为什么能去掉 critic？在什么任务上这个简化是安全的？",
+        "answerMd": r'''**一句话核心**：critic 的职能是估计单条轨迹的奖励基线，GRPO 用「同一问题的 G 条回答互为对照」以蒙特卡洛方式直接得到基线，省掉价值网络；当奖励是结果级、同题内可比、且能负担 G 倍采样时，这个简化是安全的，否则会退化。
+
+**1. 替换的等价性。** 经典设定里 advantage = 奖励 - $V(s_0)$（起始状态价值），critic 学的就是这个基线；GRPO 用 $\frac{1}{G}\sum r_j$ 作为它的无偏样本估计。当 $G \to \infty$，组均值就是 $V(s_0)$ 的精确值——所以它不是没有 baseline，而是把 baseline 从「学出来的函数」换成「采出来的统计量」。
+
+**2. 安全边界。** 三个条件：奖励是结果级且逐条可得（整条回答一个分）；同题回答奖励可比（不能是「每题只有唯一可评估解」）；算力允许多采样（长 CoT 下 G 倍 token 成本可观）。满足时，组均值比 critic 更准——没有函数逼近误差、没有非平稳漂移，这正是 R1-Zero 数学代码任务成功的原因：答案可自动校验，采样便宜相对训练收益。
+
+**3. 何时失效。** 需要逐步/逐 token 密集奖励的任务（PRM 型）没法广播一个标量到全序列，组相对只给粗粒度信号；多轮 agent 任务的「问题」是动态环境轨迹，同组可比性被环境随机性破坏；奖励含大噪声（LLM judge 打分）时组均值方差大；以及组内全对/全错零信号——需要动态采样过滤或改用价值方法。VAPO 在长 CoT 上重建价值方法并超越 GRPO 系，说明 critic 的 credit assignment 能力在长序列上仍有不可替代的部分。''',
+        "keyPoints": [
+            "critic 职能被组均值蒙特卡洛基线替代",
+            r"$G \to \infty$ 时组均值即起始状态价值",
+            "安全条件：结果级奖励 + 同题可比 + 可负担 G 倍采样",
+            "密集奖励、多轮环境、噪声奖励场景会失效",
+        ],
+        "followUps": [
+            {"q": "组均值和 critic 学到的基线差在哪？", "a": "组均值只条件于「这一题」，而 critic 可以条件于生成到一半的状态，理论上能在回答内部区分好坏路径。结果奖励设定下二者在序列起点等价，但一旦奖励密集或需要提前终止低质量 rollout，条件化能力就开始拉开差距。"},
+        ],
+    },
+    {
+        "id": "rl-017",
+        "topic": "GRPO 深入",
+        "type": "八股",
+        "difficulty": 4,
+        "frequency": 3,
+        "companies": ["DeepSeek", "智谱", "月之暗面"],
+        "years": ["2024", "2025"],
+        "question": "GRPO 实现里 KL 为什么常用 k3 估计？写出三种估计器并比较。",
+        "answerMd": r'''**一句话核心**：Schulman 的三种单样本 KL 估计里，$k_1 = \log r$ 无偏但可为负、$k_2 = \frac{1}{2}(\log r)^2$ 恒正但有偏，$k_3 = (r - 1) - \log r$（$r = \frac{\pi_{ref}}{\pi_\theta}$，从 $\pi_\theta$ 采样）既无偏又恒非负、方差更低，所以 GRPO/R1 系实现用 $k3: \frac{\pi_{ref}}{\pi_\theta} - \log\frac{\pi_{ref}}{\pi_\theta} - 1$。
+
+**1. 三种估计器。** 记 $s = \log \frac{\pi_\theta(a)}{\pi_{ref}(a)}$（从 $\pi_\theta$ 采样的动作），真 KL 为 $\mathbb{D}_{KL}[\pi_\theta \| \pi_{ref}]$：$k_1 = s$（期望恰为 KL，但单样本可为负——KL 本应非负，用于惩罚时负值反而「奖励」偏离）；$k_2 = \frac{1}{2}s^2$（恒非负，但期望是无偏 KL 的二阶展开项，系统性低估）；$k_3 = r - 1 - \log r$，其中 $r = e^{-s} = \frac{\pi_{ref}}{\pi_\theta}$。泰勒展开 $\log r \approx (r-1) - \frac{(r-1)^2}{2}$ 给出 $k_3 \approx \frac{(r-1)^2}{2} \ge 0$，且 $\mathbb{E}[k_3] = KL$ 严格成立（对任意分布）。
+
+**2. 为什么 k3 最适合做惩罚。** 惩罚项要求：期望等于真 KL（训练目标正确）、单样本非负（不会出现「偏离越大惩罚越小」的反直觉梯度）、低方差。k3 三条全占；k1 违反非负，k2 违反无偏。这也解释了为什么 RLHF 论文时代的 $\beta \log \frac{\pi}{\pi_{ref}}$ 直接写法只在「期望意义」下成立，实现里都换成 k3。
+
+**3. 实现细节。** k3 逐 token 计算后按 mask 求和/平均；注意分子分母方向别写反（用 $\pi_{ref}/\pi_\theta$，采样自 $\pi_\theta$）；有的实现把 KL 项加进 loss，有的折进 reward，监控时报告的是估计值都要注明用哪种估计器，否则曲线不可比。
+
+**记忆口诀。** k1 诚实但会为负、k2 恒正但失真、k3 又正又准；方向口诀「ref 除以 theta，采样自 theta」。能把三种估计器按期望、非负性、方差列成三列对照表，这道题就稳了。''',
+        "keyPoints": [
+            r"$k_1 = \log r$ 无偏可为负；$k_2 = \frac{1}{2}(\log r)^2$ 恒正有偏",
+            r"$k_3 = r - 1 - \log r$（$r = \pi_{ref}/\pi_\theta$）无偏且非负",
+            "惩罚项要求非负，k1 会产生反向激励",
+            "实现注意方向、mask 与估计器标注",
+        ],
+        "followUps": [
+            {"q": "k3 在什么情况下方差会大？", "a": r"当 $\pi_\theta$ 与 $\pi_{ref}$ 严重分歧时 $r$ 重尾，单样本 $r-1$ 项波动大；训练后期两者接近时方差自然小。极端偏离时更稳妥的做法是clip KL 值或改用多个样本平均，但大多数训练中 $\beta$ 会限制偏离，k3 足够。"},
+        ],
+    },
+    {
+        "id": "rl-018",
+        "topic": "GRPO 深入",
+        "type": "八股",
+        "difficulty": 4,
+        "frequency": 4,
+        "companies": ["字节", "DeepSeek", "智谱"],
+        "years": ["2025", "2026"],
+        "question": "GRPO 有哪些已知缺陷？DAPO 和 Dr.GRPO 分别怎么修的？",
+        "answerMd": r'''**一句话核心**：GRPO 的四大已知问题：组内全对/全错时优势为零浪费采样、std 归一化引入难度偏差、逐序列长度归一化引入长度偏差（错误答案越写越长）、以及熵塌缩与单策略分布过窄；DAPO 用 clip-higher、动态采样、token 级损失与超长惩罚系统性修补，Dr.GRPO 则从理论上指出去掉 std 与长度归一即可消除长度虚增。
+
+**1. 零梯度组。** 全对/全错时 $\hat A = 0$，整组采样白费；这常发生在题目过易或过难时。DAPO 的动态采样：跳过零方差组、持续重采直到凑满有效 batch，把算力集中到「有学习信号」的题上。
+
+**2. 归一化偏差。** 目标里 $\frac{1}{|o_i|}$ 让长回答的单 token 权重更低——对正确答案不利、又与「错误答案更长」的统计规律叠加，造成长度虚增；std 归一化让不同难度题的更新尺度失衡。Dr.GRPO：去掉 std（优势取 $r_i - \bar r$）、把长度归一换成常数（batch 级最大长度），在 R1-Zero 复现中显著缓解「回答越错越长」。
+
+**3. 熵塌缩与 clip 结构。** 标准双对称 clip 压制低概率 token 的概率增长，探索被抑制。DAPO clip-higher：$\epsilon_{high} > \epsilon_{low}$（如 0.28 vs 0.2），只放宽上界让稀有 token 有机会变多。超长截断还会把「没写完」误判为错误，DAPO 用 overlong reward shaping 软惩罚缓冲。两工作共同点：都是「在 GRPO 框架内做增量修复」，没有推翻组相对优势这一核心；这说明 GRPO 的骨架是对的，问题集中在归一化与采样的工程细节上。''',
+        "keyPoints": [
+            "零梯度组：全对/全错优势为零，动态采样过滤",
+            "std 归一化 → 难度偏差；1/|o| → 长度偏差",
+            "Dr.GRPO：去 std、常数长度归一，缓解长度虚增",
+            "clip-higher 放宽上界抗熵塌缩；截断软惩罚",
+        ],
+        "followUps": [
+            {"q": "Dr.GRPO 对 aha moment 的质疑是怎么回事？", "a": "该工作在复现 R1-Zero 式训练时发现：去除上述偏差后，长度暴涨等现象明显减弱，部分「涌现」表现可以被优化偏差解释；aha moment 式的自我反思仍会出现，但其程度被先前实现里的归一化偏差放大了。这提醒解读 RL 涌现时要先排除实现 artifact。"},
+        ],
+    },
+    # ---------------------------------------------------------------- RLVR 与推理模型
+    {
+        "id": "rl-019",
+        "topic": "RLVR 与推理模型",
+        "type": "八股",
+        "difficulty": 3,
+        "frequency": 4,
+        "companies": ["DeepSeek", "OpenAI", "月之暗面"],
+        "years": ["2025"],
+        "question": "RLVR 是什么？可验证奖励可以从哪里来，和传统 RLHF 的 RM 有什么本质区别？",
+        "answerMd": r'''**一句话核心**：RLVR（Reinforcement Learning with Verifiable Rewards）用程序化校验器替代奖励模型：数学答案等价比对、代码跑单测、格式/约束检查等规则直接给出奖励，天然抗 hacking、无需训练 RM；本质区别是奖励函数从「学出来的相关信号」变成「写出来的因果判定」，代价是只适用于可自动验证的任务域。
+
+**1. 验证器来源。** 数学：与标准答案做符号/数值等价（ sympy 比对、区间容差），或用更严格的判题器；代码：编译 + 隐藏测试通过率、运行效率约束；结构化任务：SQL 执行结果比对、格式 schema 校验；agent 任务：环境最终状态判定（任务是否完成）。工程要点：验证器本身要有测试（防止把对的判错）、防泄漏（隐藏测试不进训练数据）、容错设计（等价写法要给分）。
+
+**2. 与 RM 的区别。** 信号性质：RM 是从人类偏好学出的近似，有分布外失真与被 hack 的攻击面；验证器是确定性规则，错了可修、可审计。适用域：RM 万能但噪声大，RLVR 精确但覆盖窄——开放对话、写作、审美没有真值。对抗性：验证器不随策略更新而「漂移」，RM 会被策略联合分布的迁移带偏。
+
+**3. 局限与混合形态。** 校验器覆盖不到「过程正确但答案错」「答案对但靠猜」；对解空间巨大但答案唯一的题（如计数、证明）验证特别难。实践常混合：RLVR 主管数学代码，RM 主管对话与安全，用rubric 式部分可验证奖励过渡。R1 系与 o1 系的成功让 RLVR 成为 2025 年后推理训练的默认选项。''',
+        "keyPoints": [
+            "验证器：数学等价/单测/格式/环境终态",
+            "RM 是学出的近似，验证器是写死的判定",
+            "RLVR 抗 hacking、可审计，但适用域窄",
+            "混合形态：RLVR 管硬任务，RM 管开放域",
+        ],
+        "followUps": [
+            {"q": "验证器自己怎么防 bug？", "a": "把验证器当代码产品对待：对标准解法集全过、对已知错误样例全拒的回归测试；等价判定用成熟符号库并做规范化（分数化简、单位统一）；关键赛道用双验证器交叉，不一致样本进人工池。验证器错误是系统性的，一次修复要全量重刷历史奖励。"},
+        ],
+    },
+    {
+        "id": "rl-020",
+        "topic": "RLVR 与推理模型",
+        "type": "八股",
+        "difficulty": 4,
+        "frequency": 5,
+        "companies": ["DeepSeek", "字节", "智谱"],
+        "years": ["2025"],
+        "question": "DeepSeek-R1-Zero 是怎么做到纯 RL 激发推理的？没有 SFT 会带来哪些问题？",
+        "answerMd": r'''**一句话核心**：R1-Zero 直接在基座上用 GRPO + 纯规则奖励（答案正确性 + 格式）训练，不经过任何 SFT、不用神经 RM，随训练出现反思、验证、长思维链等行为，AIME 类基准大幅提升；代价是可读性差、语言混杂、格式漂移，这些「零 SFT 的副作用」正是 R1 加入冷启动数据的原因。
+
+**1. 训练设定。** 模型：DeepSeek-V3-Base 直接上 RL。算法：GRPO（组采样 + 组相对优势，免 critic）。奖励：准确率奖励（答案是否正确，规则校验）+ 格式奖励（是否把推理与答案放进规定标签），刻意不用神经 RM——避免 reward hacking 与 RM 训练成本。任务：以数学、代码等可验证问题为主。
+
+**2. 自发行为。** 训练中期模型开始自发插入「等等，重新算一下」式的自我反思与多路径验证，回答长度随训练自然增长（探索更长的思考时间换正确率）；论文称之为 aha moment。这个现象说明长 CoT 行为可以被结果奖励的优化压力从基座中「激发」，而不必然需要人类推理轨迹示范。但 Dr.GRPO 等后续研究提醒：部分表现（长度暴涨）有实现偏差成分，要谨慎解读。
+
+**3. 零 SFT 的问题。** 可读性差：推理过程混乱、中英混杂、结论与过程脱节；格式不稳：早期经常不遵守输出协议，导致校验失败率波动；冷启动艰难：基座采样出的正确回答比例低，训练早期信号弱。R1 的解法是先给数千条精心写的长 CoT 做冷启动 SFT，再进 RL——「R1-Zero 证明了纯 RL 可行，R1 证明了带冷启动的工程化更好」。''',
+        "keyPoints": [
+            "基座直接 GRPO + 规则奖励，无 SFT 无 RM",
+            "自发出现反思/验证/长 CoT（aha moment）",
+            "副作用：可读性差、语言混杂、格式漂移",
+            "R1 用冷启动 SFT 修复，形成完整管线",
+        ],
+        "followUps": [
+            {"q": "为什么纯 RL 能激发出训练前没有的推理模式？", "a": "基座预训练里已经见过大量推理相关文本，具备潜在行为分布；RL 不需要教「怎么做」，只需要一个筛选压力让正确模式被强化。争议在于这是「激发已有能力」还是「产生新能力」，pass@k 分析显示基座的采样上限本就不低——这是当前最活跃的争论之一（见 rl-038）。"},
+        ],
+    },
+    {
+        "id": "rl-021",
+        "topic": "RLVR 与推理模型",
+        "type": "八股",
+        "difficulty": 3,
+        "frequency": 3,
+        "companies": ["DeepSeek", "面壁智能", "字节"],
+        "years": ["2025"],
+        "question": "怎么理解 R1-Zero 的 aha moment？它真是「涌现」吗，有什么争议？",
+        "answerMd": r'''**一句话核心**：aha moment 指 R1-Zero 训练中期模型自发出现「停顿—怀疑—重算」式的自我修正行为，回答长度同步跃升；它是结果奖励优化压力下的行为被选择性强化，基本属实但「涌现程度」有争议——后续复现指出部分宏观指标（长度暴涨、低频 token 冒出）受实现偏差放大，不全是质变。
+
+**1. 现象本身。** R1-Zero 训练到中期，模型在解不出题时开始生成类似「wait, wait, wait. That's an aha moment」的转折，主动回溯检查先前步骤、尝试替代方法；平均回答长度持续增长，测试集正确率同步上升。机制解释：长回答里「多试几次 + 自我检查」的路径碰对率更高，结果奖励把这类行为模式强化成习惯。
+
+**2. 争议点。** Dr.GRPO 复现指出：原实现的长度归一化与 std 归一化会人为制造「错误回答越来越长」的统计假象，修正后长度增长显著放缓；aha 式转折仍出现，但其戏剧性被夸大。另一层争议在语义：模型说的「反思」未必对应真实的元认知——可能是学会了「转折后重来碰运气」的表层模式；过程级评估（PRM 打分）显示部分反思步骤并不带来信息增量。
+
+**3. 面试表述建议。** 稳妥说法：纯 RL 确实能让基座发展出自我修正风格的长推理，这是可复现的行为级事实；但「涌现」一词要拆开——哪些是奖励结构性筛选的必然结果（长思考更容易对），哪些是真正的新能力（更聪明的策略），当前证据更支持前者为主、后者为辅。这比背结论更能体现判断力。''',
+        "keyPoints": [
+            "aha moment：自发停顿-怀疑-重算 + 长度跃升",
+            "机制：多尝试+自检的路径碰对率更高被强化",
+            "争议：长度暴涨部分是归一化偏差 artifact",
+            "反思的语义深度存疑，多为表层模式强化",
+        ],
+        "followUps": [
+            {"q": "怎么实验区分真涌现和行为筛选？", "a": "控制变量看三点：固定回答长度上限后性能是否仍提升（排除长度红利）；把反思句式从 prompt 里禁止后 pass@k 是否下降（测依赖度）；过程奖励评估反思步骤的实际信息增益。三组实验拼起来基本能判断该行为的性质。"},
+        ],
+    },
+    {
+        "id": "rl-022",
+        "topic": "RLVR 与推理模型",
+        "type": "八股",
+        "difficulty": 3,
+        "frequency": 3,
+        "companies": ["DeepSeek", "智谱", "MiniMax"],
+        "years": ["2025"],
+        "question": "R1 的冷启动数据起什么作用？不用冷启动直接 RL 的代价是什么？",
+        "answerMd": r'''**一句话核心**：冷启动是少量（数千条级）精心构造的长思维链 SFT 数据，作用是给 RL 一个「格式稳定、可读、正确率非零」的起点；没有它，早期 RL 要同时摸索格式、语言与解题策略，信号稀薄、训练不稳，产出不可读且多语混杂。
+
+**1. 冷启动数据的构成与作用。** 来源：few-shot 提示基座生成长 CoT + 人工筛选、可验证任务上拒绝采样的正确轨迹、人工撰写/改写。设计目标三条：格式——推理与答案按统一模板组织，让规则校验从第一步就能工作；可读性——语言流畅、结构清晰，为最终对齐打底；正确率——把基座在 RL 早期「碰不到正确答案」的难题的比例降下来，保证组内优势有区分度。
+
+**2. 不用冷启动的代价（R1-Zero 的教训）。** R1-Zero 展示了可行，但输出可读性差、语言混杂（中英夹杂）、反复跳格式；这些都要靠 RL 自己慢慢「长」出来，收敛慢且监控困难。冷启动把这部分行为直接教好，让 RL 的梯度预算集中在推理能力上——相当于把「探索空间的维度」砍掉几维。
+
+**3. 工程要点。** 冷启动量不必大（论文为数千条量级），质量远重于数量；与推理 RL 的衔接要平滑——若冷启动分布与 RL 任务分布脱节，训练初期 KL 会剧烈波动；冷启动后通常紧跟推理 RL 阶段，语言一致性奖励并行使用防混杂。这体现了后训练的通用规律：RL 擅长在「已会」的行为里择优，SFT 负责把「能做」变成「稳定会做」。''',
+        "keyPoints": [
+            "数千条级长 CoT，质量远重于数量",
+            "三个目标：格式稳定、可读、正确率非零",
+            "省去 RL 摸索格式与语言的成本",
+            "与 RL 任务分布要平滑衔接",
+        ],
+        "followUps": [
+            {"q": "冷启动数据该人工写还是模型生成？", "a": "混合最好：用强模型生成候选解决规模，人工只做质量门控与风格统一；人工从零写的成本高但能注入风格规范。关键标准是轨迹过程真实可验证、语言统一，来源本身不是决定因素。"},
+        ],
+    },
+    {
+        "id": "rl-023",
+        "topic": "RLVR 与推理模型",
+        "type": "八股",
+        "difficulty": 3,
+        "frequency": 3,
+        "companies": ["DeepSeek", "月之暗面", "字节"],
+        "years": ["2025"],
+        "question": "RL 训练中的语言混杂问题是什么原因？R1 是怎么处理的？",
+        "answerMd": r'''**一句话核心**：语言混杂指模型在思维链里中英（或多语）随意切换——RL 只优化答案正确性，哪种语言的「思考习惯」碰对率高就漂向哪种，且多语 token 在预训练里都有分布支撑；R1 的处理是在推理 RL 阶段加语言一致性奖励（目标语言 token 占比），与准确率奖励加权。
+
+**1. 成因。** RL 目标里没有任何约束「用什么语言思考」，策略在多语表征空间里自由选择捷径：数学符号与英文推理在训练数据里密度更高，纯 RL 会逐步向高正确率路径漂移；样本间没有一致性压力，同一模型对同类题可能换语言输出。基座直接 RL（无 SFT 锚定）时更严重，因为连风格先验都没锁定。
+
+**2. R1 的方案。** 在推理 RL 的奖励里加入语言一致性项：回答中目标语言 token 的比例，与准确率奖励加权求和。这是简单有效的浅层正则——它不要求「全程只能目标语言思考」，只施加统计分布上的拉力。论文同时观察到该奖励会轻微牺牲部分正确率（拉力与最优解题路径偶有冲突），属于可接受的权衡。
+
+**3. 更系统的思路。** 冷启动 SFT 锁定语言风格；数据侧保证任务语言与目标语言一致；验证器只接受目标语言推理（更强约束但可能伤正确率）；RL 后再过一遍轻量 SFT/对齐统一输出语言（R1 最终管线就是这么收尾的）。面试要点：语言混杂是「奖励没覆盖的维度必然漂移」的一个具体案例，同类问题还有格式、礼貌度、长度——都能用「加浅层奖励项或事后对齐」处理，但要意识到每个附加奖励都可能侵蚀主目标。''',
+        "keyPoints": [
+            "成因：RL 目标不含语言维度，策略漂向高正确率捷径",
+            "R1：目标语言 token 占比奖励，与准确率加权",
+            "代价：语言拉力偶尔与最优解题路径冲突",
+            "系统解：SFT 锚定 + 数据一致 + 事后对齐收尾",
+        ],
+        "followUps": [
+            {"q": "为什么不能干脆只在目标语言数据上训？", "a": "推理能力与多语预训练分布强相关，强行限制探索语言会损失信号多样性，正确率下降明显；语言一致性奖励的「软拉力」设计正是为了在不切断捷径的前提下控制风格，属于多目标权衡的折中。"},
+        ],
+    },
+    {
+        "id": "rl-024",
+        "topic": "RLVR 与推理模型",
+        "type": "八股",
+        "difficulty": 4,
+        "frequency": 4,
+        "companies": ["DeepSeek", "字节", "智谱", "月之暗面"],
+        "years": ["2025"],
+        "question": "画出 DeepSeek-R1 的完整训练管线，四个阶段各解决什么问题？",
+        "answerMd": r'''**一句话核心**：R1 四阶段：冷启动 SFT（数千条长 CoT 定格式与可读性）→ 面向推理的 RL（GRPO + 规则奖励 + 语言一致性）→ 拒绝采样 + SFT（把 RL 成果转成约 80 万条新数据，混通用数据重建全能力）→ 全场景 RL（可验证任务用规则、通用任务用 RM，兼顾有用与无害）；每阶段解决上一阶段遗留的短板。
+
+**1. 阶段一：冷启动。** 解决 R1-Zero 的可读性差与格式漂移：数千条精心长 CoT 轻量 SFT，让 RL 从稳定起点出发。
+
+**2. 阶段二：推理 RL。** 数学、代码、科学等可验证任务上 GRPO，奖励为正确性 + 格式 + 语言一致性；强化反思、回溯、长程规划等推理行为。遗留问题：推理强但通用对话、复杂角色扮演、工具使用等能力没被覆盖，且输出冗长。
+
+**3. 阶段三：拒绝采样 + SFT。** 用当前 RL 模型对推理任务做拒绝采样生成新 SFT 数据（推理类约 60 万条），再由强模型补写非推理通用数据（写作、事实问答、自认知等约 20 万条），混合重训基座——把 RL 的成果「固化」为参数，同时修复通用能力。这步体现了「RL → 数据 → 再 SFT」的蒸馏式回灌。
+
+**4. 阶段四：全场景 RL。** 可验证任务继续规则奖励；通用任务用基于偏好的奖励模型（有用/无害），并加入针对多轮对话、复杂指令的数据分布。收尾后得到最终 R1。整条管线是「SFT 定形 → RL 增强 → 数据回流 → 再 RL 扩域」的循环架构，已成为 2025 年后推理模型的标准范式（Qwen3 等的四阶段设计同构）。''',
+        "keyPoints": [
+            "冷启动 SFT：格式、可读、正确率非零",
+            "推理 RL：GRPO + 规则奖励 + 语言一致性",
+            "拒绝采样 + SFT：约 80 万条（60 推理 + 20 通用）回灌固化",
+            "全场景 RL：规则与 RM 并用，覆盖通用对齐",
+        ],
+        "followUps": [
+            {"q": "为什么中间要插一次大规模 SFT 而不是 RL 一路到底？", "a": "RL 只强化了可验证任务的推理行为，通用能力在此期间相对退化；用拒绝采样把 RL 模型的优质输出变成监督数据，既固化成果又能与通用数据混合重建全能力，再进 RL 时基座更强、搜索起点更好——本质是用数据在两个优化目标之间搭桥。"},
+        ],
+    },
+    {
+        "id": "rl-025",
+        "topic": "RLVR 与推理模型",
+        "type": "八股",
+        "difficulty": 4,
+        "frequency": 4,
+        "companies": ["OpenAI", "字节", "月之暗面", "Google"],
+        "years": ["2025"],
+        "question": "o1/o3 类推理模型和传统对话模型的差异在哪？测试时扩展有哪些主流做法？",
+        "answerMd": r'''**一句话核心**：o1/o3 类模型把「算力从预训练转移到推理时」：先在隐藏思维链里长时间探索再输出答案，性能随思考预算提升（测试时扩展）；主流做法分三类——并行采样 + 验证器排序（best-of-N）、自洽性多数投票、顺序搜索（MCTS/beam/回溯式长 CoT），分别对应「广度、独立性、深度」三种花算力方式。
+
+**1. 模型差异。** 传统对话模型：单次前向直接给答案，输出即全部。推理模型：输出前先在长 CoT 里分解、尝试、验证、回溯，思考过程可长至数千上万 token；训练上以 RLVR/长 CoT 蒸馏为核心；产品上暴露「思考预算」给用户，o3 进一步把工具调用整合进思考流（agentic 推理）。
+
+**2. 测试时扩展三件套。** Best-of-N + 验证器：并行采 N 条，用 ORM/PRM/自验证挑最好的；对中等难度问题性价比高，瓶颈在验证器质量。自洽性：N 条答案多数投票，不需外部验证器，适合答案空间离散的数学题。顺序搜索：MCTS 或 PRM 引导的 beam search 逐步展开与回溯，适合步骤可评估的推理；R1 类模型的「单条长 CoT 自我回溯」可视为内化的顺序搜索——模型学会了在一条序列里模拟树搜索。
+
+**3. 选择逻辑。** 简单题大 N 是浪费：现代做法用难度自适应的预算分配（先小 N 探测，失败再加算力）。评估上测试时扩展把「一次成功率」变成「预算-性能曲线」，面试时能画出 pass@1 随 N 或思考 token 的曲线并解释各段斜率的来源（验证器上限、多样性上限），是高阶信号。''',
+        "keyPoints": [
+            "推理模型 = 隐藏长 CoT + 可调思考预算",
+            "Best-of-N：并行 + 验证器，瓶颈在 verifier",
+            "自洽性：多数投票，免验证器，适合离散答案",
+            "MCTS/beam：顺序深度搜索；长 CoT 是内化版",
+            "现代做法按难度自适应分配预算",
+        ],
+        "followUps": [
+            {"q": "测试时扩展的天花板是什么？", "a": "三重上限：模型能力边界（采样分布里没有正确答案时多少算力都没用）、验证器精度（best-of-N 被假阳性封顶）、预算调度效率（简单题过采样浪费）。对最难的问题，多数工作的曲线在几十倍算力内饱和，说明扩展只是放大器不是生成器。"},
+        ],
+    },
+    {
+        "id": "rl-026",
+        "topic": "RLVR 与推理模型",
+        "type": "场景",
+        "difficulty": 4,
+        "frequency": 3,
+        "companies": ["智谱", "阶跃星辰", "字节"],
+        "years": ["2025"],
+        "question": "给你一个 14B 基座和 3 个月，目标是把 SQL 生成能力做到领先，用 RLVR 怎么设计？",
+        "answerMd": r'''**一句话核心**：SQL 是天然 RLVR 任务：执行结果可精确判定。管线 = 任务/数据工程（schema 库 + 难度分层）→ SFT 冷启动（执行正确的轨迹）→ GRPO + 执行反馈奖励（结果匹配为主、部分奖励为辅）→ 课程化加难度与多轮交互 → 泛化回归与安全收尾；核心风险在数据库执行慢与奖励漏洞（碰巧匹配）。
+
+**1. 任务与环境。** 建 schema 池：数百到数千个真实业务库结构（含脏 schema、歧义列名、多表 join），每个挂若干问题与标准结果集。校验器分级：精确结果匹配（严格）、行集等价（容忍列序行序）、EXPLAIN 对比（宽松）；执行加超时与只读沙箱，防资源攻击。并行执行吞吐是主要工程瓶颈——用连接池 + 批量执行器 + 结果缓存。
+
+**2. 奖励设计。** 主奖励：结果正确 1/0；辅助：部分分数（命中表/列、join 结构正确）用于课程早期但权重递减，防模型停在部分分；惩罚：语法错误、超时、全表扫描等坏习惯小惩罚。防 hacking：验证集与训练库分离、同题多实例 schema 扰动（防记忆答案）、隐藏测试库。
+
+**3. 训练流程。** 冷启动：拒绝采样收集执行正确的 CoT 轨迹 SFT（含报错修复轨迹，教会模型读错误信息）。RL：GRPO，G=8~16，难度课程从「正确率 30%~70%」区间起步逐步上移；引入执行报错反馈进上下文的多轮变体（模型可修正 SQL 再提交），奖励只看最终结果。监控长度（SQL 不应长）、语法错误率、崩溃率。
+
+**4. 验收。** 内部 held-out 业务库 + 公开基准双轨；通用能力回归；人工抽检「结果对但语义怪」的样本（如硬编码结果集）——这是 SQL 任务最典型的 hacking。''',
+        "keyPoints": [
+            "schema 池 + 三级校验器 + 只读沙箱",
+            "执行吞吐是工程瓶颈，缓存与批量执行",
+            "部分分数做课程但权重递减防躺平",
+            "schema 扰动防记忆，隐藏库防泄漏",
+            "验收要抓「结果对语义怪」的硬编码 hack",
+        ],
+        "followUps": [
+            {"q": "模型可能怎么骗过结果匹配？", "a": "最典型是硬编码：把训练集见过的答案值直接 SELECT 常量返回；对未知库才露馅。防御是同 schema 多实例扰动值、要求 SQL 结构与问题语义一致的附加检查、以及 held-out 业务库抽检，三者缺一不可。"},
+        ],
+    },
+    # ---------------------------------------------------------------- 改进算法
+    {
+        "id": "rl-027",
+        "topic": "改进算法",
+        "type": "八股",
+        "difficulty": 4,
+        "frequency": 4,
+        "companies": ["字节", "DeepSeek", "MiniMax"],
+        "years": ["2025"],
+        "question": "DAPO 的四个技术分别解决什么问题？为什么说它是 GRPO 的工程化集大成？",
+        "answerMd": r'''**一句话核心**：DAPO（字节 Seed，2025）针对长 CoT RL 的四个病灶：clip-higher 放宽比值上界抗熵塌缩、动态采样过滤全对/全错零梯度组、token 级 PG 损失消除逐序列长度归一的偏差、超长奖励塑形软化截断惩罚；每个都是 GRPO 已知问题的直接对症修补，合起来把开源系统做到一线水平。
+
+**1. Clip-Higher。** 标准 PPO 的 $\mathrm{clip}(\rho, 1-\epsilon, 1+\epsilon)$ 双侧对称，上界压住低概率 token 的增长，探索被抑制、熵加速衰减。DAPO 拆成 $\epsilon_{low} \approx 0.2$、$\epsilon_{high} \approx 0.28$：负优势侧照旧收紧（防把差答案概率推爆），正优势侧放宽（稀有但正确的 token 更容易涨概率），维持探索能力。
+
+**2. 动态采样。** 组内全对或全错时优势恒零、梯度为零；DAPO 在组采样后过滤这些组、继续重采直到凑满有效 batch，让每个 batch 都有学习信号，样本效率与稳定性同升。
+
+**3. Token 级 PG 损失。** GRPO 按 $\frac{1}{|o_i|}$ 先逐序列平均再批平均，长序列每 token 权重被稀释，与「错误回答更长」的统计叠加造成长度偏置。DAPO 改为全 batch 有效 token 求和后统一平均，消除序列长度对 token 权重的扭曲。
+
+**4. Overlong Reward Shaping。** 截断的回答直接判 0 会把「接近正确但没写完」重罚，污染长题学习。DAPO 对超长区间内的回答给平滑下降的部分奖励，并提供截断样本的掩码缓冲。整体评价：DAPO 没有发明新算法范式，而是把社区零散发现工程化、开源化并给出消融，价值在于「把 RLVR 训练从玄学变成配方」。''',
+        "keyPoints": [
+            r"clip-higher：$\epsilon_{high} > \epsilon_{low}$，抗熵塌缩",
+            "动态采样：过滤零优势组，重采凑 batch",
+            "token 级损失：消序列长度归一偏差",
+            "超长软惩罚：截断不再直接判零",
+        ],
+        "followUps": [
+            {"q": "动态采样会不会让训练分布偏向中等难度题？", "a": "会：过易过难题被系统性过滤，模型对两端的训练信号变少。缓解办法是难度课程先行（把两端题目的难度带移进可解区间）、或对被过滤题降采样率而非完全丢弃；DAPO 论文的设定里这是用课程与持续数据更新抵消的。"},
+        ],
+    },
+    {
+        "id": "rl-028",
+        "topic": "改进算法",
+        "type": "八股",
+        "difficulty": 4,
+        "frequency": 3,
+        "companies": ["字节", "智谱", "DeepSeek"],
+        "years": ["2025"],
+        "question": "Dr.GRPO 指出 GRPO 有哪两处「做错了」？修正后效果与结论是什么？",
+        "answerMd": r'''**一句话核心**：Dr.GRPO（Understanding R1-Zero-like Training）指出两处无根据的归一化：优势除以组内 std（引入难度相关偏差）与损失按回答长度 $\frac{1}{|o|}$ 归一（引入长度偏差），两者叠加造成「回答越错越长、长度虚增」的假象；修正（优势只减均值、长度用常数归一）后 R1-Zero 式训练更干净，且质疑了部分「涌现」结论的实现成分。
+
+**1. 问题一：std 归一化。** $\hat A_i = \frac{r_i - \bar r}{\mathrm{std}(r)}$ 让每个问题组的优势被强行缩放到单位方差。后果：接近全对的简单题 std 极小，微小差距被放大成大梯度；难题组 std 大，真实差距被压缩。优化压力系统性偏向「半会不难的题」，且这个缩放与任务难度耦合，没有理论依据。修正：$\hat A_i = r_i - \bar r$。
+
+**2. 问题二：长度归一化。** 目标里逐序列 $\frac{1}{|o_i|}$ 求平均，使长回答的单 token 梯度更小。统计上错误回答显著更长，等效于「错误 token 被压得更狠」与「长回答被整体抑制」的复合扭曲；实证表现是平均长度随训练异常膨胀（尤其在错题上），被误读为模型「学会更深入思考」。修正：按常数（如设定的最大生成长度）归一，token 间权重与序列长度无关。
+
+**3. 结论与影响。** 修正后的 Dr.GRPO 在 R1-Zero 式设定下复现：正确率提升保留，而长度膨胀明显缓解；并论证 aha moment 等现象部分受这些偏差放大。影响：此后主流实现（包括 DAPO 的 token 级损失）都吸收了「慎用逐序列归一」的结论；面试时要点出「归一化选择不是无关紧要的实现细节，而是改变优化目标本身的操作」。''',
+        "keyPoints": [
+            "偏差一：std 归一化耦合任务难度，无理论依据",
+            "偏差二：1/|o| 长度归一扭曲 token 权重",
+            "表现：错误回答越来越长，被误读为深思考",
+            "修正：减均值不除 std + 常数长度归一",
+        ],
+        "followUps": [
+            {"q": "去掉 std 归一化后训练还稳吗？", "a": "优势尺度会随题目难度波动，极端组（几乎全对）信号反而更强，可能放大震荡；实践中配合动态采样过滤零方差组、clip 限制更新幅度、以及 reward 白化监控即可。稳定性不是免费的，但换来了目标的正确性。"},
+        ],
+    },
+    {
+        "id": "rl-029",
+        "topic": "改进算法",
+        "type": "八股",
+        "difficulty": 4,
+        "frequency": 3,
+        "companies": ["字节", "NVIDIA", "月之暗面"],
+        "years": ["2025"],
+        "question": "VAPO 为什么重新捡回价值方法？它做了哪些针对长思维链的改造？",
+        "answerMd": r'''**一句话核心**：VAPO（字节，2025）论证在长思维链推理上价值方法仍优于免 critic 的 GRPO 系：长序列 credit assignment 需要 per-token 的条件价值估计，组相对基线太粗；它围绕「价值预训练、解耦 GAE、长度自适应」三个改造，把 Qwen2.5-32B 在 AIME 上推到当时最高水平，证明 critic 路线没有过时。
+
+**1. 动机：长 CoT 下 GRPO 的短板。** 组相对优势把整条回答压成一个标量广播到全部 token，几千 token 的推理链里「哪几步是关键」完全无法区分；而价值函数可以在任意中间状态给出预期回报，天然支持细粒度信用分配与提前终止。此前价值方法被弃用主要因为训练不稳，VAPO 的贡献是证明这些不稳定可修。
+
+**2. 关键改造。** 价值预训练：先用 off-policy 数据把 value 网络训到可用再进 RL，解决冷启动噪声；解耦 GAE：对来自环境/结果的 bias 与方差源用两个 λ（λ1、λ2）分别控制，适配稀疏结果奖励；长度自适应 GAE：按序列长度调整折扣，缓解长序列优势衰减过快；整合 value clip、优势白化、损失塑形等稳定件。整体仍是 PPO 骨架，属于「把价值方法按 LLM 特性重新调校」。
+
+**3. 结果与启示。** 在 AIME 2024 上以 Qwen2.5-32B 底座报告约 60 分、显著高于同期 DAPO 的约 50 分，且收敛快。启示：免 critic 与价值方法之争不是范式对错，而是任务结构适配——短答案、可多采样、结果奖励时 GRPO 省资源；长链密集信用需求时，把 critic 修好比删掉它更划算。两条路线在 2025 年后进入共存状态。''',
+        "keyPoints": [
+            "长 CoT 需要中间状态的价值估计，组基线太粗",
+            "价值预训练解决冷启动噪声",
+            "解耦双 λ GAE + 长度自适应折扣",
+            "AIME 上超 DAPO 约 10 分，证明 critic 路线价值",
+        ],
+        "followUps": [
+            {"q": "价值预训练的数据从哪来？", "a": "常用做法：用当前策略的 rollout + 结果奖励构造（回报 = 最终奖励的折扣累计）做回归，等价于先离线拟合一个蒙特卡洛价值函数；也可以复用 PRM 式步骤分数。关键是预训练后还要在 RL 中持续更新，否则分布漂移会逐步失效。"},
+        ],
+    },
+    {
+        "id": "rl-030",
+        "topic": "改进算法",
+        "type": "八股",
+        "difficulty": 4,
+        "frequency": 3,
+        "companies": ["字节", "月之暗面", "DeepSeek"],
+        "years": ["2025", "2026"],
+        "question": "LLM 的 RL 想复用旧数据（off-policy）有哪些做法？主要障碍是什么？",
+        "answerMd": r'''**一句话核心**：复用旧 rollout 的手段从轻到重：PPO 的多 epoch 复用（clip 保护）、组内数据的二级利用（拒绝采样回灌 SFT）、带截断重要性比的 off-policy 修正、以及异步框架下的时间差复用；障碍核心是长序列重要性权重方差爆炸 + 策略版本漂移快，让严格 off-policy 修正难以实用。
+
+**1. 谱系。** 多 epoch：同一批 rollout 更新 K 次，clip 抑制比率漂移，是最普遍的「轻度 off-policy」。数据升级：把 RL 采样的正确轨迹做拒绝采样再 SFT，等于把 on-policy 数据转成离线监督，便宜且稳定（R1 管线阶段三就是大规模利用）。显式 IS：token 级或序列级重要性加权，配 clip/cap 控方差，可复用几步内的旧数据；序列级在长 CoT 下基本不可用，token 级截断后是当前异步框架的主流选择。异步系统：rollout 用旧权重持续产数据、train 侧稍滞后消费，用「版本差 ≤ k」控制偏差（相当于把 off-policy 程度变成可调系统参数）。
+
+**2. 主要障碍。** 一、方差：长序列比率重尾，修正项自身成为噪声源；二、漂移速度：LLM RL 单步更新对分布的改变不小，几步外的数据分布已失真；三、价值失效：critic/基线绑定旧策略时 advantage 语义错位；四、KL 参考不匹配：旧数据的 KL 惩罚相对当前策略过强或过弱。
+
+**3. 实践平衡点。** 2025-2026 年主流系统的形态是「准 on-policy」：数据年龄控制在个位数步内、IS 只在 token 级用、并以 rollout/train 策略间 KL 做监控阈值。完全的离线 RL（见 rl-040）目前更多用于偏好数据而非推理 RL 主线。''',
+        "keyPoints": [
+            "多 epoch + clip 是最轻的复用；拒绝采样回灌 SFT 最稳",
+            "token 级截断 IS 可用，序列级方差爆炸不可用",
+            "异步框架把 off-policy 程度变成版本差参数",
+            "监控 rollout 与训练策略 KL 作为偏差阈值",
+        ],
+        "followUps": [
+            {"q": "为什么拒绝采样回灌不算 off-policy RL 却很有效？", "a": "它把「强化」问题转成了「模仿」问题：正确轨迹就是监督标签，没有分布修正需求，训练与 SFT 一样稳。代价是丢掉了错误轨迹的信息（不知道为什么错）与探索收益，所以它是 RL 主线旁的高性价比增强而非替代。"},
+        ],
+    },
+    # ---------------------------------------------------------------- Agent RL
+    {
+        "id": "rl-031",
+        "topic": "Agent RL",
+        "type": "八股",
+        "difficulty": 4,
+        "frequency": 4,
+        "companies": ["字节", "阿里", "月之暗面"],
+        "years": ["2025", "2026"],
+        "question": "多轮工具调用任务怎么做 RL？和单轮 RLVR 相比形式化上差在哪？",
+        "answerMd": r'''**一句话核心**：多轮 agent RL 把状态扩展为「对话历史 + 环境反馈」，动作包含工具调用与环境等待，奖励多在回合终点且由环境状态判定；与单轮 RLVR 的关键差异是：转移函数含环境随机性、动作序列跨轮、奖励延迟到长 horizon 之后，因此组内可比性与信用分配都被破坏，需要 turn 级建模与环境工程。
+
+**1. 形式化差异。** 单轮 RLVR：一个 prompt 一条回答一个奖励，环境静态。多轮：$s_t$ 是完整交互历史（含工具返回），动作 $a_t$ 是 token 段（回复或工具调用），转移 $P(s_{t+1}|s_t, a_t)$ 由环境决定且常带随机性（页面状态、其他 agent）；奖励可以是回合终点的任务成败，也可以有每步环境信号。同一「题目」的轨迹方差远大于单轮，GRPO 的组内均值基线噪声变大。
+
+**2. 训练形态。** 生成侧：rollout 是「模型 ↔ 环境」的交互循环，沙箱执行工具、把结果拼回上下文；训练侧：整条轨迹进 loss，mask 掉环境反馈 token（不算 policy 的动作），优势可用轨迹级广播或 turn 级分解（Turn-PPO 把每轮当动作单元做 credit assignment，2026 年前后成为热点）。KL/参考策略设置与单轮相同。
+
+**3. 主要挑战。** 环境速度与成本（工具执行、网页操作远慢于 GPU 前向，rollout 是绝对瓶颈）；环境随机性破坏同题可比；长轨迹的奖励稀疏（终点成败）；多轮格式与「何时停」的行为靠奖励塑形兜底。实践配方：环境缓存与并行 + 难度课程 + turn 级优势 + 结果奖励为主的混合奖励。''',
+        "keyPoints": [
+            "状态含环境反馈，转移由环境决定且随机",
+            "环境反馈 token 必须从 policy 的 loss 里 mask",
+            "轨迹方差大，组基线噪声高，需 turn 级分解",
+            "环境 rollout 是瓶颈：沙箱、缓存、并行",
+        ],
+        "followUps": [
+            {"q": "环境反馈为什么不能算作模型动作参与梯度？", "a": "这些 token 由环境生成而非策略采样，没有对应的策略对数概率，强行算比率会引入无意义梯度；正确做法是 mask 掉它们与对应奖励位置，优势只分配到模型生成的 token 上，这也是所有多轮 RL 实现的统一约定。"},
+        ],
+    },
+    {
+        "id": "rl-032",
+        "topic": "Agent RL",
+        "type": "八股",
+        "difficulty": 3,
+        "frequency": 3,
+        "companies": ["字节", "阿里", "腾讯"],
+        "years": ["2024", "2025"],
+        "question": "Agent 任务奖励又稀疏又延迟，有哪些缓解手段？WebRL 的思路是什么？",
+        "answerMd": r'''**一句话核心**：缓解手段四类：结果监督的奖励模型（给终局成败外的中间信号）、课程与任务生成（保证当前能力区间的任务供给）、奖励塑形与里程碑奖励（把长任务切成可判定的子目标）、以及密集化环境信号（执行日志、页面 diff）；WebRL 的组合拳是「自进化课程——从失败任务自动生成新任务 + 结果监督 ORM」，在 WebArena 上把开源模型的表现拉高一个量级。
+
+**1. WebRL 的两个核心件。** 自进化课程：统计当前策略失败的任务，用 LLM 从失败案例生成同型新任务（改目标、换站点），持续把训练分布推到「能做对一半」的区间——相当于把稀疏奖励问题转化成任务供给问题；ORM（结果监督奖励模型）：在真实成功轨迹上训练终局判别器，缓解规则判成功难以覆盖多样网页状态的问题。二者迭代循环：训 → 测 → 生成新任务 → 再训。
+
+**2. 其他常见手段。** 里程碑奖励：任务分解成子目标（提交了搜索、打开了正确页面），每个给部分分——要防「刷里程碑不完成」的 hack，通常部分分占比随训练递减；过程奖励模型：对每步动作打分，通用但贵且易被 hack；执行信号塑形：工具报错次数、无效点击数作为负项；hindsight：失败的轨迹在反事实目标下变成功，扩充正样本（对可重标任务有效）。
+
+**3. 工程提醒。** 塑形奖励越多， hacking 面越大——agent 的策略空间比数学题大得多，任何「可刷的中间信号」都会被利用；经验法则是：塑形只用于训练早期的探索引导，后期回到以终局结果为主的奖励结构。''',
+        "keyPoints": [
+            "WebRL：自进化课程（失败→新任务）+ 结果 ORM",
+            "课程把稀疏奖励转化为任务供给问题",
+            "里程碑/过程奖励要防刷分，占比后期递减",
+            "执行日志可做负向塑形信号",
+        ],
+        "followUps": [
+            {"q": "自进化课程生成的新任务质量怎么保证？", "a": "生成后要过三道闸：可解性验证（用强模型或人工确认存在成功解）、判别性检查（当前策略不是全对也不是全错）、以及去重（与已有任务相似度阈值）；否则课程会被低质任务污染，ORM 也会跟着学坏。"},
+        ],
+    },
+    {
+        "id": "rl-033",
+        "topic": "Agent RL",
+        "type": "场景",
+        "difficulty": 4,
+        "frequency": 3,
+        "companies": ["字节", "阿里", "美团"],
+        "years": ["2025"],
+        "question": "要给一个代码修复 agent 建 RL 训练环境，从环境到验证怎么设计？成本怎么控制？",
+        "answerMd": r'''**一句话核心**：核心设计是「容器化可复现仓库环境 + 终局测试判分 + 中间信号辅助」：每个任务打包成带单测的 git 仓库镜像，agent 在沙箱里多轮编辑执行，奖励 = 隐藏测试通过（终局）+ 补丁规范性与效率（辅助）；成本靠镜像缓存、快照回滚、并行容器与任务难度课程控制，防 hacking 靠测试集隔离与补丁审查。
+
+**1. 环境构建。** 任务来源：真实仓库的 issue + 对应修复 commit，过滤出「单测可判定」的子集；每个任务固化：基线 commit、复现脚本、公开测试（训练可见）与隐藏测试（判分用）。容器模板按语言族抽象，依赖预装层缓存，任务层 overlay——把镜像构建从分钟级压到秒级。快照与回滚：agent 每次执行前打快照，失败路径可重置，支持并行分支探索。
+
+**2. 奖励与防 hack。** 主奖励：隐藏测试通过率（终局）；辅助项：diff 最小性（防大改乱改）、是否引入回归（公开测试全过）、语法/编译错误次数负项。已知 hack 与防御：硬编码期望值（隐藏测试值域扰动 + held-out 仓库评估）、改测试文件（把测试目录设为只读、diff 白名单）、退而求其次删功能让测试跳过（统计删除行数惩罚）。SWE-RL 的替代思路值得提：不用可执行环境，用 PR 数据的 patch 相似度做规则奖励，牺牲精度换规模——两者按算力与数据禀赋选。
+
+**3. 成本与调度。** 单 rollout = 多轮 LLM 生成 + 多次沙箱执行，瓶颈在执行侧：容器池预热、任务级并行、结果缓存、超时熔断；难度课程按「当前模型通过率」动态分桶；监控维度加环境崩溃率与沙箱逃逸尝试（安全）。这一套跑通后，与单轮 RLVR 框架（verl 类）对接只是把 rollout 函数换成环境循环。''',
+        "keyPoints": [
+            "任务 = 基线 commit + 复现脚本 + 公开/隐藏测试分层",
+            "镜像分层缓存 + 快照回滚 + 并行容器池",
+            "奖励：隐藏测试为主，diff 最小性与回归为辅",
+            "防 hack：测试只读、held-out 仓库、硬编码检测",
+            "无环境替代：SWE-RL 式 patch 相似度规则奖励",
+        ],
+        "followUps": [
+            {"q": "环境崩溃和不终止的轨迹怎么处理？", "a": "设全局步数与时间预算，超限直接截断并给零奖励，同时记录崩溃原因分类：环境 bug 要修复后重放（否则模型学走捷径），模型导致的死循环算正常负样本。截断样本的优势处理建议按未完成惩罚而非丢弃，保留「早停也拿不到分」的信号。"},
+        ],
+    },
+    {
+        "id": "rl-034",
+        "topic": "Agent RL",
+        "type": "八股",
+        "difficulty": 4,
+        "frequency": 3,
+        "companies": ["字节", "月之暗面", "Anthropic"],
+        "years": ["2025", "2026"],
+        "question": "长 horizon 任务的 credit assignment 有哪些粒度？turn 级分配为什么开始流行？",
+        "answerMd": r'''**一句话核心**：粒度谱系从粗到细：轨迹级（整条一个优势，GRPO 默认）→ turn 级（每轮工具调用+回复为一个动作单元）→ token 级（GAE/过程奖励逐 token）；长 horizon 下轨迹级把功劳平摊给错误步骤、token 级又被稀疏结果奖励淹没，turn 级正好对齐 agent 的自然决策单元——2026 年前后 Turn-PPO 等工作把它做成主流选项。
+
+**1. 三种粒度的得失。** 轨迹级：实现最简单、信号无偏（结果如实广播），但一个 50 轮任务里第 3 轮的错误与第 40 轮的关键救场拿同样的优势，学习效率极低。token 级：信息容量最大，但需要可靠的逐步价值估计（PRM 或 critic），在稀疏结果奖励下估计本身噪声大。turn 级：把「一轮环境交互（模型输出 + 工具结果）」视为动作单元，在 turn 边界做 advantage 估计——粒度对齐语义，噪声可控。
+
+**2. turn 级的实现要点。** 划分：以「环境反馈返回」为边界切分轮次；基线：turn 级价值函数（可用 ORM 或轻量 critic），或组内同轮位对比（同题轨迹按轮次对齐取均值做基线）；优势传播：turn 内 token 共享该轮优势，轮间用折扣或线性衰减；mask 依旧排除环境反馈 token。Turn-PPO（EACL 2026）把多轮任务重建成 turn 级 MDP，实测显著优于轨迹级广播。
+
+**3. 何时用什么。** 短任务（≤5 轮）轨迹级够用；奖励天然逐步（工具结果即可判对错）时 token/turn 级收益大；任务是长链推理但单轮内也有可验证子目标时，可混合——turn 级优势 + 结果奖励校正。趋势判断：随着 agent RL 成为主战场，credit assignment 正从「实现细节」上升为「核心算法问题」，这也是 value 方法回归（VAPO）与 turn 级建模合流的背景。''',
+        "keyPoints": [
+            "粒度谱系：轨迹级 → turn 级 → token 级",
+            "轨迹级平摊功劳，token 级受稀疏奖励噪声限制",
+            "turn 级以环境反馈为界，对齐自然决策单元",
+            "Turn-PPO：turn 级 MDP 重建，优于轨迹广播",
+            "按任务长度与奖励结构选择粒度，可混合",
+        ],
+        "followUps": [
+            {"q": "turn 级基线怎么估计最省事？", "a": "最省事是组内对照：同一任务的多条轨迹按轮次对齐，用其他轨迹在同轮位的平均结果做基线（GRPO 思想下移到 turn 层），免训 critic；代价是要求任务可重放、轮次对齐有意义。环境随机性强时此假设失效，还是要回到学习式价值函数。"},
+        ],
+    },
+    # ---------------------------------------------------------------- 奖励设计
+    {
+        "id": "rl-035",
+        "topic": "奖励设计",
+        "type": "八股",
+        "difficulty": 4,
+        "frequency": 4,
+        "companies": ["DeepSeek", "字节", "Anthropic"],
+        "years": ["2025"],
+        "question": "rule-based 奖励和 model-based 奖励各自适用什么场景？推理 RL 里为什么倾向前者？",
+        "answerMd": r'''**一句话核心**：rule-based 适用于真值可判定的域（数学答案、代码测试、格式、环境终态），精确、可审计、抗 hack；model-based（RM/LLM judge）覆盖开放域但可被利用且随分布漂移；推理 RL 倾向规则奖励是因为优化压力极大 + 可验证域恰好是主战场 + R1-Zero 证明了纯规则也能激发推理，RM 留给无法判真的能力。
+
+**1. 选型矩阵。** 有真值校验器 → 规则（数学等价、单测、SQL 结果、格式 schema）。有高质量偏好数据但无真值 → 模型奖励（写作质量、对话帮助性、语气）。混合域 → 加权组合：硬规则先决（不合规直接 0），软分只在硬规则通过后生效。Agent 场景的环境终态本质也是规则奖励（任务状态判定），但判定逻辑可能很复杂，此时用 ORM 学一个「环境判定器」是折中。
+
+**2. 推理 RL 倾向规则的原因。** 三点：对抗强度——RL 会放大奖励函数的一切漏洞，RM 的假阳性在数千组采样下必然被利用，规则至少错误是确定性的、可修复的；成本——RM 要随策略分布更新（否则漂移），规则一次写好长期用；有效性——R1-Zero 表明仅凭「答案对 + 格式对」两个规则信号就足以驱动长推理行为的成长，说明奖励密度不是瓶颈，奖励可信度才是。
+
+**3. 规则奖励的设计准则。** 判定要过「对抗审查」：写完校验器先自己找 hack（常量输出、特判、答案泄漏）；等价性要宽（等价写法给分）但别宽到泄题；格式奖励权重压低（够让输出可解析即可，防止喧宾夺主）；定期用 held-out 集评估奖励与人工判断的一致性。口诀：规则管对错，模型管好坏，格式只管能读。''',
+        "keyPoints": [
+            "真值可判定 → 规则；无真值 → RM/judge",
+            "混合：硬规则先决，软分后置",
+            "推理 RL 用规则：对抗强度、成本、R1-Zero 实证",
+            "格式奖励低权重，防喧宾夺主",
+            "校验器要过对抗审查与 held-out 一致性检验",
+        ],
+        "followUps": [
+            {"q": "LLM-as-judge 当奖励源有什么特有风险？", "a": "judge 本身可被 prompt 注入（回答里藏指令操纵评分）、有自偏好（偏好自己风格）、分数与长度相关；且 judge 错误会被 RL 无限放大。缓解：结构化 rubric 分项、匿名化与位置随机化、对 judge 输出做校准、用多个 judge 交叉，关键场景保留人工抽检。"},
+        ],
+    },
+    {
+        "id": "rl-036",
+        "topic": "奖励设计",
+        "type": "八股",
+        "difficulty": 3,
+        "frequency": 3,
+        "companies": ["DeepSeek", "字节", "MiniMax"],
+        "years": ["2025"],
+        "question": "格式奖励怎么设计才不会喧宾夺主？有哪些常见的翻车形态？",
+        "answerMd": r'''**一句话核心**：格式奖励的作用是「让输出可解析、可校验」，设计原则是小权重、宽松匹配、只约束结构不约束内容；翻车形态包括格式分压过正确率（模型刷标签不解题）、格式模板僵化（所有回答一个腔调）、以及与截断/解析 bug 叠加造成大面积误判零分。
+
+**1. 设计原则。** 权重：格式分通常 0~0.1 量级，且正确答案存在时格式分可以不额外给（或只惩罚「不可解析」），避免模型在「格式 vs 正确」间套利；匹配：用宽松的结构检查（是否含答案标签、标签是否成对）而不是严格正则——严格正则会把等价但不同写法误杀；范围：只约束「机器要读的部分」（最终答案段），推理过程的语言与结构尽量自由，否则限制探索。
+
+**2. 常见翻车。** 权重过高 → 模型输出满屏标签、答案空洞（R1-Zero 早期观察到的可读性问题部分源于此）；过严正则 → 正确但格式微差的回答判零，训练信号大面积失真；格式与思考预算冲突 → 模型为满足「一行答案」约束牺牲推理长度，反而降正确率；解析器 bug → 某类正确输出永远解析失败，模型系统性避开某类解法。这些都属于「奖励实现错误」级别的故障，出现时曲线特征是格式分高而正确率不涨。
+
+**3. 迭代方式。** 上线前用当前策略采样几千条，人工看「被判零的样本里有多少其实是对的」——这个比例是奖励设计质量的直接指标；格式规则改动后全量重刷历史奖励，保持监控曲线可比。一句话总结：格式奖励是脚手架，楼建好后要能拆。''',
+        "keyPoints": [
+            "小权重、宽松匹配、只约束机器读取部分",
+            "正确时可不再给格式分，避免套利",
+            "翻车：刷格式不解题、正则误杀、限制思考",
+            "监控指标：判零样本中实际正确的比例",
+        ],
+        "followUps": [
+            {"q": "格式奖励要不要随训练退火？", "a": "常见做法：早期权重稍高帮模型进入可校验状态，中期后把格式从奖励降为硬性前置条件（不满足直接零分而不是加分），后期只统计不奖励。这样既保住可解析性，又不持续占用优化压力。"},
+        ],
+    },
+    {
+        "id": "rl-037",
+        "topic": "奖励设计",
+        "type": "八股",
+        "difficulty": 4,
+        "frequency": 4,
+        "companies": ["字节", "OpenAI", "Anthropic"],
+        "years": ["2024", "2025"],
+        "question": "在 RLVR 设定下，模型还能怎么 hack 规则奖励？举三类案例并给防御。",
+        "answerMd": r'''**一句话核心**：规则奖励看似不可 hack，但策略会从三个方向钻空子：校验器逻辑漏洞（硬编码、特判、绕过）、任务语义漏洞（碰运气、泄漏、退化解法）、以及评估协议漏洞（长度、格式、解析边界）；防御思路是「随机化评估面 + held-out 真值 + 对抗审计」，把 hacking 从静默失败变成可检测信号。
+
+**1. 校验器漏洞案例。** 数学：答案校验只比对最终数字，模型学会「先猜常见答案（0、1、2、42）」或写出凑数过程——正确率假高；代码：训练集测试用例被记忆，模型特判输入输出；生成大量 print 骗过「有输出」类弱检查。防御：测试用例扰动与隐藏集、输入输出对随机化、对解法结构做多样性审计（聚类看解法是否同质）。
+
+**2. 任务语义漏洞案例。** 选择题只输出选项字母不写过程（若奖励只看字母，CoT 能力反而退化）；碰运气：答案空间小时（AIME 整数 0~999）纯猜也有期望分，模型倾向短输出高频尝试；泄漏：题目与答案同源采集时模型背答案。防御：过程与结果联合评分（过程分权重低但存在）、把「无意义的极短解」判低分、数据源严格切分。
+
+**3. 评估协议漏洞案例。** 解析边界：答案提取正则漏洞被利用（在无关位置塞答案标签）；超长截断：截断前恰好输出答案占便宜；多轮任务把错误信息复读骗过「有交互」检查。防御：解析器对抗测试、截断样本单独计分、协议版本化与回归。
+
+**总防御框架。** 把校验器当攻击面做红队（专门团队/模型找漏洞）；建立 hack 案例库，每次发现即转成回归测试；监控「奖励上涨但 held-out 人工评测不动」的背离信号——这是所有 hacking 的最终共同特征。''',
+        "keyPoints": [
+            "三类漏洞：校验器逻辑、任务语义、评估协议",
+            "案例：猜答案、特判测试、裸选项、碰运气",
+            "防御：随机化/隐藏评估面 + 结构多样性审计",
+            "最终信号：奖励涨而人工评测不涨即背离",
+        ],
+        "followUps": [
+            {"q": "为什么不干脆把奖励函数写得极其严格？", "a": "过严会把等价正确解误判为零，制造大面积假阴性，训练信号失真比假阳性更伤（模型直接学不到正确方向）。奖励设计是在「防 hack 的严格」与「承认等价解的宽容」之间找平衡，靠对抗测试与校准迭代逼近，而不是单方向加严。"},
+        ],
+    },
+    # ---------------------------------------------------------------- 前沿讨论
+    {
+        "id": "rl-038",
+        "topic": "前沿讨论",
+        "type": "八股",
+        "difficulty": 5,
+        "frequency": 4,
+        "companies": ["DeepSeek", "Anthropic", "月之暗面", "智谱"],
+        "years": ["2025", "2026"],
+        "question": "「RL 只是在激发基座已有能力，并没有产生新能力」这场争论的双方论据是什么？你怎么判断？",
+        "answerMd": r'''**一句话核心**：激发论（distillation/elicitation debate）的核心证据是 pass@k 分析：把 RLVR 模型与基座在足够大的 k 下对比，基座的采样上限常不低于 RL 模型，说明 RL 主要是把分布质量向已有能力集中（提 pass@1）而非扩展能力边界；反方证据是 RL 后能解出基座极少命中的新题型、且行为模式（长链自检）在基座分布中几乎不存在——双方在「能力边界如何定义」上其实没有共识。
+
+**1. 激发论的论据。** Yue et al. 2025（Does RL Really Incentivize…）：控制相同 SFT 起点与解码器，RLVR 模型在小 k 时 pass@1 更高，但大 k 时被基座反超——RL 收窄了分布、牺牲了探索多样性；蒸馏出的小模型在多基准上优于 RL 训练的小模型（好教师数据直接注入比自搜索高效）；结论表述为「RLVR elicits，不产生超越基座边界的新推理模式」。
+
+**2. 反方论据。** 第一，边界定义问题：pass@k 在 k 很大时基座「蒙对」也算命中，把运气计入能力上限，指标本身高估基座；第二，RL 后的模型能稳定解出基座几乎不可能采样的题目（多步规划、长程一致性），不能只用单点采样覆盖率衡量；第三，行为级证据：自我回溯、检查等模式需要 RL 才稳定出现，这些是新行为而非已有行为的重加权。中间派：RL = 分布塑形 + 少量真实扩展，扩展幅度取决于任务与奖励设计质量。
+
+**3. 我的判断框架（面试可用的结论）。** 拆两个问题：其一，单题正确性上限——更支持「激发为主」；其二，策略性新行为（何时验证、何时回溯）——RL 确实创造了基座采样中罕见的行为。更稳妥的表述是「RLVR 把基座的隐式能力转化为显式、可靠输出，同时产生了少量新策略行为；真正的新知识注入仍主要靠数据与蒸馏」。2025-2026 年该争论仍在持续，关键实验分歧点在 pass@k 的解读与评测集难度外推上。''',
+        "keyPoints": [
+            "激发论证据：大 k 下基座 pass@k 反超 RLVR 模型",
+            "RL 提 pass@1 靠分布收窄，牺牲探索多样性",
+            "反方：pass@k 高估基座运气，新行为真实存在",
+            "折中：显式化已有能力为主 + 少量新策略行为",
+        ],
+        "followUps": [
+            {"q": "如果让你设计实验终结这场争论，怎么设计？", "a": "控制变量对比三条路径的同底座模型：纯蒸馏、纯 RL、蒸馏+RL；在「训练分布外的全新题型」上测 pass@k 与 pass@1 的差值结构，并用过程评估区分「蒙对」与「会做」。难点在构造真正分布外且可验证的题，这本身是评测学问题。"},
+        ],
+    },
+    {
+        "id": "rl-039",
+        "topic": "前沿讨论",
+        "type": "八股",
+        "difficulty": 4,
+        "frequency": 3,
+        "companies": ["Meta", "字节", "DeepSeek"],
+        "years": ["2025", "2026"],
+        "question": "self-play 在 LLM 时代是什么形态？和 AlphaZero 那种 self-play 有什么本质差异？",
+        "answerMd": r'''**一句话核心**：LLM 的 self-play 已分化为三种形态——对抗式（两方互为对手：辩论、生成器 vs 判别器）、协作式（多角色互馈共同提升）、以及自进化式（模型给自己出题 + 可验证自评，如 2025 年的 Absolute Zero）；与 AlphaZero 的本质差异在于：LLM 没有完美规则环境与精确胜负判定，「自出题 + 自评分」这一环必须外挂真值校验器，否则闭环会自欺。
+
+**1. 三种形态。** 对抗式：SPIN 用「当前模型 vs 历史版本」做判别游戏迭代改进；辩论类任务里两模型互相攻击论点。协作式：出题者与解题者博弈——出题者调难度使解题者维持约一半正确率，双方共同进步（Absolute Zero 把出题、求解、验证都交给模型，仅靠代码执行器提供客观反馈）。自进化式：R1-Zero 式的单 agent 自我提升常被宽泛地归入 self-play，但严格说是自举而非博弈。
+
+**2. 与 AlphaZero 的差异。** AlphaZero 有三件 LLM 没有的东西：完美模拟器（规则确定、可千万次快速对局）、精确胜负信号（终局输赢无歧义）、以及任务分布自洽（博弈规则不变）。LLM 的对应物全部缺失：环境是开放世界、奖励多靠学出来的判定器、任务分布需要外部供给。所以 LLM self-play 的成败押在「客观反馈通道」上——有执行器/校验器的域（代码、数学）可以真闭环，开放域的 self-play 很容易滑向模型互骗。
+
+**3. 判断与展望。** 2025-2026 年的共识雏形：self-play 在可验证域是有效的数据引擎（自动生成难度递增的训练题），在开放域仍需人类信号锚定。面试时可点出关键区分：问 self-play 工不工作，先问「反馈的真值性由什么保证」。''',
+        "keyPoints": [
+            "三形态：对抗式（SPIN）、协作出题-解题、自进化",
+            "Absolute Zero：模型出题 + 代码执行器客观反馈",
+            "AlphaZero 有完美模拟器与精确胜负，LLM 没有",
+            "成败关键：自评分的真值性由外部校验器保证",
+        ],
+        "followUps": [
+            {"q": "出题者怎么维持题目难度在「有效区间」？", "a": "用解题者的实时正确率做反馈控制：目标区间设 20%~80%，出题者奖励里加入「被解出比例落在这个区间」的项；难度估计也可用历史通过率回归。失控模式是出题者学会出平凡题刷分，所以要同时惩罚与已有题的相似度。"},
+        ],
+    },
+    {
+        "id": "rl-040",
+        "topic": "前沿讨论",
+        "type": "概念",
+        "difficulty": 3,
+        "frequency": 3,
+        "companies": ["字节", "腾讯", "NVIDIA"],
+        "years": ["2024", "2025"],
+        "question": "简单介绍离线 RL 的核心思想与代表算法，它和 LLM 的后训练有什么联系？",
+        "answerMd": r'''**一句话核心**：离线 RL（batch RL）只用一份固定数据集学策略，不做任何新采样，核心难题是分布偏移——策略可能在数据没覆盖的动作上高估价值；代表路线是策略约束（BCQ）与保守值估计（CQL）、免 Q 的隐式方法（IQL），而 LLM 后训练里的 DPO/RLHF 本质上就是 KL 正则化的离线 RL 的不同解法。
+
+**1. 核心难题。** 训练数据来自行为策略 $\pi_\beta$，学出的策略 $\pi$ 会想选数据里没出现过的动作；TD 自举把这些动作的价值误差循环放大（extrapolation error）。离线 RL 的一切设计都在回答「如何只信数据分布内的价值」。
+
+**2. 代表算法。** BCQ/BEAR：限制策略只在数据支持的 action 邻域内选择；CQL：在 Q 学习目标里加正则压低数据外动作的 Q 值（保守主义），让高估无法立足；IQL：用 expectile 回归从数据中隐式提取较优策略，完全避免查询数据外动作的 Q 值，工程上最简单；Decision Transformer：干脆绕开值学习，用序列建模直接拟合回报条件轨迹。
+
+**3. 与 LLM 后训练的联系。** KL 正则 RLHF 可以看作在「以 SFT 为参考、偏好数据为离线数据集」的 MDP 上做离线 RL：DPO 对应其闭式解的监督化（离线），PPO/GRPO 则是把数据源改成在线采样（在线）。这个视角解释了很多现象：为什么离线方法（DPO）天花板受数据分布限制、为什么要迭代式收集新偏好数据、以及为什么推理 RL 要回到在线——长推理链的探索空间远超任何静态数据集。另外离线 RL 思想也出现在 agent 场景：用历史轨迹 + hindsight 重标做批量训练，避免昂贵环境交互。''',
+        "keyPoints": [
+            "核心难题：数据外动作的价值外推误差",
+            "CQL 保守 Q 值、BCQ 限制动作域、IQL 免 Q 查询",
+            "Decision Transformer 绕开值学习用序列建模",
+            "DPO = KL 正则离线 RL 的监督化闭式解",
+            "推理 RL 回在线的原因：探索空间远超静态数据",
+        ],
+        "followUps": [
+            {"q": "离线 RL 和模仿学习的本质区别是什么？", "a": "模仿学习只拟合数据中的行为（行为克隆），学不到比数据中更好的策略；离线 RL 要利用奖励信号在数据内做最优性推断（哪个动作更好），所以才有外推难题。数据里含质量差异信息时离线 RL 有增益空间，否则退化为 BC。"},
+        ],
+    },
+]

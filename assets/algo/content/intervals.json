@@ -1,0 +1,287 @@
+{
+  "topic": "区间",
+  "problems": [
+    {
+      "id": 56,
+      "title": "Merge Intervals",
+      "titleCn": "合并区间",
+      "difficulty": "medium",
+      "frequency": 5,
+      "companies": [
+        "字节跳动",
+        "美团",
+        "拼多多"
+      ],
+      "question": "以数组 intervals 表示若干个区间的集合，其中单个区间为 intervals[i] = [starti, endi]。请你合并所有重叠的区间，并返回一个不重叠的区间数组，该数组需恰好覆盖输入中的所有区间。\n\n示例 1：输入 intervals = [[1,3],[2,6],[8,10],[15,18]]，输出 [[1,6],[8,10],[15,18]]（区间 [1,3] 和 [2,6] 重叠，合并为 [1,6]）。\n示例 2：输入 intervals = [[1,4],[4,5]]，输出 [[1,5]]（区间 [1,4] 和 [4,5] 可被视为重叠区间，端点相接也算重叠）。",
+      "samples": [
+        {
+          "input": "intervals = [[1,3],[2,6],[8,10],[15,18]]",
+          "output": "[[1,6],[8,10],[15,18]]",
+          "explain": "区间 [1,3] 和 [2,6] 重叠，合并为 [1,6]"
+        },
+        {
+          "input": "intervals = [[1,4],[4,5]]",
+          "output": "[[1,5]]",
+          "explain": "区间 [1,4] 和 [4,5] 端点相接，可被视为重叠区间"
+        }
+      ],
+      "hints": [
+        "审题诀窍：按左端点排序后，所有能合并的区间一定彼此相邻——无需两两比较，只需拿当前段的右端点去够下一个区间。",
+        "审题诀窍：端点相接（[1,4] 和 [4,5]）也算重叠，合并条件是 next.start <= cur.end，用的是 <= 而不是 <，这是最常见的边界坑。",
+        "突破口：排序后若 next.start > cur.end 就封口开新段；并入时右端点取 max(cur.end, next.end)，防止 [1,10] 吃掉 [2,3] 后右端反而被缩小。",
+        "追问预备：只要求插入一个新区间且输入有序无重叠怎么做？（LC 57 三段式 O(n)）；求区间并集的总长度呢？（排序后扫描，用已覆盖右端 cur_end 去重累加）"
+      ],
+      "keyPoints": [
+        "先按左端点排序，把任意顺序的重叠区间变成相邻的可合并区间",
+        "合并条件 next[0] <= cur_end；右端点更新为 max(cur_end, next[1])",
+        "res 只在断开时追加新区间，天然保证输出互不重叠",
+        "端点相接属于重叠，边界符号 <= 要写对"
+      ],
+      "structureTags": [
+        "sort",
+        "intervals",
+        "greedy"
+      ],
+      "approaches": [
+        {
+          "name": "暴力两两合并",
+          "idea": "反复扫描所有区间对，发现重叠就合并并重开一轮扫描，直到某一轮没有发生任何合并为止。逻辑正确但每轮都是平方级的比较。",
+          "detail": "步骤拆解：\n1. 每一轮遍历所有区间对 (i, j)，若 intervals[i] 与 intervals[j] 相交（a[0] <= b[1] 且 b[0] <= a[1]），把 j 并入 i（左右端分别取 min/max），删除 j，置 merged 标记。\n2. 本轮若发生过任何合并，重开一轮；直到某轮再无合并为止，剩余区间即答案。\n\n示例走查：示例 1。第一轮发现 [1,3] 与 [2,6] 相交，并入得 [1,6] 并删除 [2,6]；其余区间两两相离，第二轮无合并发生，输出 [[1,6],[8,10],[15,18]]。\n\n为什么正确：每次合并用并集替换两个区间，区间的并保持不变且数量严格减少；迭代到不动点时剩余区间两两相离，恰为输入并集的最简分解。\n\n易错点：\n- 相交判定别漏端点相接，要用 <= 而不是 <。\n- 遍历中边删边扫容易跳过元素：删除后保持 j 不动继续比，或先收集再删。\n- 层层嵌套的输入（如 [1,10],[2,9],[3,8]）每轮只合并一对，轮数也是 O(n)，总代价远超排序解——这正是必须优化的信号。",
+          "complexity": "时间 O(n²)，空间 O(n)",
+          "code": "def merge_brute(intervals):\n    intervals = [list(iv) for iv in intervals]   # 拷贝，避免改入参\n    changed = True\n    while changed:                       # 本轮发生过合并就重开一轮\n        changed = False\n        i = 0\n        while i < len(intervals):\n            j = i + 1\n            while j < len(intervals):\n                a, b = intervals[i], intervals[j]\n                if a[0] <= b[1] and b[0] <= a[1]:    # 相交（端点相接也算）\n                    intervals[i] = [min(a[0], b[0]), max(a[1], b[1])]\n                    intervals.pop(j)                 # b 并入 a 后删除\n                    changed = True                   # j 不动，继续比较\n                else:\n                    j += 1\n            i += 1\n    return sorted(intervals)"
+        },
+        {
+          "name": "排序后一次扫描合并",
+          "idea": "按左端点排序后维护当前合并段：下一个区间起点不超过当前段右端点就并入（右端取 max），否则当前段完成、开新段。排序保证了重叠区间必然相邻，一遍扫描即可完成全部合并。",
+          "detail": "步骤拆解：\n1. intervals.sort() 按左端点升序（左端相同按右端，默认元组序即可）。\n2. res = []；对每个 (start, end)：若 res 非空且 start <= res[-1][1]，合并——res[-1][1] = max(res[-1][1], end)；否则 append([start, end]) 开新段。\n3. 返回 res。\n\n示例走查：示例 1 排序后不变。处理 [1,3]：res=[[1,3]]。处理 [2,6]：2 <= 3 → res[-1][1]=max(3,6)=6 → [[1,6]]。处理 [8,10]：8 > 6 → 新段。处理 [15,18]：15 > 10 → 新段。结果 [[1,6],[8,10],[15,18]]。\n\n为什么正确：按左端点排序后，若区间 A 与 C 重叠且 B 的左端在两者之间，则 B 必与 A、C 之一重叠——重叠关系在左端点序下是『相邻可合并』的，因此只需拿当前段右端点去够下一个区间；右端取 max 保证被包含的区间（如 [1,10] 吃 [2,3]）不会把段缩短。\n\n易错点：\n- 合并条件用 <=：[1,4] 与 [4,5] 端点相接也要合并，写成 < 会漏。\n- 右端点必须 max(cur_end, next_end)，直接赋 next[1] 在包含关系中会缩短段。\n- intervals.sort() 是原地排序会改动入参，题目不允许修改时先拷贝。",
+          "complexity": "时间 O(n log n)，空间 O(n)（输出不计则辅助空间为 O(log n)）",
+          "optimal": true,
+          "code": "def merge_sort_scan(intervals):\n    intervals = sorted(intervals)          # 按左端点排序（不修改入参）\n    res = []\n    for start, end in intervals:\n        if res and start <= res[-1][1]:    # 端点相接也算重叠，用 <=\n            res[-1][1] = max(res[-1][1], end)   # 右端延伸取 max\n        else:\n            res.append([start, end])       # 与上一段相离，开新段\n    return res"
+        }
+      ],
+      "code": "class Solution:\n    def merge(self, intervals: List[List[int]]) -> List[List[int]]:\n        # 按左端点排序：排序后所有可合并的区间都彼此相邻\n        intervals.sort()\n        res = []\n        for start, end in intervals:\n            # res 非空且当前区间起点 <= 上一段的右端点 => 有重叠，并入上一段\n            if res and start <= res[-1][1]:\n                res[-1][1] = max(res[-1][1], end)   # 右端点延伸，必须取 max 防 [1,10] 吃 [2,3]\n            else:\n                res.append([start, end])            # 与上一段无重叠，开启新段\n        return res",
+      "acmCode": "# ACM 模式：完整可运行程序（stdin -> stdout）\n# 输入格式：\n#   第一行：n（区间个数）\n#   接下来 n 行：每行两个整数 start end\n# 输出格式：若干行，每行一个合并后的区间 \"start end\"（按左端点升序）\nimport sys\n\ndef main():\n    data = sys.stdin.read().split()\n    n = int(data[0])\n    intervals = []\n    idx = 1\n    for _ in range(n):\n        intervals.append([int(data[idx]), int(data[idx + 1])])\n        idx += 2\n    intervals.sort()                     # 按左端点排序\n    res = []\n    for start, end in intervals:\n        if res and start <= res[-1][1]:  # 与上一段重叠（端点相接也算，用 <=）\n            res[-1][1] = max(res[-1][1], end)   # 右端延伸取 max\n        else:\n            res.append([start, end])     # 与上一段相离，开启新段\n    print('\\n'.join(f'{s} {e}' for s, e in res))\n\nif __name__ == '__main__':\n    main()",
+      "templates": [
+        "区间问题第一定律：先按左端点排序，把『任意顺序的重叠』转化为『相邻的可合并』",
+        "合并模板：res[-1][1] >= cur[0] 时 res[-1][1] = max(res[-1][1], cur[1])，否则 append 新区间"
+      ],
+      "codeCpp": "class Solution {\npublic:\n    vector<vector<int>> merge(vector<vector<int>>& intervals) {\n        // 按左端点排序：排序后所有可合并的区间都彼此相邻\n        sort(intervals.begin(), intervals.end());\n        vector<vector<int>> res;\n        for (const auto& iv : intervals) {\n            // 与上一段有重叠（端点相接也算，用 <=）则并入上一段\n            if (!res.empty() && iv[0] <= res.back()[1])\n                res.back()[1] = max(res.back()[1], iv[1]);  // 右端延伸取 max，防 [1,10] 吃 [2,3] 后被缩短\n            else\n                res.push_back(iv);                          // 与上一段相离，开启新段\n        }\n        return res;\n    }\n};",
+      "acmCodeCpp": "// ACM 模式：完整可运行程序（stdin -> stdout）\n// 输入格式：\n//   第一行：n（区间个数）\n//   接下来 n 行：每行两个整数 start end\n// 输出格式：若干行，每行一个合并后的区间 \"start end\"（按左端点升序）\n#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);\n    cin.tie(nullptr);\n\n    int n;\n    cin >> n;\n    vector<vector<int>> intervals(n, vector<int>(2));\n    for (auto& iv : intervals) cin >> iv[0] >> iv[1];\n\n    sort(intervals.begin(), intervals.end());   // 按左端点排序\n    vector<vector<int>> res;\n    for (const auto& iv : intervals) {\n        if (!res.empty() && iv[0] <= res.back()[1])\n            res.back()[1] = max(res.back()[1], iv[1]);  // 与上一段重叠（端点相接也算，用 <=），右端延伸取 max\n        else\n            res.push_back(iv);                          // 与上一段相离，开启新段\n    }\n    for (const auto& iv : res)\n        cout << iv[0] << ' ' << iv[1] << '\\n';  // 每行一个区间\n    return 0;\n}",
+      "codeJava": "class Solution {\n    public int[][] merge(int[][] intervals) {\n        // 按左端点排序：排序后所有可合并的区间都彼此相邻\n        Arrays.sort(intervals, (a, b) -> Integer.compare(a[0], b[0]));\n        List<int[]> res = new ArrayList<>();\n        for (int[] iv : intervals) {\n            // 与上一段有重叠（端点相接也算，用 <=）则并入上一段\n            if (!res.isEmpty() && iv[0] <= res.get(res.size() - 1)[1])\n                res.get(res.size() - 1)[1] =\n                        Math.max(res.get(res.size() - 1)[1], iv[1]);  // 右端延伸取 max，防 [1,10] 吃 [2,3]\n            else\n                res.add(iv);   // 与上一段相离，开启新段\n        }\n        return res.toArray(new int[res.size()][]);\n    }\n}",
+      "codeJs": "/**\n * @param {number[][]} intervals\n * @return {number[][]}\n */\nvar merge = function (intervals) {\n  // 按左端点排序：排序后所有可合并的区间都彼此相邻\n  intervals.sort((a, b) => a[0] - b[0]);\n  const res = [];\n  for (const [start, end] of intervals) {\n    // 与上一段有重叠（端点相接也算，用 <=）则并入上一段\n    if (res.length && start <= res[res.length - 1][1])\n      res[res.length - 1][1] = Math.max(res[res.length - 1][1], end);  // 右端延伸取 max\n    else\n      res.push([start, end]);  // 与上一段相离，开启新段\n  }\n  return res;\n};",
+      "codeGo": "func merge(intervals [][]int) [][]int {\n\t// 按左端点排序：排序后所有可合并的区间都彼此相邻\n\tsort.Slice(intervals, func(i, j int) bool {\n\t\treturn intervals[i][0] < intervals[j][0]\n\t})\n\tres := [][]int{}\n\tfor _, iv := range intervals {\n\t\t// 与上一段有重叠（端点相接也算，用 <=）则并入上一段\n\t\tif len(res) > 0 && iv[0] <= res[len(res)-1][1] {\n\t\t\t// 右端延伸取 max，防 [1,10] 吃 [2,3] 后被缩短\n\t\t\tif iv[1] > res[len(res)-1][1] {\n\t\t\t\tres[len(res)-1][1] = iv[1]\n\t\t\t}\n\t\t} else {\n\t\t\tres = append(res, iv) // 与上一段相离，开启新段\n\t\t}\n\t}\n\treturn res\n}"
+    },
+    {
+      "id": 57,
+      "title": "Insert Interval",
+      "titleCn": "插入区间",
+      "difficulty": "medium",
+      "frequency": 4,
+      "companies": [
+        "美团"
+      ],
+      "question": "给你一个 无重叠的 、按照区间起始端点排序的区间列表 intervals，其中 intervals[i] = [starti, endi] 表示第 i 个区间的开始和结束，且 intervals 按 starti 升序排列。同样给定一个区间 newInterval = [start, end] 表示另一个区间的开始和结束。\n\n在 intervals 中插入区间 newInterval，使得 intervals 依然按 starti 升序排列，且区间之间不重叠（如果有必要，可以合并区间）。返回插入之后的 intervals。\n\n示例 1：输入 intervals = [[1,3],[6,9]], newInterval = [2,5]，输出 [[1,5],[6,9]]。\n示例 2：输入 intervals = [[1,2],[3,5],[6,7],[8,10],[12,16]], newInterval = [4,8]，输出 [[1,2],[3,10],[12,16]]（newInterval [4,8] 与 [3,5]、[6,7]、[8,10] 重叠，合并为 [3,10]）。",
+      "samples": [
+        {
+          "input": "intervals = [[1,3],[6,9]], newInterval = [2,5]",
+          "output": "[[1,5],[6,9]]"
+        },
+        {
+          "input": "intervals = [[1,2],[3,5],[6,7],[8,10],[12,16]], newInterval = [4,8]",
+          "output": "[[1,2],[3,10],[12,16]]",
+          "explain": "[4,8] 与 [3,5]、[6,7]、[8,10] 重叠，合并为 [3,10]"
+        }
+      ],
+      "hints": [
+        "审题诀窍：输入已经有序且无重叠——这是比 56 题更强的前提，一遍扫描即可完成，不要拼接后重新排序浪费输入性质。",
+        "审题诀窍：区间天然分成三段——完全在 newInterval 左侧（end < newStart）的原样收下；与 newInterval 相交的全部吸收合并；完全在右侧（start > newEnd）的原样追加。",
+        "突破口：相交判定用『相离取反』更不容易错：new[0] > itv[1] 或 itv[0] > new[1] 时相离，其余情况一律吸收，吸收时 newStart 取 min、newEnd 取 max。",
+        "追问预备：要求不额外建 res、原地修改列表怎么做？（找到吸收段的起止下标后切片赋值 intervals[i:j] = [[new_l, new_r]]）；如果一次要插入 k 个新区间呢？（先把 k 个新区间内部合并，再做一次 k+n 的归并扫描）"
+      ],
+      "keyPoints": [
+        "三段式处理：左侧相离先收 → 中间相交区间吸收进 newInterval → 右侧相离后收",
+        "吸收时 newStart = min(newStart, itv[0])、newEnd = max(newEnd, itv[1])",
+        "相离判定：itv[1] < newStart 或 itv[0] > newEnd；其余都在相交范围内",
+        "输入有序且无重叠，整体 O(n)，无需再排序"
+      ],
+      "structureTags": [
+        "intervals",
+        "greedy",
+        "single_pass"
+      ],
+      "approaches": [
+        {
+          "name": "拼接后复用合并区间",
+          "idea": "把 newInterval 追加进 intervals，整体套用 56 题的排序 + 扫描合并。代码复用度高、不易出错，但把本已有序无重叠的数据重新排序，浪费了输入性质。",
+          "detail": "步骤拆解：\n1. merged = intervals + [newInterval]，把新区间追加进列表。\n2. 整体按左端点排序，随后套用 LC 56 的一遍扫描合并：res[-1][1] >= start 时扩右端取 max，否则 append 开新段。\n3. 返回合并结果。\n\n示例走查：示例 1。拼接得 [[1,3],[6,9],[2,5]]，排序后 [[1,3],[2,5],[6,9]]；扫描时 [2,5] 与 [1,3] 合并为 [1,5]，[6,9] 相离开新段，输出 [[1,5],[6,9]]。\n\n为什么正确：『插入一个区间再消除重叠』等价于『把新区间并入集合后重新求并集』，排序 + 扫描合并正是求并集的通用正确解法，正确性与 56 题完全一致。\n\n易错点：\n- 输入本已有序且无重叠，此解法把 O(n) 的题做成了 O(n log n)，面试中要主动指出并顺势给出三段式优化。\n- 排序会打乱入参顺序，题目要求保留原列表时先拷贝。\n- 合并条件与 56 题一字不差：<= 判重叠、右端取 max，复用时别改符号。",
+          "complexity": "时间 O(n log n)，空间 O(n)",
+          "code": "def insert_by_merge(intervals, newInterval):\n    merged = sorted(intervals + [list(newInterval)])   # 拼接后整体排序\n    res = []\n    for start, end in merged:              # 复用 LC 56 的合并扫描\n        if res and start <= res[-1][1]:\n            res[-1][1] = max(res[-1][1], end)\n        else:\n            res.append([start, end])\n    return res"
+        },
+        {
+          "name": "三段式一次扫描",
+          "idea": "一遍遍历：先原样收下所有右端小于 newStart 的左侧区间；随后对所有与 newInterval 相交的区间持续吸收（newStart/newEnd 分别取 min/max）；遇到第一个左端大于 newEnd 的区间时先放入合并结果，再把余下区间原样追加。利用输入有序无重叠的性质，免排序。",
+          "detail": "步骤拆解：\n1. i = 0，new_l、new_r 为新区间的左右端。\n2. 第一段：while i < n and intervals[i][1] < new_l——区间完全在新区间左侧（右端都够不到新区间左端），原样 append 后 i += 1。\n3. 第二段：while i < n and intervals[i][0] <= new_r——区间与新区间相交（非相离），吸收：new_l = min(new_l, intervals[i][0])，new_r = max(new_r, intervals[i][1])，i += 1。\n4. append([new_l, new_r]) 放入吸收完成的大区间；res.extend(intervals[i:]) 追加右侧剩余区间。\n\n示例走查：示例 2，new=[4,8]。第一段收下 [1,2]（右端 2 < 4）。第二段：[3,5] 相交 → new=[3,5]；[6,7] → new=[3,7]；[8,10] 左端 8 <= 8 → new=[3,10]。第三段追加 [12,16]。输出 [[1,2],[3,10],[12,16]]。\n\n为什么正确：输入有序，『左侧相离、相交、右侧相离』三个阶段在扫描中天然分块；相交判定 intervals[i][0] <= new_r 是相离（intervals[i][0] > new_r）的取反；吸收时持续取 min/max，保证大区间覆盖所有被吸收区间的并。\n\n易错点：\n- 第一段条件是 intervals[i][1] < new_l 严格小于：右端恰等于 new_l 时端点相接算重叠，必须进第二段吸收。\n- 第二段条件是 intervals[i][0] <= new_r：左端恰等于 new_r 的区间也算相交。\n- 吸收过程中 new_l/new_r 要持续更新，只比较一次会漏吸后续相交区间。",
+          "complexity": "时间 O(n)，空间 O(n)（输出不计则辅助空间为 O(1)）",
+          "optimal": true,
+          "code": "def insert_three_phase(intervals, newInterval):\n    res = []\n    i, n = 0, len(intervals)\n    new_l, new_r = newInterval             # 待插入区间左右端\n    while i < n and intervals[i][1] < new_l:   # 第一段：完全在左侧\n        res.append(intervals[i])\n        i += 1\n    while i < n and intervals[i][0] <= new_r:  # 第二段：相交全吸收\n        new_l = min(new_l, intervals[i][0])\n        new_r = max(new_r, intervals[i][1])\n        i += 1\n    res.append([new_l, new_r])                 # 吸收完成的大区间\n    res.extend(intervals[i:])                  # 第三段：右侧原样追加\n    return res"
+        }
+      ],
+      "code": "class Solution:\n    def insert(self, intervals: List[List[int]], newInterval: List[int]) -> List[List[int]]:\n        res = []\n        i, n = 0, len(intervals)\n        new_l, new_r = newInterval          # 待插入区间的左右端\n        # 第一段：完全在 newInterval 左侧（右端 < new_l）的区间原样收下\n        while i < n and intervals[i][1] < new_l:\n            res.append(intervals[i])\n            i += 1\n        # 第二段：所有与 newInterval 相交的区间都被它吸收（相交 = 非相离）\n        while i < n and intervals[i][0] <= new_r:\n            new_l = min(new_l, intervals[i][0])   # 左端向更小处扩展\n            new_r = max(new_r, intervals[i][1])   # 右端向更大处扩展\n            i += 1\n        res.append([new_l, new_r])          # 吸收完成，放入合并后的新区间\n        # 第三段：剩余区间完全在右侧，原样追加即可保持有序无重叠\n        res.extend(intervals[i:])\n        return res",
+      "acmCode": "# ACM 模式：完整可运行程序（stdin -> stdout）\n# 输入格式：\n#   第一行：n（已有区间个数）\n#   接下来 n 行：每行两个整数 start end（已按左端点升序、互不重叠）\n#   最后一行：两个整数 newStart newEnd（待插入区间）\n# 输出格式：若干行，每行一个区间 \"start end\"\nimport sys\n\ndef main():\n    data = sys.stdin.read().split()\n    n = int(data[0])\n    intervals = []\n    idx = 1\n    for _ in range(n):\n        intervals.append([int(data[idx]), int(data[idx + 1])])\n        idx += 2\n    new_l, new_r = int(data[idx]), int(data[idx + 1])\n    res = []\n    i = 0\n    # 第一段：完全在 newInterval 左侧的区间原样收下\n    while i < n and intervals[i][1] < new_l:\n        res.append(intervals[i])\n        i += 1\n    # 第二段：与 newInterval 相交的区间全部吸收\n    while i < n and intervals[i][0] <= new_r:\n        new_l = min(new_l, intervals[i][0])\n        new_r = max(new_r, intervals[i][1])\n        i += 1\n    res.append([new_l, new_r])               # 吸收完成的大区间\n    res.extend(intervals[i:])                # 第三段：右侧原样追加\n    print('\\n'.join(f'{s} {e}' for s, e in res))\n\nif __name__ == '__main__':\n    main()",
+      "templates": [
+        "有序插入模板：左侧相离先收 -> 相交区间吸收（min/max 扩边）-> 右侧相离后收",
+        "相交判定：a、b 相交 ⇔ a[0] <= b[1] 且 b[0] <= a[1]；写代码时常用『相离取反』避免符号错误"
+      ],
+      "codeCpp": "class Solution {\npublic:\n    vector<vector<int>> insert(vector<vector<int>>& intervals, vector<int>& newInterval) {\n        vector<vector<int>> res;\n        int i = 0, n = (int)intervals.size();\n        int newL = newInterval[0], newR = newInterval[1];   // 待插入区间的左右端\n        // 第一段：完全在 newInterval 左侧（右端 < newL）的区间原样收下\n        while (i < n && intervals[i][1] < newL)\n            res.push_back(intervals[i++]);\n        // 第二段：所有与 newInterval 相交的区间都被它吸收（相交 = 非相离）\n        while (i < n && intervals[i][0] <= newR) {\n            newL = min(newL, intervals[i][0]);   // 左端向更小处扩展\n            newR = max(newR, intervals[i][1]);   // 右端向更大处扩展\n            ++i;\n        }\n        res.push_back({newL, newR});   // 吸收完成，放入合并后的新区间\n        // 第三段：剩余区间完全在右侧，原样追加即可保持有序无重叠\n        while (i < n)\n            res.push_back(intervals[i++]);\n        return res;\n    }\n};",
+      "acmCodeCpp": "// ACM 模式：完整可运行程序（stdin -> stdout）\n// 输入格式：\n//   第一行：n（已有区间个数）\n//   接下来 n 行：每行两个整数 start end（已按左端点升序、互不重叠）\n//   最后一行：两个整数 newStart newEnd（待插入区间）\n// 输出格式：若干行，每行一个区间 \"start end\"\n#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);\n    cin.tie(nullptr);\n\n    int n;\n    cin >> n;\n    vector<vector<int>> intervals(n, vector<int>(2));\n    for (auto& iv : intervals) cin >> iv[0] >> iv[1];\n    int newL, newR;\n    cin >> newL >> newR;   // 待插入区间左右端\n\n    vector<vector<int>> res;\n    int i = 0;\n    // 第一段：完全在 newInterval 左侧（右端 < newL）的区间原样收下\n    while (i < n && intervals[i][1] < newL)\n        res.push_back(intervals[i++]);\n    // 第二段：与 newInterval 相交的区间全部吸收\n    while (i < n && intervals[i][0] <= newR) {\n        newL = min(newL, intervals[i][0]);\n        newR = max(newR, intervals[i][1]);\n        ++i;\n    }\n    res.push_back({newL, newR});   // 吸收完成的大区间\n    while (i < n)                  // 第三段：右侧原样追加\n        res.push_back(intervals[i++]);\n\n    for (const auto& iv : res)\n        cout << iv[0] << ' ' << iv[1] << '\\n';\n    return 0;\n}",
+      "codeJava": "class Solution {\n    public int[][] insert(int[][] intervals, int[] newInterval) {\n        List<int[]> res = new ArrayList<>();\n        int i = 0, n = intervals.length;\n        int newL = newInterval[0], newR = newInterval[1];   // 待插入区间的左右端\n        // 第一段：完全在 newInterval 左侧（右端 < newL）的区间原样收下\n        while (i < n && intervals[i][1] < newL)\n            res.add(intervals[i++]);\n        // 第二段：所有与 newInterval 相交的区间都被它吸收（相交 = 非相离）\n        while (i < n && intervals[i][0] <= newR) {\n            newL = Math.min(newL, intervals[i][0]);   // 左端向更小处扩展\n            newR = Math.max(newR, intervals[i][1]);   // 右端向更大处扩展\n            i++;\n        }\n        res.add(new int[]{newL, newR});   // 吸收完成，放入合并后的新区间\n        // 第三段：剩余区间完全在右侧，原样追加即可保持有序无重叠\n        while (i < n)\n            res.add(intervals[i++]);\n        return res.toArray(new int[res.size()][]);\n    }\n}",
+      "codeJs": "/**\n * @param {number[][]} intervals\n * @param {number[]} newInterval\n * @return {number[][]}\n */\nvar insert = function (intervals, newInterval) {\n  const res = [];\n  let i = 0;\n  const n = intervals.length;\n  let [newL, newR] = newInterval;   // 待插入区间的左右端\n  // 第一段：完全在 newInterval 左侧（右端 < newL）的区间原样收下\n  while (i < n && intervals[i][1] < newL)\n    res.push(intervals[i++]);\n  // 第二段：所有与 newInterval 相交的区间都被它吸收（相交 = 非相离）\n  while (i < n && intervals[i][0] <= newR) {\n    newL = Math.min(newL, intervals[i][0]);   // 左端向更小处扩展\n    newR = Math.max(newR, intervals[i][1]);   // 右端向更大处扩展\n    i++;\n  }\n  res.push([newL, newR]);   // 吸收完成，放入合并后的新区间\n  // 第三段：剩余区间完全在右侧，原样追加即可保持有序无重叠\n  while (i < n)\n    res.push(intervals[i++]);\n  return res;\n};",
+      "codeGo": "func insert(intervals [][]int, newInterval []int) [][]int {\n\tres := [][]int{}\n\ti, n := 0, len(intervals)\n\tnewL, newR := newInterval[0], newInterval[1] // 待插入区间的左右端\n\t// 第一段：完全在 newInterval 左侧（右端 < newL）的区间原样收下\n\tfor i < n && intervals[i][1] < newL {\n\t\tres = append(res, intervals[i])\n\t\ti++\n\t}\n\t// 第二段：所有与 newInterval 相交的区间都被它吸收（相交 = 非相离）\n\tfor i < n && intervals[i][0] <= newR {\n\t\tif intervals[i][0] < newL { // 左端向更小处扩展\n\t\t\tnewL = intervals[i][0]\n\t\t}\n\t\tif intervals[i][1] > newR { // 右端向更大处扩展\n\t\t\tnewR = intervals[i][1]\n\t\t}\n\t\ti++\n\t}\n\tres = append(res, []int{newL, newR}) // 吸收完成，放入合并后的新区间\n\t// 第三段：剩余区间完全在右侧，原样追加即可保持有序无重叠\n\tfor i < n {\n\t\tres = append(res, intervals[i])\n\t\ti++\n\t}\n\treturn res\n}"
+    },
+    {
+      "id": 228,
+      "title": "Summary Ranges",
+      "titleCn": "汇总区间",
+      "difficulty": "easy",
+      "frequency": 3,
+      "companies": [
+        "百度"
+      ],
+      "question": "给定一个 无重复元素 的 有序 整数数组 nums。\n\n返回 恰好覆盖数组中所有数字 的 最小有序 区间范围列表。也就是说，nums 的每个元素都恰好被某个区间范围所覆盖，且不存在属于某个范围但不属于 nums 的数字。列表中的每个区间范围 [a, b] 应按如下格式输出：\n- \"a->b\"，如果 a != b\n- \"a\"，如果 a == b\n\n示例 1：输入 nums = [0,1,2,4,5,7]，输出 [\"0->2\",\"4->5\",\"7\"]（区间 [0,2]、[4,5] 和 [7]）。\n示例 2：输入 nums = [0,2,3,4,6,8,9]，输出 [\"0\",\"2->4\",\"6\",\"8->9\"]。",
+      "samples": [
+        {
+          "input": "nums = [0,1,2,4,5,7]",
+          "output": "[\"0->2\",\"4->5\",\"7\"]"
+        },
+        {
+          "input": "nums = [0,2,3,4,6,8,9]",
+          "output": "[\"0\",\"2->4\",\"6\",\"8->9\"]"
+        }
+      ],
+      "hints": [
+        "审题诀窍：数组有序且无重复 ⇒ 同一段连续区间内相邻元素恰好差 1，nums[i+1] != nums[i] + 1 就是切段信号。",
+        "审题诀窍：只有一个元素的段输出 \"a\" 而不是 \"a->a\"，输出格式必须严格对齐题面要求。",
+        "突破口：双指针 l、r 圈住当前段：r 尽量右移，停下来时就是段尾，外层 i 直接跳到 r+1 开始下一段，避免逐元素重复判断。",
+        "追问预备：如果数组无序怎么办？（哈希集合按『x-1 不在集合』找段起点再扩展）；如果允许重复元素呢？（相邻差为 0 视作同段延续，或先去重再汇总）"
+      ],
+      "keyPoints": [
+        "有序无重复 ⇒ 相邻差 1 即同段，完全不需要哈希集合",
+        "l、r 双指针维护当前段，r 右扩到断档为止",
+        "单元素段与多元素段的输出格式不同，注意 str 与 f-string 的分支",
+        "外层 while + i = r + 1 跳段，保证每个元素只被访问一次"
+      ],
+      "structureTags": [
+        "intervals",
+        "two_pointer"
+      ],
+      "approaches": [
+        {
+          "name": "哈希集合分段",
+          "idea": "把所有数放进集合，对每个『段起点』（x-1 不在集合中）向右扩展求出段尾并输出。该写法对无序数组同样成立，但对本题的有序性质是浪费，还多花 O(n) 空间。",
+          "detail": "步骤拆解：\n1. num_set = set(nums) 建 O(1) 查询集合。\n2. 枚举每个 x：若 x - 1 不在集合中，x 是某段的起点；从 x 向右扩展（end = x; while end + 1 in num_set: end += 1）求出段尾。\n3. 按 end == x 分支输出 \"a\" 或 \"a->b\"。\n\n示例走查：nums=[0,1,2,4,5,7]。x=0：-1 不在集合，是起点，向右扩展到 2，输出 \"0->2\"；x=1、2 因 x-1 在集合中被跳过；x=4 是起点扩展到 5；x=7 无延伸输出 \"7\"。\n\n为什么正确：『段起点』的刻画（x-1 不在集合）保证每段恰好被它的起点枚举一次，向右扩展得到该连续段的最大值，覆盖不重不漏——这正是 LC 128 最长连续序列的判定骨架。\n\n易错点：\n- 扩展必须逐步 while end+1 in set，不能一次跳到 end+段长。\n- 本题数组有序，此解法没有利用有序性还多用 O(n) 空间；面试应说明它是『无序数组求连续段』的通用解。\n- 空数组要特判直接返回空列表。",
+          "complexity": "时间 O(n)，空间 O(n)",
+          "code": "def summaryRanges_hashset(nums):\n    num_set = set(nums)                 # O(1) 查询集合\n    res = []\n    for x in sorted(num_set):           # 排序后按数值序枚举\n        if x - 1 in num_set:            # x-1 存在 => x 不是段起点\n            continue\n        end = x                         # x 是段起点，向右扩展段尾\n        while end + 1 in num_set:\n            end += 1\n        if end == x:\n            res.append(str(x))          # 单元素段\n        else:\n            res.append(f\"{x}->{end}\")\n    return res"
+        },
+        {
+          "name": "有序数组双指针一次遍历",
+          "idea": "利用有序无重复性质：l 指向段头，r 不断右扩直到 nums[r+1] != nums[r] + 1，输出 [l, r] 段，再从 r+1 开新段。不需要任何额外数据结构。",
+          "detail": "步骤拆解：\n1. i 从 0 起，每轮令 l = r = i（当前连续段的左右端下标）。\n2. 内层 while r + 1 < n and nums[r + 1] == nums[r] + 1：r 不断右扩，直到相邻两数断档。\n3. l == r 时输出 str(nums[l])，否则输出 f\"{nums[l]}->{nums[r]}\"；随后 i = r + 1 跳到下一段起点。\n\n示例走查：nums=[0,2,3,4,6,8,9]。i=0：nums[1]=2 != 1，段 [0,0] 输出 \"0\"，i=1。i=1：r 扩到 3（2,3,4 连续），输出 \"2->4\"，i=4。i=4：6 != 5，输出 \"6\"，i=5。i=5：8、9 连续输出 \"8->9\"，i=7 结束。\n\n为什么正确：有序无重复数组中，同一段内相邻元素差恰为 1，nums[r+1] != nums[r] + 1 是段边界的充要刻画；i = r + 1 使每个下标只被主循环访问一次，整体 O(n) 且空间 O(1)。\n\n易错点：\n- 单元素段输出 \"a\" 而不是 \"a->a\"，输出前必须分支。\n- r + 1 < n 的判界必须先于取 nums[r + 1]，否则越界。\n- 跳段要写 i = r + 1 而不是 i += 1：后者仍正确但段内元素会被逐个重扫，最坏退化 O(n^2)。",
+          "complexity": "时间 O(n)，空间 O(1)（输出不计）",
+          "optimal": true,
+          "code": "def summaryRanges_two_pointer(nums):\n    res = []\n    i, n = 0, len(nums)\n    while i < n:\n        l, r = i, i                     # 当前连续段的左右端下标\n        while r + 1 < n and nums[r + 1] == nums[r] + 1:\n            r += 1                      # 相邻差 1，段继续延伸\n        if l == r:\n            res.append(str(nums[l]))    # 单元素段输出 \"a\"\n        else:\n            res.append(f\"{nums[l]}->{nums[r]}\")\n        i = r + 1                       # 跳过整段\n    return res"
+        }
+      ],
+      "code": "class Solution:\n    def summaryRanges(self, nums: List[int]) -> List[str]:\n        res = []\n        i, n = 0, len(nums)\n        while i < n:\n            l, r = i, i                    # l/r: 当前连续段的左右端点\n            # r 一直右扩，直到相邻两数断档（差不再是 1）为止\n            while r + 1 < n and nums[r + 1] == nums[r] + 1:\n                r += 1\n            # 单元素段只输出数字本身，多元素段输出 a->b\n            if l == r:\n                res.append(str(nums[l]))\n            else:\n                res.append(f\"{nums[l]}->{nums[r]}\")\n            i = r + 1                      # 跳过整段，从下一段的起点继续\n        return res",
+      "acmCode": "# ACM 模式：完整可运行程序（stdin -> stdout）\n# 输入格式：\n#   第一行：n（数组长度）\n#   第二行：n 个整数（有序、无重复；n 为 0 时该行为空）\n# 输出格式：若干行，每行一个区间：多元素段输出 \"a->b\"，单元素段输出 \"a\"\nimport sys\n\ndef main():\n    data = sys.stdin.read().split()\n    n = int(data[0])\n    nums = [int(x) for x in data[1:1 + n]]\n    res = []\n    i = 0\n    while i < n:\n        l, r = i, i                     # 当前连续段左右端下标\n        while r + 1 < n and nums[r + 1] == nums[r] + 1:\n            r += 1                      # 相邻差 1，段继续延伸\n        if l == r:\n            res.append(str(nums[l]))    # 单元素段\n        else:\n            res.append(f\"{nums[l]}->{nums[r]}\")\n        i = r + 1                       # 跳到下一段起点\n    print('\\n'.join(res))\n\nif __name__ == '__main__':\n    main()",
+      "templates": [
+        "连续段双指针模板：l, r 圈段，r 扩到 nums[r+1] != nums[r]+1 停，输出后 i = r + 1",
+        "切段信号：有序数组中相邻元素差 != 1 即新段开始，无需哈希"
+      ],
+      "codeCpp": "class Solution {\npublic:\n    vector<string> summaryRanges(vector<int>& nums) {\n        vector<string> res;\n        int i = 0, n = (int)nums.size();\n        while (i < n) {\n            int l = i, r = i;      // 当前连续段的左右端下标\n            // r 一直右扩，直到相邻两数断档（差不再是 1）为止\n            while (r + 1 < n && nums[r + 1] == nums[r] + 1)\n                ++r;\n            if (l == r)\n                res.push_back(to_string(nums[l]));   // 单元素段输出 \"a\"\n            else\n                res.push_back(to_string(nums[l]) + \"->\" + to_string(nums[r]));\n            i = r + 1;             // 跳过整段，从下一段的起点继续\n        }\n        return res;\n    }\n};",
+      "acmCodeCpp": "// ACM 模式：完整可运行程序（stdin -> stdout）\n// 输入格式：\n//   第一行：n（数组长度）\n//   第二行：n 个整数（有序、无重复；n 为 0 时该行为空）\n// 输出格式：若干行，每行一个区间：多元素段输出 \"a->b\"，单元素段输出 \"a\"\n#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);\n    cin.tie(nullptr);\n\n    int n;\n    cin >> n;\n    vector<int> nums(n);\n    for (auto& x : nums) cin >> x;\n\n    vector<string> res;\n    int i = 0;\n    while (i < n) {\n        int l = i, r = i;      // 当前连续段左右端下标\n        while (r + 1 < n && nums[r + 1] == nums[r] + 1)\n            ++r;               // 相邻差 1，段继续延伸\n        if (l == r)\n            res.push_back(to_string(nums[l]));   // 单元素段\n        else\n            res.push_back(to_string(nums[l]) + \"->\" + to_string(nums[r]));\n        i = r + 1;             // 跳到下一段起点\n    }\n    for (const string& s : res)\n        cout << s << '\\n';\n    return 0;\n}",
+      "codeJava": "class Solution {\n    public List<String> summaryRanges(int[] nums) {\n        List<String> res = new ArrayList<>();\n        int i = 0, n = nums.length;\n        while (i < n) {\n            int l = i, r = i;  // 当前连续段的左右端下标\n            // r 一直右扩，直到相邻两数断档（差不再是 1）为止\n            while (r + 1 < n && nums[r + 1] == nums[r] + 1)\n                r++;\n            if (l == r)\n                res.add(String.valueOf(nums[l]));    // 单元素段输出 \"a\"\n            else\n                res.add(nums[l] + \"->\" + nums[r]);   // 多元素段输出 \"a->b\"\n            i = r + 1;         // 跳过整段，从下一段的起点继续\n        }\n        return res;\n    }\n}",
+      "codeJs": "/**\n * @param {number[]} nums\n * @return {string[]}\n */\nvar summaryRanges = function (nums) {\n  const res = [];\n  let i = 0;\n  const n = nums.length;\n  while (i < n) {\n    let l = i, r = i;        // 当前连续段的左右端下标\n    // r 一直右扩，直到相邻两数断档（差不再是 1）为止\n    while (r + 1 < n && nums[r + 1] === nums[r] + 1)\n      r++;\n    if (l === r)\n      res.push(String(nums[l]));       // 单元素段输出 \"a\"\n    else\n      res.push(`${nums[l]}->${nums[r]}`);  // 多元素段输出 \"a->b\"\n    i = r + 1;               // 跳过整段，从下一段的起点继续\n  }\n  return res;\n};",
+      "codeGo": "func summaryRanges(nums []int) []string {\n\tres := []string{}\n\ti, n := 0, len(nums)\n\tfor i < n {\n\t\tl, r := i, i // 当前连续段的左右端下标\n\t\t// r 一直右扩，直到相邻两数断档（差不再是 1）为止\n\t\tfor r+1 < n && nums[r+1] == nums[r]+1 {\n\t\t\tr++\n\t\t}\n\t\tif l == r {\n\t\t\tres = append(res, strconv.Itoa(nums[l])) // 单元素段输出 \"a\"\n\t\t} else {\n\t\t\t// 多元素段输出 \"a->b\"\n\t\t\tres = append(res, strconv.Itoa(nums[l])+\"->\"+strconv.Itoa(nums[r]))\n\t\t}\n\t\ti = r + 1 // 跳过整段，从下一段的起点继续\n\t}\n\treturn res\n}"
+    },
+    {
+      "id": 452,
+      "title": "Minimum Number of Arrows to Burst Balloons",
+      "titleCn": "用最少数量的箭引爆气球",
+      "difficulty": "medium",
+      "frequency": 4,
+      "companies": [
+        "拼多多"
+      ],
+      "question": "有一些球形气球贴在一堵与 XY 平面平行的墙上，墙上的气球记录在整数数组 points 中，其中 points[i] = [xstart, xend] 表示水平直径在 xstart 和 xend 之间的气球（含端点）。一支弓箭可沿 x 轴从不同点完全垂直地射出：在坐标 x 处射出一支箭，若满足 xstart <= x <= xend，则该气球会被引爆。可射出的弓箭数量没有限制，弓箭一旦射出可以无限前进。返回引爆所有气球所必须射出的 最小 弓箭数。\n\n示例 1：输入 points = [[10,16],[2,8],[1,6],[7,12]]，输出 2（x = 6 可以射爆 [2,8] 和 [1,6]，x = 11 射爆另外两个气球）。\n示例 2：输入 points = [[1,2],[3,4],[5,6],[7,8]]，输出 4（气球两两不相交，每个都需要一箭）。\n示例 3：输入 points = [[1,2],[2,3],[3,4],[4,5]]，输出 2（端点相接算重叠，两箭即可）。",
+      "samples": [
+        {
+          "input": "points = [[10,16],[2,8],[1,6],[7,12]]",
+          "output": "2",
+          "explain": "x=6 射爆 [2,8] 与 [1,6]，x=11 射爆 [10,16] 与 [7,12]"
+        },
+        {
+          "input": "points = [[1,2],[3,4],[5,6],[7,8]]",
+          "output": "4",
+          "explain": "气球两两不相交，每个都需要一箭"
+        },
+        {
+          "input": "points = [[1,2],[2,3],[3,4],[4,5]]",
+          "output": "2",
+          "explain": "端点相接算重叠，两箭即可"
+        }
+      ],
+      "hints": [
+        "审题诀窍：这是『最少箭数 = 把相交区间分成的最少组数』问题，与 435 无重叠区间是孪生题——贪心排序后一遍扫描。",
+        "审题诀窍：端点相接（x == xend）也算射中，所以新箭条件是 start > arrow_x 严格大于，写成 >= 就会把相邻气球误判为不相交。",
+        "突破口：按右端点排序后，箭永远射在『当前未引爆气球中最小的右端点』上——这一箭能覆盖的所有气球都被顺手带走。",
+        "追问预备：孪生题 435 无重叠区间怎么转化？（求最多保留多少个不重叠区间 = n - 本题的最少组数，同一套按右端点贪心）；如果要输出每支箭的位置呢？（每次决策时记录 arrow_x 即可）"
+      ],
+      "keyPoints": [
+        "按右端点排序：最小右端点是当前一箭的最优射点",
+        "贪心依据：把箭放在最小右端点，不会错过任何后续能一起引爆的气球",
+        "start > arrow_x 才需要新箭，端点相接算命中（严格大于）",
+        "新箭射出后，射点更新为当前气球的右端点"
+      ],
+      "structureTags": [
+        "sort",
+        "intervals",
+        "greedy"
+      ],
+      "approaches": [
+        {
+          "name": "两两求交分组",
+          "idea": "对气球两两检查水平投影是否相交，把相交关系视为连通，统计连通分量个数。思路直观但比较次数是平方级的。",
+          "detail": "步骤拆解：\n1. 直观思路：把气球两两检查水平投影是否相交（a.start <= b.end 且 b.start <= a.end），把『相交』视为连通，统计连通分量个数。\n2. 但这个模型有陷阱：相交关系连通 ≠ 共享一个公共点。反例 [1,4]、[2,6]、[5,8]：三者通过 [2,6] 连通，却没有任何一个 x 同时落在三个区间里，一箭射爆不了全部，正确答案是 2 而连通分量只有 1。\n3. 因此 O(n^2) 的正确基线用『逐箭模拟』：每轮取未引爆气球中右端最小者，把箭射在它的右端点，再 O(n) 扫描引爆所有覆盖该点的气球，直到全部引爆。\n\n示例走查：示例 1。未引爆中最小右端是 6（[1,6]），箭射 x=6，引爆 [1,6] 与 [2,8]；下一轮最小右端是 12（[7,12]），箭射 x=12，引爆 [7,12] 与 [10,16]。共 2 箭。\n\n为什么正确：把箭放在当前未引爆气球的最小右端点 e，任何其他射点 x 能引爆的气球（start <= x <= 其右端，且其右端 >= e）都满足 start <= e，同样被 e 覆盖——最小右端是不劣的射点，逐轮归纳即得最优。\n\n易错点：\n- 千万别把『相交关系连通分量数』当答案，上面的反例会算错。\n- 每轮 O(n) 扫描、最多 n 轮，总 O(n^2)，n 大时超时——这是引出排序贪心的原因。\n- 引爆判定用闭区间 start <= x <= end，端点相接也算命中。",
+          "complexity": "时间 O(n²)，空间 O(n)",
+          "code": "def findMinArrowShots_simulate(points):\n    pts = [tuple(b) for b in points]\n    burst = [False] * len(pts)          # 是否已被引爆\n    arrows = 0\n    for _ in range(len(pts)):\n        # 找一个未引爆的气球（线性扫描版基线）\n        i = next((k for k in range(len(pts)) if not burst[k]), None)\n        if i is None:\n            break\n        arrows += 1\n        x = pts[i][1]                   # 射在它的右端点，能带走的气球最多\n        for k in range(len(pts)):       # O(n) 扫描：引爆所有覆盖 x 的气球\n            if not burst[k] and pts[k][0] <= x <= pts[k][1]:\n                burst[k] = True\n    return arrows"
+        },
+        {
+          "name": "按左端点排序 + 维护重叠最小右端",
+          "idea": "按 start 排序，维护当前重叠簇的最小右端 min_end：下一个气球 start > min_end 时箭数加一并重置 min_end，否则 min_end 取 min。复杂度同样达标，但状态含义不如按右端点排序直观，边界更容易写错。",
+          "detail": "步骤拆解：\n1. 按 start 升序排序。\n2. min_end = 第一个气球的右端，arrows = 1（空输入特判返回 0）。\n3. 依次考察每个气球 (start, end)：若 start > min_end，当前重叠簇结束，arrows += 1 且 min_end = end 开新簇；否则 min_end = min(min_end, end)，簇的公共范围收缩。\n\n示例走查：示例 3 [[1,2],[2,3],[3,4],[4,5]]。min_end=2；[2,3]：2 > 2 否 → min_end=min(2,3)=2；[3,4]：3 > 2 → arrows=2，min_end=4；[4,5]：4 > 4 否 → min_end=4。答案 2。\n\n为什么正确：按 start 排序后，当前簇能一箭带走的范围就是簇内最小右端 min_end；下一个气球起点不超过 min_end 就与簇仍有公共点，否则必须开新箭——与按右端点排序的版本本质相同，只是维护的状态不同。\n\n易错点：\n- 新箭条件是 start > min_end 严格大于，端点相接（start == min_end）算命中，写 >= 会多算箭数。\n- min_end 要取 min 而不是直接覆盖为 end，簇的公共范围只会收缩不会扩大。\n- arrows 从 1 起数时要先特判空输入，否则 n=0 会错误返回 1。",
+          "complexity": "时间 O(n log n)，空间 O(1)",
+          "code": "def findMinArrowShots_left_sort(points):\n    if not points:\n        return 0\n    pts = sorted(points)                # 按左端点排序\n    arrows = 1\n    min_end = pts[0][1]                 # 当前重叠簇的最小右端\n    for start, end in pts[1:]:\n        if start > min_end:             # 严格大于 => 与簇无公共点\n            arrows += 1\n            min_end = end               # 开新簇\n        else:\n            min_end = min(min_end, end) # 簇的公共范围收缩\n    return arrows"
+        },
+        {
+          "name": "按右端点排序贪心",
+          "idea": "按右端点升序排序，第一支箭射在当前最小右端点上；后续气球只要 start <= 当前射点就能被同一支箭带走，直接跳过；否则必须新箭，射点更新为新气球的右端点。每支箭都带走尽可能多的气球，即为最优。",
+          "detail": "步骤拆解：\n1. 按 end 升序排序：sorted(points, key=lambda b: b[1])。\n2. arrows = 0，arrow_x = None（上一箭射点）。遍历每个 (start, end)：arrow_x is None 或 start > arrow_x 时，arrows += 1 且 arrow_x = end；否则跳过——本箭已经覆盖它。\n\n示例走查：示例 1 排序后 [[1,6],[2,8],[7,12],[10,16]]。第一箭 arrow_x=6，带走 [1,6]、[2,8]（2 <= 6）。[7,12]：7 > 6 → 第二箭 arrow_x=12，带走 [10,16]（10 <= 12）。共 2 箭。\n\n为什么正确（交换论证）：设最优解的第一箭射在 x*，当前最小右端为 e。被 x* 引爆的气球都满足 start <= x* 且其右端 >= e（e 是最小右端），故 start <= e 也成立，它们同样被射在 e 的箭引爆——把箭挪到 e 不劣；对剩余气球归纳，得按最小右端逐箭贪心即最优。\n\n易错点：\n- start > arrow_x 是严格大于：端点相接（start == arrow_x）也算命中，写 >= 会多算箭数。\n- 排序键是 b[1]（右端点），误写成 b[0] 答案可能偏大。\n- 坐标可达 -2^31，别拿 sys.maxsize 之类当哨兵参与比较，用 None 判空最稳。",
+          "complexity": "时间 O(n log n)，空间 O(1)",
+          "optimal": true,
+          "code": "def findMinArrowShots_greedy(points):\n    pts = sorted(points, key=lambda b: b[1])   # 按右端点升序\n    arrows = 0\n    arrow_x = None                     # 上一支箭的射点\n    for start, end in pts:\n        if arrow_x is None or start > arrow_x:\n            arrows += 1                # 上一箭够不到，必须新箭\n            arrow_x = end              # 射在当前气球右端\n        # start == arrow_x 端点相接也算命中，不需要新箭\n    return arrows"
+        }
+      ],
+      "code": "class Solution:\n    def findMinArrowShots(self, points: List[List[int]]) -> int:\n        # 按右端点排序：右端最小的气球决定当前一箭的最优射点\n        points = sorted(points, key=lambda b: b[1])\n        arrows = 0\n        arrow_x = None                    # 上一支箭的射出位置\n        for start, end in points:\n            # 气球起点严格大于上一箭位置 => 上一支箭够不到它，必须再射一支\n            if arrow_x is None or start > arrow_x:\n                arrows += 1\n                arrow_x = end             # 新箭射在当前气球右端，能带走的后续气球最多\n            # start == arrow_x 时端点相接也算命中，不需要新箭\n        return arrows",
+      "acmCode": "# ACM 模式：完整可运行程序（stdin -> stdout）\n# 输入格式：\n#   第一行：n（气球个数）\n#   接下来 n 行：每行两个整数 start end（水平直径两端）\n# 输出格式：一行一个整数，最少箭数\nimport sys\n\ndef main():\n    data = sys.stdin.read().split()\n    n = int(data[0])\n    points = []\n    idx = 1\n    for _ in range(n):\n        points.append([int(data[idx]), int(data[idx + 1])])\n        idx += 2\n    points.sort(key=lambda b: b[1])     # 按右端点升序排序\n    arrows = 0\n    arrow_x = None                      # 上一支箭的射点\n    for start, end in points:\n        if arrow_x is None or start > arrow_x:\n            arrows += 1                 # 上一箭够不到，必须新箭\n            arrow_x = end               # 射在当前气球右端\n        # start == arrow_x 端点相接也算命中，不需要新箭\n    print(arrows)\n\nif __name__ == '__main__':\n    main()",
+      "templates": [
+        "射气球/无重叠区间家族模板：按右端点排序 + 尽量延后决策点，start > 上一决策点才新增一箭",
+        "贪心正确性一句话：把箭放在当前最小右端点，任何其他射点能引爆的气球它都能引爆"
+      ],
+      "codeCpp": "class Solution {\npublic:\n    int findMinArrowShots(vector<vector<int>>& points) {\n        // 按右端点排序：右端最小的气球决定当前一箭的最优射点\n        sort(points.begin(), points.end(),\n             [](const vector<int>& a, const vector<int>& b) { return a[1] < b[1]; });\n        int arrows = 0;\n        long long arrowX = 0;       // 上一支箭的射出位置\n        bool hasArrow = false;\n        for (const auto& p : points) {\n            // 气球起点严格大于上一箭位置 => 上一支箭够不到它，必须再射一支\n            if (!hasArrow || p[0] > arrowX) {\n                ++arrows;\n                arrowX = p[1];      // 新箭射在当前气球右端，能带走的后续气球最多\n                hasArrow = true;\n            }\n            // p[0] == arrowX 时端点相接也算命中，不需要新箭\n        }\n        return arrows;\n    }\n};",
+      "acmCodeCpp": "// ACM 模式：完整可运行程序（stdin -> stdout）\n// 输入格式：\n//   第一行：n（气球个数）\n//   接下来 n 行：每行两个整数 start end（水平直径两端）\n// 输出格式：一行一个整数，最少箭数\n#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);\n    cin.tie(nullptr);\n\n    int n;\n    cin >> n;\n    vector<vector<int>> points(n, vector<int>(2));\n    for (auto& p : points) cin >> p[0] >> p[1];\n\n    sort(points.begin(), points.end(),\n         [](const vector<int>& a, const vector<int>& b) { return a[1] < b[1]; });  // 按右端点升序\n    int arrows = 0;\n    long long arrowX = 0;           // 上一支箭的射点\n    bool hasArrow = false;\n    for (const auto& p : points) {\n        if (!hasArrow || p[0] > arrowX) {\n            ++arrows;               // 上一箭够不到，必须新箭\n            arrowX = p[1];          // 射在当前气球右端\n            hasArrow = true;\n        }\n        // p[0] == arrowX 端点相接也算命中，不需要新箭\n    }\n    cout << arrows << endl;\n    return 0;\n}",
+      "codeJava": "class Solution {\n    public int findMinArrowShots(int[][] points) {\n        // 按右端点排序：右端最小的气球决定当前一箭的最优射点\n        // 用 Integer.compare 而不是相减，防止坐标为 -2^31 时整型溢出\n        Arrays.sort(points, (a, b) -> Integer.compare(a[1], b[1]));\n        int arrows = 0;\n        long arrowX = 0;            // 上一支箭的射出位置\n        boolean hasArrow = false;\n        for (int[] p : points) {\n            // 气球起点严格大于上一箭位置 => 上一支箭够不到它，必须再射一支\n            if (!hasArrow || p[0] > arrowX) {\n                arrows++;\n                arrowX = p[1];      // 新箭射在当前气球右端\n                hasArrow = true;\n            }\n            // p[0] == arrowX 时端点相接也算命中，不需要新箭\n        }\n        return arrows;\n    }\n}",
+      "codeJs": "/**\n * @param {number[][]} points\n * @return {number}\n */\nvar findMinArrowShots = function (points) {\n  // 按右端点排序：右端最小的气球决定当前一箭的最优射点\n  points.sort((a, b) => a[1] - b[1]);\n  let arrows = 0;\n  let arrowX = null;    // 上一支箭的射出位置\n  for (const [start, end] of points) {\n    // 气球起点严格大于上一箭位置 => 上一支箭够不到它，必须再射一支\n    if (arrowX === null || start > arrowX) {\n      arrows++;\n      arrowX = end;     // 新箭射在当前气球右端，能带走的后续气球最多\n    }\n    // start === arrowX 时端点相接也算命中，不需要新箭\n  }\n  return arrows;\n};",
+      "codeGo": "func findMinArrowShots(points [][]int) int {\n\t// 按右端点排序：右端最小的气球决定当前一箭的最优射点\n\tsort.Slice(points, func(i, j int) bool {\n\t\treturn points[i][1] < points[j][1]\n\t})\n\tarrows := 0\n\tvar arrowX int    // 上一支箭的射出位置\n\thasArrow := false\n\tfor _, p := range points {\n\t\t// 气球起点严格大于上一箭位置 => 上一支箭够不到它，必须再射一支\n\t\tif !hasArrow || p[0] > arrowX {\n\t\t\tarrows++\n\t\t\tarrowX = p[1] // 新箭射在当前气球右端，能带走的后续气球最多\n\t\t\thasArrow = true\n\t\t}\n\t\t// p[0] == arrowX 时端点相接也算命中，不需要新箭\n\t}\n\treturn arrows\n}"
+    }
+  ]
+}

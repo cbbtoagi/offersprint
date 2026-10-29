@@ -1,0 +1,80 @@
+{
+  "topic": "堆",
+  "problems": [
+    {
+      "id": 703,
+      "title": "Kth Largest Element in a Stream",
+      "titleCn": "数据流中的第 K 大元素",
+      "difficulty": "easy",
+      "frequency": 5,
+      "companies": [
+        "字节跳动",
+        "腾讯",
+        "美团"
+      ],
+      "question": "设计一个找到数据流中第 k 大元素的类（class）。注意是排序后的第 k 大元素，不是第 k 个不同的元素。请实现 KthLargest 类：KthLargest(int k, int[] nums) 使用整数 k 和整数流 nums 初始化对象；int add(int val) 将 val 插入数据流 nums 后，返回当前数据流中第 k 大的元素。\n\n示例：输入操作序列 [KthLargest, add, add, add, add, add] 参数 [[3, [4, 5, 8, 2]], [3], [5], [10], [9], [4]]，输出 [null, 4, 5, 5, 8, 8]。解释：初始化时前两个最大元素是 4 和 5；add(3) 后第 3 大为 4；add(5) 后为 5；add(10) 后数据流变为 [4, 5, 8, 2, 3, 5, 10]，第 3 大仍为 5；add(9) 后第 3 大为 8；add(4) 后第 3 大仍为 8。\n\n提示：1 <= k <= 10^4；0 <= nums.length <= 10^4；调用 add 时保证数据流中至少有 k 个元素。",
+      "samples": [
+        {
+          "input": "[\"KthLargest\",\"add\",\"add\",\"add\",\"add\",\"add\"] 与 [[3,[4,5,8,2]],[3],[5],[10],[9],[4]]",
+          "output": "[null,4,5,5,8,8]",
+          "explain": "初始化后前 3 大候选为 4、5、8；每次 add 后第 3 大依次为 4、5、5、8、8"
+        },
+        {
+          "input": "[\"KthLargest\",\"add\"] 与 [[1,[]],[3]]",
+          "output": "[null,3]",
+          "explain": "初始流为空，add(3) 后第 1 大为 3"
+        }
+      ],
+      "hints": [
+        "审题诀窍：数据流会不断变大，每次 add 都重排序 O(n log n) 必然浪费——其实回答『第 k 大』永远只需要当前最大的 k 个数，其余数据可以立刻丢弃。",
+        "审题诀窍：用『大小为 k 的最小堆』：堆顶是这 k 个候选里最小的，恰好就是第 k 大——堆顶反而是答案，这一点容易想反。",
+        "突破口：初始化先把 nums 削减到 k 个；add 时压入新数，若堆超过 k 就弹出堆顶淘汰最小候选；返回 heap[0]。",
+        "追问预备：与 215 静态版有何本质区别？（数据只增不减，堆天然增量维护；静态版还可快速选择 O(n)）；如果要支持删除流中元素呢？（延迟删除 + 计数，或平衡树）；k 会动态变化呢？（维护全部数据的有序结构，或对顶堆按需调整）"
+      ],
+      "keyPoints": [
+        "只维护当前最大的 k 个数，用最小堆，堆顶即第 k 大",
+        "初始化：heapify 建堆后把多余元素 pop 到只剩 k 个",
+        "add：heappush 后若长度超过 k 则 heappop，淘汰最小候选",
+        "单次 add O(log k)、空间 O(k)，远优于每次重排序"
+      ],
+      "structureTags": [
+        "heap"
+      ],
+      "approaches": [
+        {
+          "name": "每次 add 重排序",
+          "idea": "把数据流存进数组，每次调用 add 时插入新数并对整个数组排序，取倒数第 k 个。实现最省心，但每次 add 都做全量排序，数据流越长代价越高，之前算过的排序信息全部丢弃。",
+          "detail": "步骤拆解：\n1. 用列表 self.nums 保存完整数据流；__init__ 直接存初始 nums。\n2. add(val)：self.nums.append(val) 后 sorted(self.nums) 全量排序，返回 arr[-k]。\n\n示例走查：k=3，初始 [4,5,8,2]。add(3)：排序得 [2,3,4,5,8]，倒数第 3 个是 4。add(5)：排序得 [2,3,4,5,5,8]，倒数第 3 个是 5。\n\n为什么正确：全排序后第 k 大与固定下标严格对应（升序倒数第 k 个），正确性无懈可击。\n\n易错点：\n- 第 k 大是升序数组的 arr[-k]（降序数组的 arr[k-1]），两个方向别写混。\n- 每次 add 全排序 O(n log n)，数据流越长越慢，且上一轮的排序信息被完全丢弃——面试要主动指出这个缺陷再引出堆。\n- 当元素个数不足 k 时 arr[-k] 会越界或静默返回整个列表，本题保证 add 时至少 k 个元素，但笔试变体未必。",
+          "complexity": "时间单次 add O(n log n)，空间 O(n)",
+          "code": "class KthLargestSort:\n    def __init__(self, k, nums):\n        self.k = k\n        self.nums = list(nums)          # 保存完整数据流\n\n    def add(self, val):\n        self.nums.append(val)           # 新数据入流\n        arr = sorted(self.nums)         # 每次全排序 O(n log n)\n        return arr[-self.k]             # 第 k 大 = 升序倒数第 k 个"
+        },
+        {
+          "name": "定长数组维护前 k 大",
+          "idea": "保持一个最多 k 个元素的无序数组：add 时若不足 k 直接加入；已满则与数组最小值比较，更大才替换。返回答案前线性扫描找最小值。空间省到 O(k)，但每次 add 仍是 O(k) 的线性扫描。",
+          "detail": "步骤拆解：\n1. self.top 最多存 k 个元素；__init__ 用 sorted(nums, reverse=True)[:k] 取初始前 k 大（不足 k 个就全存）。\n2. add(val)：len(top) < k 时直接 append；已满时找 top 的最小值下标 min_i，val > top[min_i] 才替换 top[min_i] = val。\n3. 返回 min(top)，即候选中的最小者 = 第 k 大。\n\n示例走查：k=3，初始 top=[8,5,4]。add(3)：3 < 4 不替换，min(top)=4 正确。add(10)：10 > 4 → top=[8,5,10]，min=5 正确。\n\n为什么正确：不变式『top = 当前流中最大的 k 个数』——val 不大于候选最小值时前 k 大不变；val 更大时淘汰最小候选、val 入选，不变式恢复；min(top) 恒为第 k 大。\n\n易错点：\n- 每次找最小值是 O(k)，add 频繁时比堆的 O(log k) 慢。\n- 初始 nums 可能为空或不足 k 个，要允许 top 少于 k 个元素，延迟到 add 阶段补齐。\n- 替换是覆写最小值位置，别 append 导致超过 k 个。",
+          "complexity": "时间单次 add O(k)，空间 O(k)",
+          "code": "class KthLargestArray:\n    def __init__(self, k, nums):\n        self.k = k\n        self.top = sorted(nums, reverse=True)[:k]   # 初始前 k 大\n\n    def add(self, val):\n        if len(self.top) < self.k:\n            self.top.append(val)        # 候选不足 k 个，直接收\n        else:\n            min_i = self.top.index(min(self.top))   # O(k) 找最小候选\n            if val > self.top[min_i]:\n                self.top[min_i] = val   # 淘汰最小候选\n        return min(self.top)            # 候选中最小者 = 第 k 大"
+        },
+        {
+          "name": "大小为 k 的最小堆",
+          "idea": "初始化：对 nums 做 heapify，再把多余元素 pop 到只剩 k 个，此时堆中恰为当前最大的 k 个数。add(val)：先 heappush，若长度超过 k 就 heappop 淘汰最小候选——比堆顶小的数根本挤不进前 k 大。返回 heap[0]，即前 k 大中最小的那个，也就是第 k 大。单次 add 只有 O(log k)，且空间 O(k)，天然适配数据流。",
+          "detail": "步骤拆解：\n1. __init__：self.heap = list(nums)；heapq.heapify O(n) 原地建堆；while len(heap) > k: heappop 淘汰最小，只剩当前最大的 k 个。\n2. add(val)：heappush(val)；若 len(heap) > k 则 heappop 淘汰最小候选；返回 heap[0]。\n\n示例走查：k=3，初始 [4,5,8,2] → 建堆后弹出 2，堆为 [4,5,8]。add(3)：进堆 [3,4,5,8] 弹 3 → [4,5,8]，返回 4。add(10)：[4,5,8,10] 弹 4 → [5,8,10]，返回 5。\n\n为什么正确：不变式『堆中 = 当前流的最大 k 个数』——比堆顶小的数入堆后立刻被弹出等于没进来，比堆顶大的数替换后不变式保持；堆顶 = 前 k 大中最小 = 第 k 大。单次 add 只有 push+pop 两次 O(log k) 调整，空间 O(k)，天然适配数据流。\n\n易错点：\n- 初始化必须把多余元素弹到只剩 k 个，否则堆越来越大，『定长候选集』性质丢失。\n- add 里先 push 再判 len > k 后 pop；顺序反过来（先 pop 后 push）会在堆未满时误删数据。\n- 返回 heap[0] 而不是 heap[-1]：heapq 只保证堆顶最小，列表尾部无序。",
+          "complexity": "时间初始化 O(n)、单次 add O(log k)，空间 O(k)",
+          "optimal": true,
+          "code": "import heapq\n\nclass KthLargestHeap:\n    def __init__(self, k, nums):\n        self.k = k\n        self.heap = list(nums)\n        heapq.heapify(self.heap)        # O(n) 建最小堆\n        while len(self.heap) > k:       # 只保留最大的 k 个候选\n            heapq.heappop(self.heap)\n\n    def add(self, val):\n        heapq.heappush(self.heap, val)\n        if len(self.heap) > self.k:     # 超员淘汰最小候选\n            heapq.heappop(self.heap)\n        return self.heap[0]             # 堆顶 = 前 k 大中最小 = 第 k 大"
+        }
+      ],
+      "code": "import heapq\n\nclass KthLargest:\n    def __init__(self, k: int, nums: List[int]):\n        self.k = k\n        self.heap = nums\n        heapq.heapify(self.heap)     # O(n) 原地建最小堆\n        while len(self.heap) > k:    # 只保留当前最大的 k 个候选\n            heapq.heappop(self.heap)\n\n    def add(self, val: int) -> int:\n        heapq.heappush(self.heap, val)\n        if len(self.heap) > self.k:  # 超过 k 个就弹出堆顶，淘汰最小候选\n            heapq.heappop(self.heap)\n        return self.heap[0]          # 堆顶 = 前 k 大中最小的 = 第 k 大",
+      "acmCode": "# ACM 模式：完整可运行程序（stdin -> stdout）\n# 输入格式：\n#   第一行：k m（第 k 大、初始数据流长度）\n#   第二行：m 个整数（初始数据流，可为空）\n#   第三行：q（add 调用次数）\n#   第四行：q 个整数（依次 add 的参数）\n# 输出格式：q 行，每行一个整数，为该次 add 后的第 k 大元素\nimport sys\nimport heapq\n\ndef main():\n    data = sys.stdin.read().split()\n    k, m = int(data[0]), int(data[1])\n    nums = [int(x) for x in data[2:2 + m]]\n    q = int(data[2 + m])\n    adds = [int(x) for x in data[3 + m:3 + m + q]]\n    heap = nums[:]                     # 初始数据流建最小堆\n    heapq.heapify(heap)\n    while len(heap) > k:               # 只保留当前最大的 k 个候选\n        heapq.heappop(heap)\n    out = []\n    for val in adds:\n        heapq.heappush(heap, val)\n        if len(heap) > k:              # 超员淘汰最小候选\n            heapq.heappop(heap)\n        out.append(str(heap[0]))       # 堆顶即第 k 大\n    print('\\n'.join(out))\n\nif __name__ == '__main__':\n    main()",
+      "templates": [
+        "数据流 Top-K 模板：大小为 k 的最小堆，add 即 push +（超 k 则 pop），答案 heap[0]；与 215 的静态数组版本互为镜像",
+        "流式问题通用套路：用不到的数据立刻丢弃，只维护回答问题所需的最小状态（这里是当前最大的 k 个候选）"
+      ],
+      "codeCpp": "class KthLargest {\npublic:\n    KthLargest(int k, vector<int>& nums) : k(k) {\n        // 初始化：逐个入堆，保持堆中只有当前最大的 k 个候选\n        for (int x : nums) {\n            heap.push(x);\n            if ((int)heap.size() > k)\n                heap.pop();          // 超员淘汰最小候选\n        }\n    }\n\n    int add(int val) {\n        heap.push(val);              // 新数据入流\n        if ((int)heap.size() > k)\n            heap.pop();              // 超过 k 个就弹出堆顶，淘汰最小候选\n        return heap.top();           // 堆顶 = 前 k 大中最小 = 第 k 大\n    }\n\nprivate:\n    int k;\n    priority_queue<int, vector<int>, greater<int>> heap;   // 大小为 k 的最小堆\n};",
+      "acmCodeCpp": "// ACM 模式：完整可运行程序（stdin -> stdout）\n// 输入格式：\n//   第一行：k m（第 k 大、初始数据流长度）\n//   第二行：m 个整数（初始数据流，可为空）\n//   第三行：q（add 调用次数）\n//   第四行：q 个整数（依次 add 的参数）\n// 输出格式：q 行，每行一个整数，为该次 add 后的第 k 大元素\n#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);\n    cin.tie(nullptr);\n\n    int k, m;\n    cin >> k >> m;\n    priority_queue<int, vector<int>, greater<int>> heap;   // 大小为 k 的最小堆\n    for (int i = 0; i < m; ++i) {   // 初始数据流逐个入堆\n        int x;\n        cin >> x;\n        heap.push(x);\n        if ((int)heap.size() > k)   // 超员淘汰最小候选\n            heap.pop();\n    }\n    int q;\n    cin >> q;\n    for (int i = 0; i < q; ++i) {\n        int val;\n        cin >> val;\n        heap.push(val);             // 新数据入流\n        if ((int)heap.size() > k)   // 超员淘汰最小候选\n            heap.pop();\n        cout << heap.top() << '\\n'; // 堆顶即第 k 大\n    }\n    return 0;\n}",
+      "codeJava": "class KthLargest {\n    private final int k;\n    private final PriorityQueue<Integer> heap = new PriorityQueue<>();  // 大小为 k 的最小堆\n\n    public KthLargest(int k, int[] nums) {\n        this.k = k;\n        // 初始化：逐个入堆，保持堆中只有当前最大的 k 个候选\n        for (int x : nums) {\n            heap.offer(x);\n            if (heap.size() > k)\n                heap.poll();       // 超员淘汰最小候选\n        }\n    }\n\n    public int add(int val) {\n        heap.offer(val);           // 新数据入流\n        if (heap.size() > k)\n            heap.poll();           // 超过 k 个就弹出堆顶，淘汰最小候选\n        return heap.peek();        // 堆顶 = 前 k 大中最小 = 第 k 大\n    }\n}",
+      "codeJs": "// 最小堆的两个辅助操作\nfunction heapPush(heap, x) {\n  heap.push(x);                // 新元素先放到堆底\n  let i = heap.length - 1;\n  while (i > 0) {              // 上浮：比父节点小就交换\n    const p = (i - 1) >> 1;\n    if (heap[i] >= heap[p]) break;\n    [heap[i], heap[p]] = [heap[p], heap[i]];\n    i = p;\n  }\n}\n\nfunction heapPop(heap) {\n  const top = heap[0];         // 弹出堆顶（最小候选）\n  const last = heap.pop();\n  if (heap.length) {\n    heap[0] = last;            // 末尾元素补到堆顶\n    let i = 0;\n    for (;;) {                 // 下沉：与较小的孩子交换\n      const l = 2 * i + 1, r = 2 * i + 2;\n      let m = i;\n      if (l < heap.length && heap[l] < heap[m]) m = l;\n      if (r < heap.length && heap[r] < heap[m]) m = r;\n      if (m === i) break;\n      [heap[i], heap[m]] = [heap[m], heap[i]];\n      i = m;\n    }\n  }\n  return top;\n}\n\n/**\n * 数据流第 k 大：核心是维护『当前最大的 k 个数』的最小堆，堆顶即第 k 大\n * @param {number} k\n * @param {number[]} nums\n */\nvar KthLargest = function (k, nums) {\n  this.k = k;\n  this.heap = [];  // 大小为 k 的最小堆\n  for (const x of nums) {\n    heapPush(this.heap, x);                        // 逐个入堆\n    if (this.heap.length > k) heapPop(this.heap);  // 超员淘汰最小候选\n  }\n};\n\n/**\n * @param {number} val\n * @return {number}\n */\nKthLargest.prototype.add = function (val) {\n  heapPush(this.heap, val);    // 新数据入流\n  if (this.heap.length > this.k)\n    heapPop(this.heap);        // 超过 k 个就弹出堆顶，淘汰最小候选\n  return this.heap[0];         // 堆顶 = 前 k 大中最小 = 第 k 大\n};",
+      "codeGo": "type KthLargest struct {\n\tk    int\n\theap []int // 大小为 k 的最小堆（手写 sift，不依赖标准库）\n}\n\n// heapPush 向最小堆压入元素（上浮）\nfunc heapPush(h *[]int, x int) {\n\t*h = append(*h, x) // 新元素先放到堆底\n\ti := len(*h) - 1\n\tfor i > 0 { // 上浮：比父节点小就交换\n\t\tp := (i - 1) / 2\n\t\tif (*h)[i] >= (*h)[p] {\n\t\t\tbreak\n\t\t}\n\t\t(*h)[i], (*h)[p] = (*h)[p], (*h)[i]\n\t\ti = p\n\t}\n}\n\n// heapPop 弹出最小堆堆顶（下沉）\nfunc heapPop(h *[]int) int {\n\thp := *h\n\ttop := hp[0] // 弹出堆顶\n\t*h = hp[:len(hp)-1]\n\tif len(*h) > 0 {\n\t\t(*h)[0] = hp[len(hp)-1] // 末尾元素补到堆顶\n\t\ti, sz := 0, len(*h)\n\t\tfor { // 下沉：与较小的孩子交换\n\t\t\tl, r, m := 2*i+1, 2*i+2, i\n\t\t\tif l < sz && (*h)[l] < (*h)[m] {\n\t\t\t\tm = l\n\t\t\t}\n\t\t\tif r < sz && (*h)[r] < (*h)[m] {\n\t\t\t\tm = r\n\t\t\t}\n\t\t\tif m == i {\n\t\t\t\tbreak\n\t\t\t}\n\t\t\t(*h)[i], (*h)[m] = (*h)[m], (*h)[i]\n\t\t\ti = m\n\t\t}\n\t}\n\treturn top\n}\n\nfunc KthLargestConstructor(k int, nums []int) KthLargest {\n\tthis := KthLargest{k: k}\n\tfor _, x := range nums { // 逐个入堆，保持只存当前最大的 k 个\n\t\theapPush(&this.heap, x)\n\t\tif len(this.heap) > k {\n\t\t\theapPop(&this.heap) // 超员淘汰最小候选\n\t\t}\n\t}\n\treturn this\n}\n\nfunc (this *KthLargest) Add(val int) int {\n\theapPush(&this.heap, val) // 新数据入流\n\tif len(this.heap) > this.k {\n\t\theapPop(&this.heap) // 超过 k 个就弹出堆顶，淘汰最小候选\n\t}\n\treturn this.heap[0] // 堆顶 = 前 k 大中最小 = 第 k 大\n}"
+    }
+  ]
+}

@@ -1,0 +1,551 @@
+{
+  "topic": "数学",
+  "problems": [
+    {
+      "id": 9,
+      "title": "Palindrome Number",
+      "titleCn": "回文数",
+      "difficulty": "easy",
+      "frequency": 5,
+      "question": "给你一个整数 x，如果 x 是一个回文整数，返回 true；否则，返回 false。回文数是指正序（从左向右）和倒序（从右向左）读都是一样的整数。例如，121 是回文，而 123 不是。进阶：你能不将整数转为字符串来解决这个问题吗？\n\n示例 1：输入 x = 121，输出 true。\n示例 2：输入 x = -121，输出 false。解释：从左向右读为 -121，从右向左读为 121-，不相等。\n示例 3：输入 x = 10，输出 false。解释：从右向左读为 01，不相等。",
+      "hints": [
+        "审题诀窍：负数一定不是回文（带负号）；除 0 以外末尾为 0 的数也一定不是——回文首位不可能是 0，先排除这两类能简化后续判断。",
+        "审题诀窍：进阶要求不转字符串——反转整个数字在 C++/Java 中会溢出 int，反转一半正好绕开：只把后半段翻过来，和剩下的前半段比较。",
+        "突破口：循环条件 x > rev——当 rev >= x 时恰好处理了一半（或一半多一位），最后比较 x == rev 或 x == rev // 10（奇数位时去掉中间位再比）。",
+        "追问预备：不转字符串也不反转，能否双指针逐位比较？（取最高位与最低位比较后两头剥掉）；二进制回文怎么判？（同样反转一半思想，按 2 进制位移）"
+      ],
+      "keyPoints": [
+        "先排除负数和『非 0 的整十数』两类必然非回文的情况",
+        "反转一半：rev = rev * 10 + x % 10，x //= 10，直到 x <= rev",
+        "偶数长度比较 x == rev；奇数长度比较 x == rev // 10（去掉正中间那位）",
+        "时间 O(log x)（数字位数），空间 O(1)"
+      ],
+      "structureTags": [
+        "math"
+      ],
+      "approaches": [
+        {
+          "name": "转字符串比较",
+          "idea": "s = str(x)，判断 s == s[::-1]。最短最直白，但不满足进阶要求，且把数值问题转成了字符串问题。",
+          "complexity": "时间 O(log x)，空间 O(log x)",
+          "detail": "步骤拆解：\n1. s = str(x) 把整数转成十进制字符串。\n2. 比较 s == s[::-1]（切片反转逐字符对齐），相等即回文。\n\n示例走查：x = 121 → s = '121'，反转 '121' 相等 → true ✓；x = -121 → s = '-121'，反转 '121-'，首字符负号对不上 → false ✓；x = 10 → '10' vs '01' → false ✓。\n\n为什么正确：回文的定义就是正反读相同，字符串反转比较是定义的直译，负号与末尾 0 的边界也天然被字符比较覆盖。它不满足『不转字符串』的进阶要求，还多付 O(log x) 的字符串空间；面试给出它之后应主动接出数学解法。\n\n易错点：\n- 负数不需要单独摘掉负号再比——负号参与反转必然不等，结果恰好正确。\n- 这是『能跑但拿不到加分』的解法，写完要主动说进阶版本。",
+          "code": "def isPalindrome_str(x: int) -> bool:\n    s = str(x)                  # 转成十进制字符串（负数自带负号）\n    return s == s[::-1]         # 切片反转逐字符比较"
+        },
+        {
+          "name": "反转整个数字",
+          "idea": "按数位完整反转 x 后与原数比较。不用字符串，但反转结果可能超出 int 范围——C++/Java 需要 long 或溢出检测，Python 虽无溢出但该隐患在面试中会被追问。",
+          "complexity": "时间 O(log x)，空间 O(1)",
+          "detail": "步骤拆解：\n1. 先排除负数（直接 false）。\n2. 循环 rev = rev*10 + x%10、x //= 10，把 x 的所有数位完整反转到 rev。\n3. 用临时变量保存原值，最后比较 rev == 原值。\n\n示例走查：x = 121：rev = 1（x = 12）→ rev = 12（x = 1）→ rev = 121（x = 0），rev == 121 → true ✓。\n\n为什么『基本』正确但有隐患：反转是数位级的双射，rev 等于原数等价于回文。问题在溢出——C++/Java 中 int 反转后可能超过 2^31-1（如 1999999999 反转得 9999999991），溢出会误判；Python 整数无溢出所以这里能跑对，但面试必须主动指出这个隐患，它正是『反转一半』版本的动机。\n\n易错点：\n- while x 循环会破坏 x，比较前必须保存原值，否则拿 0 去比全错。\n- 末尾为 0 的非零数（10、100）反转后丢前导 0 会判 false——结果正确但属于『数值巧合』，理解成一般性质才稳妥。",
+          "code": "def isPalindrome_full(x: int) -> bool:\n    if x < 0:                   # 负数带负号，必非回文\n        return False\n    origin, rev = x, 0\n    while x:                    # 完整反转所有数位\n        rev = rev * 10 + x % 10\n        x //= 10\n    return rev == origin        # Python 无溢出；C++/Java 需防反转结果溢出"
+        },
+        {
+          "name": "反转一半数字",
+          "idea": "每轮把 x 的末位接到 rev 末尾（rev = rev*10 + x%10），同时 x 砍掉末位（x //= 10），当 x <= rev 时说明已处理完一半（奇数长度时 rev 还多吃了一位中间数）。随后偶数长度比 x == rev，奇数长度比 x == rev // 10。反转结果不超过原数量级，天然无溢出。",
+          "complexity": "时间 O(log x)，空间 O(1)",
+          "optimal": true,
+          "detail": "步骤拆解：\n1. 预排除两类必非回文：x < 0 返回 false；x % 10 == 0 且 x != 0 返回 false（回文首位不能是 0）。\n2. rev = 0；while x > rev：rev = rev*10 + x%10、x //= 10——x 不断砍末位、rev 不断接末位，x ≤ rev 时恰好处理完一半。\n3. 收尾比较：偶数位数 x == rev；奇数位数 rev 多含正中间一位，比较 x == rev // 10。\n\n示例走查：x = 121 → rev = 1（x = 12）→ rev = 12（x = 1），此时 x = 1 ≤ rev = 12 停。x ≠ rev，但 rev // 10 = 1 == x → true ✓（奇数位，中间的 2 存在 rev 里，去掉再比）。x = 1221 → rev = 12（x = 12），x == rev → true ✓。x = 10 → 预排除命中（%10 == 0 且非 0）→ false ✓。\n\n为什么正确：while x > rev 保证反转的位数不超过一半——x 每轮砍一位、rev 每轮长一位，数值上 x ≤ rev 时两者位数已对半（奇数长度时 rev 恰好多一位中间数）；因此 rev 不超过原数量级，彻底无溢出。预排除不可省：x = 10 不预排时，循环会把末尾 0 丢成前导 0（rev = 1、x = 0），收尾 0 == 1//10 = 0 误判为 true。\n\n易错点：\n- 循环条件是 x > rev，写成 x > 0 会反转整个数，失去防溢出的意义。\n- 奇数位收尾必须 rev // 10 去掉中间位，漏掉会让 121 误判 false。\n- 整十数预排除不可省，否则 10 这类数会被反转污染误判。",
+          "code": "def isPalindrome_half(x: int) -> bool:\n    if x < 0 or (x % 10 == 0 and x != 0):  # 负数；非 0 的整十数首位不可能为 0\n        return False\n    rev = 0\n    while x > rev:              # 只反转后一半：x 砍末位，rev 接末位\n        rev = rev * 10 + x % 10\n        x //= 10\n    return x == rev or x == rev // 10      # 偶数位直接比；奇数位去掉中间位再比"
+        }
+      ],
+      "code": "class Solution:\n    def isPalindrome(self, x: int) -> bool:\n        if x < 0 or (x % 10 == 0 and x != 0):  # 负数带负号；非 0 的整十数首位不可能为 0\n            return False\n        rev = 0\n        while x > rev:                # 只反转后一半：x 不断砍末位，rev 不断接末位\n            rev = rev * 10 + x % 10   # 位技巧：x % 10 取个位，接到 rev 末尾\n            x //= 10                  # 位技巧：x //= 10 砍掉个位\n        return x == rev or x == rev // 10  # 偶数位直接相等；奇数位 rev 多一位中间位，去掉再比",
+      "templates": [
+        "回文数判定模板：先排除负数/末尾 0，再反转一半 while x > rev: rev = rev*10 + x%10; x //= 10，最后 x == rev or x == rev//10",
+        "『只反转一半』是避免整数溢出的通用技巧，凡数字对称性判断都可套用"
+      ],
+      "companies": [
+        "腾讯",
+        "华为",
+        "快手"
+      ],
+      "samples": [
+        {
+          "input": "x = 121",
+          "output": "true",
+          "explain": "正读反读都是 121"
+        },
+        {
+          "input": "x = -121",
+          "output": "false",
+          "explain": "负号破坏对称：正读 -121，反读 121-"
+        },
+        {
+          "input": "x = 10",
+          "output": "false",
+          "explain": "反读为 01，回文首位不能是 0"
+        }
+      ],
+      "acmCode": "# ACM 模式：完整可运行程序（stdin -> stdout）\n# 输入格式：一行一个整数 x（-2^31 <= x <= 2^31 - 1）\n# 输出格式：一行，x 是回文数输出 true，否则输出 false\nimport sys\n\ndef main():\n    x = int(sys.stdin.read().split()[0])   # 读入整数 x\n    if x < 0 or (x % 10 == 0 and x != 0):  # 负数与非 0 整十数必非回文\n        print('false')\n        return\n    rev = 0\n    while x > rev:                         # 只反转后一半，防溢出\n        rev = rev * 10 + x % 10\n        x //= 10\n    print('true' if x == rev or x == rev // 10 else 'false')\n\nif __name__ == '__main__':\n    main()",
+      "codeCpp": "class Solution {\npublic:\n    bool isPalindrome(int x) {\n        // 负数带负号；非 0 的整十数首位不可能是 0，两者必非回文\n        if (x < 0 || (x % 10 == 0 && x != 0)) return false;\n        int rev = 0;\n        while (x > rev) {              // 只反转后一半：x 不断砍末位，rev 不断接末位\n            rev = rev * 10 + x % 10;   // 位技巧：x % 10 取个位，接到 rev 末尾\n            x /= 10;                   // 位技巧：x /= 10 砍掉个位\n        }\n        // 偶数位直接相等；奇数位 rev 多一位中间位，去掉再比\n        return x == rev || x == rev / 10;\n    }\n};",
+      "acmCodeCpp": "// ACM 模式：完整可运行程序（stdin -> stdout）\n// 输入格式：一行一个整数 x（-2^31 <= x <= 2^31 - 1）\n// 输出格式：一行，x 是回文数输出 true，否则输出 false\n#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    long long x;\n    cin >> x;                      // 读入整数 x\n    // 负数与非 0 整十数必非回文，先排除\n    if (x < 0 || (x % 10 == 0 && x != 0)) {\n        cout << \"false\" << endl;\n        return 0;\n    }\n    long long rev = 0;\n    while (x > rev) {              // 只反转后一半，反转结果不超过原数量级，防溢出\n        rev = rev * 10 + x % 10;\n        x /= 10;\n    }\n    // 偶数位直接相等；奇数位去掉中间位再比\n    cout << ((x == rev || x == rev / 10) ? \"true\" : \"false\") << endl;\n    return 0;\n}",
+      "codeJava": "class Solution {\n    public boolean isPalindrome(int x) {\n        // 负数带负号；非 0 的整十数首位不可能是 0，两者必非回文\n        if (x < 0 || (x % 10 == 0 && x != 0)) return false;\n        int rev = 0;\n        while (x > rev) {              // 只反转后一半：x 不断砍末位，rev 不断接末位\n            rev = rev * 10 + x % 10;   // 位技巧：x % 10 取个位，接到 rev 末尾\n            x /= 10;                   // 位技巧：x /= 10 砍掉个位\n        }\n        // 偶数位直接相等；奇数位 rev 多一位中间位，去掉再比\n        return x == rev || x == rev / 10;\n    }\n}",
+      "codeJs": "/**\n * @param {number} x\n * @return {boolean}\n */\nvar isPalindrome = function (x) {\n  // 负数带负号；非 0 的整十数首位不可能是 0，两者必非回文\n  if (x < 0 || (x % 10 === 0 && x !== 0)) return false;\n  let rev = 0;\n  while (x > rev) {             // 只反转后一半：x 不断砍末位，rev 不断接末位\n    rev = rev * 10 + (x % 10);  // 位技巧：x % 10 取个位，接到 rev 末尾\n    x = Math.floor(x / 10);     // 位技巧：砍掉个位（x 为正，向下取整即砍位）\n  }\n  // 偶数位直接相等；奇数位 rev 多一位中间位，去掉再比\n  return x === rev || x === Math.floor(rev / 10);\n};",
+      "codeGo": "func isPalindrome(x int) bool {\n\t// 负数带负号；非 0 的整十数首位不可能是 0，两者必非回文\n\tif x < 0 || (x%10 == 0 && x != 0) {\n\t\treturn false\n\t}\n\trev := 0\n\tfor x > rev { // 只反转后一半：x 不断砍末位，rev 不断接末位\n\t\trev = rev*10 + x%10 // 位技巧：x % 10 取个位，接到 rev 末尾\n\t\tx /= 10             // 位技巧：x /= 10 砍掉个位\n\t}\n\t// 偶数位直接相等；奇数位 rev 多一位中间位，去掉再比\n\treturn x == rev || x == rev/10\n}"
+    },
+    {
+      "id": 50,
+      "title": "Pow(x, n)",
+      "titleCn": "Pow(x, n)",
+      "difficulty": "medium",
+      "frequency": 5,
+      "question": "实现 pow(x, n)，即计算 x 的整数 n 次幂函数（即 x^n）。进阶：能否用 O(log n) 的时间复杂度解决？\n\n示例 1：输入 x = 2.00000, n = 10，输出 1024.00000。\n示例 2：输入 x = 2.10000, n = 3，输出 9.26100。\n示例 3：输入 x = 2.00000, n = -2，输出 0.25000。解释：2^-2 = 1/2^2 = 1/4 = 0.25。\n\n提示：-100.0 < x < 100.0；-2^31 <= n <= 2^31-1；结果保证符合题目要求。",
+      "hints": [
+        "审题诀窍：|n| 最大约 2^31，暴力连乘必超时；n 可能为负——先把负指数统一化成非负（x 取倒数、n 取相反数）再计算。",
+        "审题诀窍：把 n 看成二进制：x^n = 各个 x^(2^k) 的乘积——只需 O(log n) 次自乘就能得到所有平方项，n 的对应位决定要不要乘进去。",
+        "突破口：迭代快速幂：while n: 若 n & 1 为 1 则 ans *= x；随后 x *= x、n >>= 1。",
+        "追问预备：求 x^n mod p 怎么改？（每步对 ans、x 取模，防溢出，框架不变）；矩阵快速幂加速斐波那契怎么套？（把标量平方换成 2x2 矩阵乘法，复杂度同样 O(log n)）"
+      ],
+      "keyPoints": [
+        "负指数先转换为 1/x 与 -n（C++ 中 INT_MIN 取反要注意溢出）",
+        "快速幂本质：按 n 的二进制位拆解指数，平方链 x, x², x⁴, x⁸ ...",
+        "n & 1 决定当前平方项是否乘入答案，n >>= 1 前进到下一位",
+        "时间 O(log n)、空间 O(1)（迭代版）；递归版多 O(log n) 栈空间"
+      ],
+      "structureTags": [
+        "math",
+        "bit"
+      ],
+      "approaches": [
+        {
+          "name": "暴力连乘",
+          "idea": "循环 |n| 次把 x 连乘。指数最大 2^31 - 1，必然超时，仅作为思维基线。",
+          "complexity": "时间 O(|n|)，空间 O(1)",
+          "detail": "步骤拆解：\n1. 处理负指数：n < 0 时 x = 1/x、n = -n。\n2. ans = 1.0，循环 n 次 ans *= x。\n\n示例走查：x = 2, n = 3：ans = 1 → 2 → 4 → 8 ✓。x = 2, n = -2：化成 x = 0.5、n = 2 → 0.25 ✓。\n\n为什么只配当基线：乘法次数等于 |n|，而 |n| 可达 2^31 - 1——约 21 亿次浮点乘法，任何语言都跑不完。它的价值在于引出关键观察：n 的二进制只有约 31 位，理论上只需要 O(log n) 次乘法——这就是快速幂。\n\n易错点：\n- n = INT_MIN 时 -n 在 C++/Java 中溢出，要先转 long；Python 无此问题但要会讲。\n- n = 0 时循环自然不执行返回 1.0，别画蛇添足加特判分支。",
+          "code": "def myPow_brute(x: float, n: int) -> float:\n    if n < 0:                   # 负指数化成倒数与正指数\n        x = 1 / x\n        n = -n                  # C++/Java 中 INT_MIN 取反会溢出，需先转 long\n    ans = 1.0\n    for _ in range(n):          # 连乘 n 次：|n| 可达 2^31，必然超时\n        ans *= x\n    return ans"
+        },
+        {
+          "name": "递归快速幂",
+          "idea": "分治：x^n = (x^(n/2))²，n 为奇数时再乘一个 x。每层把指数减半，递归深度 O(log n)。逻辑优雅，但多付出递归栈空间。",
+          "complexity": "时间 O(log n)，空间 O(log n)",
+          "detail": "步骤拆解：\n1. 定义 f(x, n)：n = 0 返回 1.0；否则 half = f(x, n//2) 先算一半。\n2. n 为偶数返回 half * half；n 为奇数返回 half * half * x（补乘一个 x）。\n3. 负指数在外层处理：x = 1/x、n = -n 后调用 f。\n\n示例走查：x = 2, n = 10：f(2,10) → f(2,5) → f(2,2) → f(2,1) → f(2,0) = 1 → f(2,1) = 1*1*2 = 2 → f(2,2) = 2*2 = 4 → f(2,5) = 4*4*2 = 32 → f(2,10) = 32*32 = 1024 ✓。只下探了 4 层（log2(10) 约等于 3.3）。\n\n为什么正确：x^n = (x^(n//2))^2（n 偶）或 (x^(n//2))^2 * x（n 奇），每层指数减半，同一半只算一次，总乘法次数 O(log n)；分治结构保证子问题独立且合并只需一次平方。\n\n易错点：\n- 奇数要补乘一次 x、偶数不要——补错位置结果翻倍或丢因子。\n- n = INT_MIN 取负溢出的问题递归版同样存在，外层先转 long 再取负。\n- 递归深度只有 log n 不会爆栈，但面试可指出迭代版能省 O(log n) 栈空间。",
+          "code": "def myPow_recur(x: float, n: int) -> float:\n    def f(x: float, n: int) -> float:\n        if n == 0:\n            return 1.0\n        half = f(x, n // 2)     # 先算一半：指数减半\n        if n % 2 == 0:\n            return half * half  # 偶数：平方即可\n        return half * half * x  # 奇数：补乘一个 x\n    if n < 0:\n        x = 1 / x\n        n = -n\n    return f(x, n)"
+        },
+        {
+          "name": "迭代快速幂（二进制拆指数）",
+          "idea": "把 n 写成二进制 n = Σ 2^k，则 x^n = Π x^(2^k)。维护底数 x 不断自乘得到 x, x², x⁴...，用 n & 1 判断当前位是否为 1、是则乘入答案，n >>= 1 前进。一遍循环 O(log n)，无需递归栈，是最实用的写法。",
+          "complexity": "时间 O(log n)，空间 O(1)",
+          "optimal": true,
+          "detail": "步骤拆解：\n1. 负指数预处理：x = 1/x、n = -n。\n2. ans = 1.0；while n：若 n & 1 为 1（当前二进制位是 1），ans *= x；随后 x *= x（底数升级为平方）、n >>= 1（前进到下一位）。\n3. 循环结束返回 ans。\n\n示例走查：x = 2, n = 10（二进制 1010）。第 1 轮：n&1 = 0，x → 4，n = 5；第 2 轮：n&1 = 1 → ans = 4，x → 16，n = 2；第 3 轮：n&1 = 0，x → 256，n = 1；第 4 轮：n&1 = 1 → ans = 4*256 = 1024，n = 0。返回 1024 ✓——10 = 2 + 8，4 * 256 = 2^2 * 2^8 = 2^10。\n\n为什么正确：n 的二进制分解 n = Σ 2^k 给出 x^n = Π x^(2^k)；x 通过反复自乘生成平方链 x, x^2, x^4, x^8…，n&1 挑选哪些平方项乘入 ans。每轮 n 减半、至多 2 次乘法，共 O(log n)——比暴力少约 9 个数量级，且无递归栈开销，是最实用的写法。\n\n易错点：\n- x *= x 必须每轮无条件执行，它维护的是平方链，漏乘或只在 n&1 时乘都会错位。\n- n >>= 1 配 if 判断当前位；写成 while 会把同一位连续乘多次。\n- 求 x^n mod p 的场合，ans 与 x 每步取模即可，骨架完全不变。",
+          "code": "def myPow_iter(x: float, n: int) -> float:\n    if n < 0:                   # 负指数：先取倒数，化成非负指数\n        x = 1 / x\n        n = -n\n    ans = 1.0\n    while n:                    # 把 n 看成二进制，n = Σ 2^k，x^n = Π x^(2^k)\n        if n & 1:               # 当前二进制位为 1，答案乘上当前的 x^(2^k)\n            ans *= x\n        x *= x                  # 底数自乘平方，准备下一位的 x^(2^(k+1))\n        n >>= 1                 # 右移一位，处理下一个二进制位\n    return ans"
+        }
+      ],
+      "code": "class Solution:\n    def myPow(self, x: float, n: int) -> float:\n        if n < 0:                 # 负指数：先取倒数，把问题化成非负指数\n            x = 1 / x\n            n = -n\n        ans = 1.0\n        while n:                  # 把 n 看成二进制，n = Σ 2^k，则 x^n = Π x^(2^k)\n            if n & 1:             # 位技巧①：当前二进制位为 1，答案乘上当前的 x^(2^k)\n                ans *= x\n            x *= x                # 位技巧②：底数自乘平方，准备下一位需要的 x^(2^(k+1))\n            n >>= 1               # 位技巧③：右移一位，处理下一个二进制位\n        return ans",
+      "templates": [
+        "快速幂模板：while n: if n&1: ans *= x; x *= x; n >>= 1 —— 求 x^n mod p 时每步对 ans 与 x 取模即可扩展",
+        "『指数按二进制拆解 + 平方链』是把 O(n) 优化到 O(log n) 的经典手段，矩阵快速幂、斐波那契加速同理"
+      ],
+      "companies": [
+        "腾讯",
+        "华为"
+      ],
+      "samples": [
+        {
+          "input": "x = 2.00000, n = 10",
+          "output": "1024.00000"
+        },
+        {
+          "input": "x = 2.10000, n = 3",
+          "output": "9.26100"
+        },
+        {
+          "input": "x = 2.00000, n = -2",
+          "output": "0.25000",
+          "explain": "负指数：2^-2 = 1/4"
+        }
+      ],
+      "acmCode": "# ACM 模式：完整可运行程序（stdin -> stdout）\n# 输入格式：一行两个数：底数 x（浮点）与指数 n（整数），空格分隔\n# 输出格式：一行，x^n 的值，保留 5 位小数\nimport sys\n\ndef main():\n    data = sys.stdin.read().split()\n    x = float(data[0])\n    n = int(data[1])\n    if n < 0:                    # 负指数化成倒数\n        x = 1 / x\n        n = -n\n    ans = 1.0\n    while n:                     # 迭代快速幂\n        if n & 1:\n            ans *= x\n        x *= x\n        n >>= 1\n    print(f\"{ans:.5f}\")\n\nif __name__ == '__main__':\n    main()",
+      "codeCpp": "class Solution {\npublic:\n    double myPow(double x, int n) {\n        if (n < 0) {                 // 负指数：先取倒数，把问题化成非负指数\n            x = 1 / x;\n            // n 可能是 INT_MIN，直接 -n 会溢出，先转 long long 再取负\n            long long N = -(long long)n;\n            return quickPow(x, N);\n        }\n        return quickPow(x, n);\n    }\n\nprivate:\n    double quickPow(double x, long long n) {\n        double ans = 1.0;\n        while (n > 0) {              // 把 n 看成二进制，n = Σ 2^k，x^n = Π x^(2^k)\n            if (n & 1) ans *= x;     // 当前二进制位为 1，答案乘上当前的 x^(2^k)\n            x *= x;                  // 底数自乘平方，准备下一位需要的 x^(2^(k+1))\n            n >>= 1;                 // 右移一位，处理下一个二进制位\n        }\n        return ans;\n    }\n};",
+      "acmCodeCpp": "// ACM 模式：完整可运行程序（stdin -> stdout）\n// 输入格式：一行两个数：底数 x（浮点）与指数 n（整数），空格分隔\n// 输出格式：一行，x^n 的值，保留 5 位小数\n#include <bits/stdc++.h>\nusing namespace std;\n\ndouble quickPow(double x, long long n) {\n    double ans = 1.0;\n    while (n > 0) {                // 迭代快速幂：按 n 的二进制位拆解指数\n        if (n & 1) ans *= x;       // 当前二进制位为 1，答案乘上当前的 x^(2^k)\n        x *= x;                    // 底数自乘平方，准备下一位需要的 x^(2^(k+1))\n        n >>= 1;                   // 右移一位，处理下一个二进制位\n    }\n    return ans;\n}\n\nint main() {\n    double x;\n    long long n;\n    cin >> x >> n;                 // 读入底数与指数\n    if (n < 0) {                   // 负指数化成倒数\n        x = 1 / x;\n        n = -n;\n    }\n    double ans = quickPow(x, n);\n    cout.setf(ios::fixed);         // 固定小数位输出，等价于 Python 的 f\"{ans:.5f}\"\n    cout.precision(5);\n    cout << ans << endl;\n    return 0;\n}",
+      "codeJava": "class Solution {\n    public double myPow(double x, int n) {\n        if (n < 0) {                 // 负指数：先取倒数，把问题化成非负指数\n            x = 1 / x;\n            // n 可能是 Integer.MIN_VALUE，直接 -n 会溢出，先转 long 再取负\n            long N = -(long) n;\n            return quickPow(x, N);\n        }\n        return quickPow(x, n);\n    }\n\n    private double quickPow(double x, long n) {\n        double ans = 1.0;\n        while (n > 0) {              // 把 n 看成二进制，n = Σ 2^k，x^n = Π x^(2^k)\n            if ((n & 1) == 1) ans *= x;  // 当前二进制位为 1，答案乘上 x^(2^k)\n            x *= x;                  // 底数自乘平方，准备下一位需要的 x^(2^(k+1))\n            n >>= 1;                 // 右移一位，处理下一个二进制位\n        }\n        return ans;\n    }\n}",
+      "codeJs": "/**\n * @param {number} x\n * @param {number} n\n * @return {number}\n */\nvar myPow = function (x, n) {\n  if (n < 0) {               // 负指数：先取倒数，把问题化成非负指数\n    x = 1 / x;\n    n = -n;                  // JS 的 number 是双精度浮点，无 32 位溢出问题\n  }\n  let ans = 1;\n  while (n > 0) {            // 把 n 看成二进制，n = Σ 2^k，则 x^n = Π x^(2^k)\n    if (n % 2 === 1) ans *= x; // 当前二进制位为 1，答案乘上当前的 x^(2^k)\n    x *= x;                  // 底数自乘平方，准备下一位需要的 x^(2^(k+1))\n    n = Math.floor(n / 2);   // 右移一位，处理下一个二进制位\n  }\n  return ans;\n};",
+      "codeGo": "func myPow(x float64, n int) float64 {\n\tif n < 0 { // 负指数：先取倒数，把问题化成非负指数\n\t\tx = 1 / x\n\t\t// n 可能是 MinInt，直接 -n 会溢出，先转 int64 再取负\n\t\tN := -int64(n)\n\t\treturn quickPow(x, N)\n\t}\n\treturn quickPow(x, int64(n))\n}\n\nfunc quickPow(x float64, n int64) float64 {\n\tans := 1.0\n\tfor n > 0 { // 把 n 看成二进制，n = Σ 2^k，则 x^n = Π x^(2^k)\n\t\tif n&1 == 1 { // 当前二进制位为 1，答案乘上当前的 x^(2^k)\n\t\t\tans *= x\n\t\t}\n\t\tx *= x  // 底数自乘平方，准备下一位需要的 x^(2^(k+1))\n\t\tn >>= 1 // 右移一位，处理下一个二进制位\n\t}\n\treturn ans\n}"
+    },
+    {
+      "id": 66,
+      "title": "Plus One",
+      "titleCn": "加一",
+      "difficulty": "easy",
+      "frequency": 4,
+      "question": "给定一个由整数组成的非空数组所表示的非负整数，在该数的基础上加一。最高位数字存放在数组的首位，数组中每个元素只存储单个数字。你可以假设除了整数 0 之外，这个整数不会以零开头。\n\n示例 1：输入 digits = [1,2,3]，输出 [1,2,4]。解释：输入数组表示数字 123，加一后为 124。\n示例 2：输入 digits = [4,3,2,1]，输出 [4,3,2,2]。解释：输入数组表示数字 4321。\n示例 3：输入 digits = [9]，输出 [1,0]。解释：输入数组表示数字 9，加一后进位为 10。",
+      "hints": [
+        "审题诀窍：加一只会影响『末尾连续的 9』——从最低位往高位看，遇到第一个非 9 的数就可以停，高位完全不变。",
+        "审题诀窍：全是 9 的特殊情况要单独处理：结果比原数组多一位，形如 100...0。",
+        "突破口：从右往左扫：当前位 < 9 则该位 +1 直接返回；当前位 == 9 则置 0 继续向高位进位；循环走完说明全 9，返回 [1] + 已全变 0 的原数组。",
+        "追问预备：字符串形式的两个大数相加（415）怎么做？（双指针从末位对齐逐位加进位）；如果要求不能原地修改数组？（拷贝一份再处理，或按结果长度新建）"
+      ],
+      "keyPoints": [
+        "从最低位开始处理进位，遇到第一个非 9 位即可提前返回",
+        "9 加 1 变 0，进位向高位传播",
+        "全 9 数组返回 [1] + [0]*n，长度加一",
+        "原地修改 O(1) 额外空间（仅全 9 时新建数组）"
+      ],
+      "structureTags": [
+        "math"
+      ],
+      "approaches": [
+        {
+          "name": "数组转整数",
+          "idea": "把数组装成整数、加 1、再逐位拆回数组。位数很大时依赖大整数运算，且来回转换多做了无用功，其他语言还会溢出。",
+          "complexity": "时间 O(n)，空间 O(n)",
+          "detail": "步骤拆解：\n1. num = int(''.join(map(str, digits))) 把数组装成整数。\n2. num += 1 后逐位拆回数组：str(num) 再逐字符 int。\n\n示例走查：[1,2,3] → 123 + 1 = 124 → [1,2,4] ✓；[9] → 10 → [1,0] ✓（字符串长度多一位，按新长度重建）。\n\n为什么它不好：Python 有大整数所以能跑，但这道题考察的『进位传播』被完全绕开；C++/Java 里位数超过 long 直接溢出。时间空间都 O(n) 且转换开销是纯浪费，面试给出它只能当反例。\n\n易错点：\n- 依赖语言大整数能力，写进『可复用技巧库』要注明适用条件。\n- 拆回数组时 str(num) 可能比原数组多一位（全 9 情形），按新字符串长度重建，别按原长度截断。",
+          "code": "def plusOne_convert(digits):\n    num = int(''.join(map(str, digits)))   # 数组装成整数（依赖大整数能力）\n    num += 1                               # 加一\n    return [int(c) for c in str(num)]      # 拆回数组（全 9 时自然多一位）"
+        },
+        {
+          "name": "逐位进位模拟",
+          "idea": "维护 carry 从末位加到首位：每位加 carry 后更新本位与 carry，最后若 carry 为 1 在头部插入。通用性强（可扩展成加任意数），但本题加一有更简洁的写法。",
+          "complexity": "时间 O(n)，空间 O(1)（不计返回）",
+          "detail": "步骤拆解：\n1. carry = 1（加一相当于最低位带进位 1），从末位向前扫：t = digits[i] + carry。\n2. digits[i] = t % 10 留本位，carry = t // 10 传高位。\n3. carry 归 0 后可提前结束；扫完仍有 carry 则头部补 1。\n\n示例走查：[4,3,2,1]：i=3：1+1 = 2，carry = 0 → 提前结束，结果 [4,3,2,2] ✓。[1,9,9]：i=2：9+1 = 10 → 置 0、carry = 1；i=1：9+1 = 10 → 置 0、carry = 1；i=0：1+1 = 2、carry = 0 → [2,0,0]。\n\n为什么正确：进位传播的数学定义就是 t % 10 留本位、t // 10 传高位；carry 只有 0/1 两种取值（加一最多进一位），一遍扫描必然终止。它还是『大数加任意数』的通用框架，比本题专用解法更有迁移价值。\n\n易错点：\n- carry 归 0 后要 break，否则高位被 0+0 重算（结果没错但白做功，写通用大数加法时甚至出错）。\n- 扫完 carry 仍为 1 时要头部补 1（全 9 情形），用 [1] + digits 比 insert(0, 1) 少一次 O(n) 搬移。",
+          "code": "def plusOne_carry(digits):\n    carry = 1                     # 加一相当于最低位带进位 1\n    for i in range(len(digits) - 1, -1, -1):\n        t = digits[i] + carry\n        digits[i] = t % 10        # 本位留下 t 的个位\n        carry = t // 10           # 进位传向高位\n        if carry == 0:            # 进位归零，高位不再受影响\n            break\n    if carry:                     # 全 9：最高位还要再进一位\n        digits.insert(0, 1)\n    return digits"
+        },
+        {
+          "name": "找第一个非 9 位",
+          "idea": "利用『进位只传播到第一个非 9 位』的性质：从右往左扫，当前位 < 9 就 +1 并立即返回；是 9 就置 0 继续。循环自然结束说明全 9，直接返回 [1] + digits（此时 digits 已全 0）。平均情况远快于完整模拟。",
+          "complexity": "时间 O(n)，空间 O(1)（不计返回）",
+          "optimal": true,
+          "detail": "步骤拆解：\n1. 从最低位 i = n-1 向左扫：digits[i] < 9 时 digits[i] += 1 并立即 return digits——高位完全不变，进位链到此为止。\n2. digits[i] == 9 时置 0，继续向高位传播进位。\n3. 循环完整走完说明全 9：返回 [1] + digits（此时 digits 已全为 0）。\n\n示例走查：[1,2,3]：i=2，3 < 9 → [1,2,4] 直接返回 ✓。[9]：i=0，9 → 0，循环走完 → [1,0] ✓。[8,9,9]：i=2、i=1 置 0；i=0：8 < 9 → [9,0,0] ✓。\n\n为什么正确：加一只影响『末尾连续 9』构成的进位链——第一个非 9 位收下进位后更高位一个都不变；全 9 时链条贯穿到最高位，结果多出一位 1。每个位置只访问一次，最坏 O(n)、平均远快于完整模拟。\n\n易错点：\n- 提前返回时直接返回整个 digits（高位未动，无需重建）。\n- 全 9 返回 [1] + digits 利用的正是『9 全部置 0』的副作用，别中途又拷贝数组。\n- for-else 的 else 在循环完整跑完时执行；用 while + 标志位写容易漏掉全 9 分支。",
+          "code": "def plusOne_nine(digits):\n    for i in range(len(digits) - 1, -1, -1):  # 从最低位向高位扫\n        if digits[i] < 9:      # 第一个非 9 位：直接 +1，进位到此为止\n            digits[i] += 1\n            return digits      # 高位完全不变，提前返回\n        digits[i] = 0          # 是 9 则变 0，继续向高位进位\n    return [1] + digits        # 循环走完说明全是 9：如 999 -> 1000"
+        }
+      ],
+      "code": "class Solution:\n    def plusOne(self, digits: List[int]) -> List[int]:\n        for i in range(len(digits) - 1, -1, -1):  # 从最低位向高位扫\n            if digits[i] < 9:      # 第一个非 9 位：直接 +1，进位到此为止\n                digits[i] += 1\n                return digits      # 高位完全不变，提前返回\n            digits[i] = 0          # 是 9 则变 0，继续向高位进位\n        return [1] + digits        # 循环走完说明全是 9：如 999 -> 1000",
+      "templates": [
+        "大数 +1 模板：从低位向高位扫，位 < 9 直接加并停，位 == 9 置 0 继续；扫完仍需进位则最高位补 1",
+        "『找第一个非 9 位』的早停思想：进位只传播到第一个不满的位置，之后的高位完全不变"
+      ],
+      "companies": [
+        "华为",
+        "百度",
+        "小米"
+      ],
+      "samples": [
+        {
+          "input": "digits = [1,2,3]",
+          "output": "[1,2,4]",
+          "explain": "123 + 1 = 124"
+        },
+        {
+          "input": "digits = [9]",
+          "output": "[1,0]",
+          "explain": "9 + 1 = 10，进位使数组多一位"
+        },
+        {
+          "input": "digits = [8,9,9]",
+          "output": "[9,0,0]",
+          "explain": "进位链穿过连续的 9"
+        }
+      ],
+      "acmCode": "# ACM 模式：完整可运行程序（stdin -> stdout）\n# 输入格式：\n#   第一行：n（位数）\n#   第二行：n 个数字（0-9），空格分隔，最高位在前\n# 输出格式：一行，加一后的各位数字，空格分隔\nimport sys\n\ndef main():\n    data = sys.stdin.read().split()\n    n = int(data[0])\n    digits = [int(x) for x in data[1:1 + n]]\n    for i in range(n - 1, -1, -1):\n        if digits[i] < 9:        # 第一个非 9 位收下进位\n            digits[i] += 1\n            break\n        digits[i] = 0            # 9 变 0，继续进位\n    else:                        # 循环未被 break：全部是 9，进一位\n        digits = [1] + digits\n    print(' '.join(map(str, digits)))\n\nif __name__ == '__main__':\n    main()",
+      "codeCpp": "class Solution {\npublic:\n    vector<int> plusOne(vector<int>& digits) {\n        // 从最低位向高位扫：第一个非 9 位直接 +1，进位到此为止\n        for (int i = (int)digits.size() - 1; i >= 0; --i) {\n            if (digits[i] < 9) {\n                digits[i] += 1;      // 收下进位，高位完全不变\n                return digits;\n            }\n            digits[i] = 0;           // 是 9 则变 0，继续向高位进位\n        }\n        // 循环走完说明全是 9：如 999 -> 1000，结果比原数组多一位\n        digits.insert(digits.begin(), 1);\n        return digits;\n    }\n};",
+      "acmCodeCpp": "// ACM 模式：完整可运行程序（stdin -> stdout）\n// 输入格式：\n//   第一行：n（位数）\n//   第二行：n 个数字（0-9），空格分隔，最高位在前\n// 输出格式：一行，加一后的各位数字，空格分隔\n#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);   // 关闭同步，读入更快\n    cin.tie(nullptr);\n\n    int n;\n    cin >> n;\n    vector<int> digits(n);\n    for (auto& d : digits) cin >> d;\n\n    bool carry = true;             // 加一相当于最低位带进位 1\n    for (int i = n - 1; i >= 0; --i) {\n        if (digits[i] < 9) {       // 第一个非 9 位收下进位，高位完全不变\n            digits[i] += 1;\n            carry = false;\n            break;\n        }\n        digits[i] = 0;             // 是 9 则变 0，继续向高位进位\n    }\n    if (carry) digits.insert(digits.begin(), 1);  // 全 9：最高位再进一位\n\n    for (int i = 0; i < (int)digits.size(); ++i) {\n        if (i) cout << ' ';        // 空格分隔\n        cout << digits[i];\n    }\n    cout << endl;\n    return 0;\n}",
+      "codeJava": "class Solution {\n    public int[] plusOne(int[] digits) {\n        // 从最低位向高位扫：第一个非 9 位直接 +1，进位到此为止\n        for (int i = digits.length - 1; i >= 0; i--) {\n            if (digits[i] < 9) {\n                digits[i] += 1;      // 收下进位，高位完全不变\n                return digits;\n            }\n            digits[i] = 0;           // 是 9 则变 0，继续向高位进位\n        }\n        // 循环走完说明全是 9：如 999 -> 1000，结果比原数组多一位\n        int[] ans = new int[digits.length + 1];\n        ans[0] = 1;                  // 其余位默认 0，恰好是 1000...0\n        return ans;\n    }\n}",
+      "codeJs": "/**\n * @param {number[]} digits\n * @return {number[]}\n */\nvar plusOne = function (digits) {\n  // 从最低位向高位扫：第一个非 9 位直接 +1，进位到此为止\n  for (let i = digits.length - 1; i >= 0; i--) {\n    if (digits[i] < 9) {\n      digits[i] += 1; // 收下进位，高位完全不变\n      return digits;\n    }\n    digits[i] = 0;    // 是 9 则变 0，继续向高位进位\n  }\n  // 循环走完说明全是 9：如 999 -> 1000，结果比原数组多一位\n  return [1, ...digits];\n};",
+      "codeGo": "func plusOne(digits []int) []int {\n\t// 从最低位向高位扫：第一个非 9 位直接 +1，进位到此为止\n\tfor i := len(digits) - 1; i >= 0; i-- {\n\t\tif digits[i] < 9 {\n\t\t\tdigits[i]++ // 收下进位，高位完全不变\n\t\t\treturn digits\n\t\t}\n\t\tdigits[i] = 0 // 是 9 则变 0，继续向高位进位\n\t}\n\t// 循环走完说明全是 9：如 999 -> 1000，结果比原数组多一位\n\treturn append([]int{1}, digits...)\n}"
+    },
+    {
+      "id": 69,
+      "title": "Sqrt(x)",
+      "titleCn": "x 的平方根",
+      "difficulty": "easy",
+      "frequency": 4,
+      "question": "给你一个非负整数 x，计算并返回 x 的算术平方根。由于返回类型是整数，结果只保留整数部分，小数部分将被舍去。注意：不允许使用任何内置指数函数和算符，例如 pow(x, 0.5) 或者 x ** 0.5。\n\n示例 1：输入 x = 4，输出 2。\n示例 2：输入 x = 8，输出 2。解释：8 的算术平方根是 2.82842...，由于返回类型是整数，小数部分将被舍去。",
+      "hints": [
+        "审题诀窍：答案是 floor(sqrt(x))，即满足 k² <= x 的最大整数 k——k² 关于 k 单调递增，天然适合二分查找。",
+        "审题诀窍：二分上界取 x 本身即可（x < 2 时答案就是 x）；比较 mid*mid 与 x，Python 大整数无溢出，其他语言要防乘法溢出。",
+        "突破口：while left <= right：mid*mid <= x 时左边界右移（答案至少是 mid），否则右边界左移；循环结束时 right 停在最后一个满足条件的值上。",
+        "追问预备：要输出保留 2 位小数怎么做？（整数部分二分后小数部分逐位确定，或浮点二分固定迭代次数）；牛顿法和二分各适合什么场景？（牛顿收敛更快但要论证收敛性，二分普适稳妥）"
+      ],
+      "keyPoints": [
+        "求『平方不超过 x 的最大整数』，答案具单调性 → 二分查找",
+        "二分区间 [0, x]，判定条件 mid*mid <= x",
+        "mid*mid <= x 时收缩左边界，否则收缩右边界",
+        "循环结束时 right 即最后一个满足 mid*mid <= x 的值"
+      ],
+      "structureTags": [
+        "binary_search",
+        "math"
+      ],
+      "approaches": [
+        {
+          "name": "暴力递增",
+          "idea": "从 1 开始逐个试 k² <= x，k 每次加 1，直到 k² > x 返回 k-1。x 很大时要循环约 2^15.5 次以上，效率低。",
+          "complexity": "时间 O(√x)，空间 O(1)",
+          "detail": "步骤拆解：\n1. x < 2 时答案就是 x（0 和 1 单独处理）。\n2. k 从 1 开始：只要 (k+1)^2 <= x 就 k += 1。\n3. 循环结束时 k^2 <= x < (k+1)^2，k 即答案。\n\n示例走查：x = 8：k = 1（4 ≤ 8）→ k = 2（9 > 8 停）→ 答案 2 ✓；x = 4：k = 1（4 ≤ 4）→ k = 2（9 > 4 停）→ 2 ✓。\n\n为什么它是基线：答案单调（k^2 ≤ x 的 k 构成前缀），逐个试就是线性搜索；循环次数约 sqrt(x)，x 到 2^31 时要跑 4 万多次，虽不超时但与 O(log x) 的二分差三个数量级。\n\n易错点：\n- x = 0、x = 1 的边界要单独处理，从 k = 1 起步时 x = 0 会算错。\n- 判停条件是 (k+1)^2 > x，写成 k^2 > x 会多数一步。",
+          "code": "def mySqrt_brute(x: int) -> int:\n    if x < 2:                     # 0 和 1 的平方根是自身\n        return x\n    k = 1\n    while (k + 1) * (k + 1) <= x: # 还能再大一点就继续\n        k += 1\n    return k                      # k^2 <= x < (k+1)^2"
+        },
+        {
+          "name": "二分查找",
+          "idea": "在 [0, x] 上二分答案：mid*mid <= x 说明答案至少是 mid，left = mid + 1；否则 right = mid - 1。循环结束时 right 恰为最后一个满足条件的 k。比较次数 O(log x)，是非内置函数解法的标准答案。",
+          "complexity": "时间 O(log x)，空间 O(1)",
+          "optimal": true,
+          "detail": "步骤拆解：\n1. 答案是满足 k^2 <= x 的最大 k，区间 [0, x]：left = 0、right = x（x < 2 时答案就是 x，区间同样覆盖）。\n2. while left <= right：mid = (left + right) // 2；mid*mid <= x 说明 mid 可行，left = mid + 1 去找更大的；否则 mid 偏大，right = mid - 1。\n3. 循环结束时 right 停在最后一个满足 mid*mid <= x 的值上，返回 right。\n\n示例走查：x = 8。l=0, r=8：mid = 4，16 > 8 → r = 3；l=0, r=3：mid = 1，1 ≤ 8 → l = 2；l=2, r=3：mid = 2，4 ≤ 8 → l = 3；l=3, r=3：mid = 3，9 > 8 → r = 2；l > r 退出，返回 r = 2 ✓。\n\n为什么正确：f(k) = k^2 单调递增，『k^2 <= x』的 k 构成前缀 {0..ans}；二分中 right 永远指向当前已知最大的可行解，left 越过 right 的瞬间 right 恰是前缀右端点。区间每轮砍半，O(log x) 次判定，是不允许内置函数时的标准答案。\n\n易错点：\n- 返回 right 而不是 left（left 已越过可行域一格）。\n- C++/Java 中 mid*mid 溢出 int，通用写法用 mid <= x / mid 代替；Python 大整数无此忧。\n- 上界取 x 就够（x >= 1 时 sqrt(x) <= x），别扩到 x + 1 浪费一轮。",
+          "code": "def mySqrt_binary(x: int) -> int:\n    left, right = 0, x            # 答案落在 [0, x]\n    while left <= right:\n        mid = (left + right) // 2 # 取中点，Python 整数无溢出\n        if mid * mid <= x:        # mid 可行：答案至少是 mid，往右找更大的\n            left = mid + 1\n        else:                     # mid 偏大：收缩右边界\n            right = mid - 1\n    return right                  # right 停在最后一个满足 mid*mid <= x 的值"
+        },
+        {
+          "name": "牛顿迭代",
+          "idea": "对 f(r) = r² - x 用牛顿法：r = (r + x / r) // 2，反复迭代直到 r² <= x 且 (r+1)² > x。二次收敛，迭代次数很少，但要证明收敛性和边界条件，写对不容易。",
+          "complexity": "时间 O(log x)，空间 O(1)",
+          "detail": "步骤拆解：\n1. 解方程 f(r) = r^2 - x = 0：牛顿迭代 r_new = r - f(r)/f'(r) = (r + x/r) / 2。\n2. 整数版：r = (r + x // r) // 2，初值取 r = x。\n3. 终止条件用显式检查 r*r <= x 且 (r+1)*(r+1) > x（整数除法下防相邻值震荡），满足即返回 r。\n\n示例走查：x = 8：r = 8 → (8 + 1)//2 = 4 → (4 + 2)//2 = 3 → (3 + 2)//2 = 2；检查 2^2 = 4 ≤ 8 且 3^2 = 9 > 8 → 返回 2 ✓。三次迭代收敛，二次收敛意味着有效位数每轮近乎翻倍。\n\n为什么正确：牛顿法的几何意义是不断用切线零点逼近曲线零点，对 r^2 - x 这种下凸函数从上方单调收敛到 sqrt(x)；整数除法向下取整不会跳过答案下界（AM-GM 保证 (r + x/r)/2 >= sqrt(x)），配合『r^2 <= x < (r+1)^2』的显式检查保证整数解正确。\n\n易错点：\n- 终止条件必须用『r^2 <= x 且 (r+1)^2 > x』，固定迭代次数或只判 r*r > x 都可能在整数除法下来回震荡。\n- x = 0、x = 1 要单独返回（x = 0 还会除零）。\n- 面试先写二分更稳，牛顿法作为加分项讲清收敛性即可。",
+          "code": "def mySqrt_newton(x: int) -> int:\n    if x < 2:                     # 0 和 1 单独处理，也避免 x=0 时除零\n        return x\n    r = x                         # 初值取 x，首轮即砍半\n    while r * r > x or (r + 1) * (r + 1) <= x:\n        r = (r + x // r) // 2     # 牛顿迭代：切线零点，整数除法向下取整\n    return r                      # 此时 r^2 <= x < (r+1)^2"
+        }
+      ],
+      "code": "class Solution:\n    def mySqrt(self, x: int) -> int:\n        left, right = 0, x               # 答案落在 [0, x]，x < 2 时结果就是 x 本身\n        while left <= right:\n            mid = (left + right) // 2    # 取中点，Python 整数无溢出\n            if mid * mid <= x:           # mid 可行：答案至少是 mid，往右找更大的\n                left = mid + 1\n            else:                        # mid 偏大：收缩右边界\n                right = mid - 1\n        return right                     # right 停在最后一个满足 mid*mid <= x 的值",
+      "templates": [
+        "『求满足 f(k) <= x 的最大 k』模板：二分 + 判定函数，while left <= right 变形，循环结束时 right 停在最后一个可行解",
+        "整数平方根防溢出：其他语言用 mid <= x // mid 代替 mid*mid <= x"
+      ],
+      "companies": [
+        "华为",
+        "快手"
+      ],
+      "samples": [
+        {
+          "input": "x = 4",
+          "output": "2"
+        },
+        {
+          "input": "x = 8",
+          "output": "2",
+          "explain": "sqrt(8) 约为 2.828，整数部分舍去小数"
+        }
+      ],
+      "acmCode": "# ACM 模式：完整可运行程序（stdin -> stdout）\n# 输入格式：一行一个非负整数 x\n# 输出格式：一行，sqrt(x) 的整数部分（不允许使用内置幂函数）\nimport sys\n\ndef main():\n    x = int(sys.stdin.read().split()[0])\n    left, right = 0, x\n    while left <= right:          # 二分答案：mid*mid 与 x 比较\n        mid = (left + right) // 2\n        if mid * mid <= x:\n            left = mid + 1\n        else:\n            right = mid - 1\n    print(right)\n\nif __name__ == '__main__':\n    main()",
+      "codeCpp": "class Solution {\npublic:\n    int mySqrt(int x) {\n        int left = 0, right = x;               // 答案落在 [0, x]，x < 2 时结果就是 x 本身\n        while (left <= right) {\n            int mid = left + (right - left) / 2;   // 取中点，防 left+right 相加溢出\n            // 用 long long 承接乘积，防 mid*mid 溢出 int\n            if ((long long)mid * mid <= x) left = mid + 1;   // mid 可行，往右找更大的\n            else right = mid - 1;                            // mid 偏大，收缩右边界\n        }\n        // right 停在最后一个满足 mid*mid <= x 的值（left 已越过可行域一格）\n        return right;\n    }\n};",
+      "acmCodeCpp": "// ACM 模式：完整可运行程序（stdin -> stdout）\n// 输入格式：一行一个非负整数 x\n// 输出格式：一行，sqrt(x) 的整数部分（不允许使用内置幂函数）\n#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    long long x;\n    cin >> x;                      // 读入非负整数 x\n    long long left = 0, right = x; // 答案落在 [0, x]\n    while (left <= right) {        // 二分答案：mid*mid 与 x 比较\n        long long mid = (left + right) / 2;\n        if (mid * mid <= x) left = mid + 1;   // mid 可行，往右找更大的\n        else right = mid - 1;                 // mid 偏大，收缩右边界\n    }\n    cout << right << endl;         // right 停在最后一个满足 mid*mid <= x 的值\n    return 0;\n}",
+      "codeJava": "class Solution {\n    public int mySqrt(int x) {\n        int left = 0, right = x;               // 答案落在 [0, x]\n        while (left <= right) {\n            int mid = left + (right - left) / 2;   // 取中点，防 left+right 相加溢出\n            // 用 long 承接乘积，防 mid*mid 溢出 int\n            if ((long) mid * mid <= x) left = mid + 1;   // mid 可行，往右找更大的\n            else right = mid - 1;                        // mid 偏大，收缩右边界\n        }\n        // right 停在最后一个满足 mid*mid <= x 的值（left 已越过可行域一格）\n        return right;\n    }\n}",
+      "codeJs": "/**\n * @param {number} x\n * @return {number}\n */\nvar mySqrt = function (x) {\n  let left = 0,\n    right = x; // 答案落在 [0, x]，x < 2 时结果就是 x 本身\n  while (left <= right) {\n    const mid = Math.floor((left + right) / 2); // 取中点（x 在 int 范围内，double 精确）\n    if (mid * mid <= x) left = mid + 1; // mid 可行：答案至少是 mid，往右找更大的\n    else right = mid - 1;               // mid 偏大：收缩右边界\n  }\n  return right; // right 停在最后一个满足 mid*mid <= x 的值\n};",
+      "codeGo": "func mySqrt(x int) int {\n\tleft, right := 0, x // 答案落在 [0, x]，x < 2 时结果就是 x 本身\n\tfor left <= right {\n\t\tmid := left + (right-left)/2 // 取中点，防相加溢出\n\t\tif mid*mid <= x {            // Go 的 int 是 64 位，mid*mid 不会溢出\n\t\t\tleft = mid + 1 // mid 可行，往右找更大的\n\t\t} else {\n\t\t\tright = mid - 1 // mid 偏大，收缩右边界\n\t\t}\n\t}\n\treturn right // right 停在最后一个满足 mid*mid <= x 的值\n}"
+    },
+    {
+      "id": 172,
+      "title": "Factorial Trailing Zeroes",
+      "titleCn": "阶乘后的零",
+      "difficulty": "easy",
+      "frequency": 3,
+      "question": "给定一个整数 n，返回 n! 结果中尾随零的数量。提示 n! = n * (n - 1) * (n - 2) * ... * 3 * 2 * 1。进阶：设计并实现对数时间复杂度的算法。\n\n示例 1：输入 n = 3，输出 0。解释：3! = 6，不含尾随 0。\n示例 2：输入 n = 5，输出 1。解释：5! = 120，有一个尾随 0。\n示例 3：输入 n = 0，输出 0。",
+      "hints": [
+        "审题诀窍：尾随 0 由因子 2×5 相乘产生，n! 中 2 的个数远多于 5——数尾随 0 就是数因子 5 的个数，不用管 2。",
+        "审题诀窍：不要逐个数分解质因数——直接算 n/5 + n/25 + n/125 + ...：每个 5 的倍数贡献 1 个 5，25 的倍数额外再贡献 1 个，依此类推。",
+        "突破口：while n: n //= 5; ans += n，一层循环搞定，复杂度 O(log₅ n)。",
+        "追问预备：组合数 C(n, m) 的尾随 0 怎么算？（分子分母分别套勒让德公式再相减）；二进制下的尾随 0 个数？（因子 2 的个数，n >>= 1 累加同理）"
+      ],
+      "keyPoints": [
+        "尾随 0 个数 = min(因子 2 个数, 因子 5 个数) = 因子 5 的个数",
+        "n//5 统计 5 的倍数，n//25 统计 25 的额外贡献，逐层累加",
+        "公式 ans = n//5 + n//25 + n//125 + ... 即勒让德定理",
+        "时间 O(log₅ n)、空间 O(1)，完全不需要真的算出 n!"
+      ],
+      "structureTags": [
+        "math"
+      ],
+      "approaches": [
+        {
+          "name": "计算 n! 后数零",
+          "idea": "真的把 n! 乘出来（大数），然后不断 % 10 == 0 就除以 10 并计数。n 稍大乘积就是天文数字，乘法开销巨大，完全不可取。",
+          "complexity": "时间 O(n)（大数乘法开销另计），空间 O(1)",
+          "detail": "步骤拆解：\n1. fact = 1，i 从 2 乘到 n 真的算出 n!（Python 大整数撑得住）。\n2. while fact % 10 == 0：fact //= 10 并计数。\n\n示例走查：n = 5：5! = 120 → 120 % 10 == 0 → 除以 10 得 12，计 1；12 % 10 != 0 停 → 1 ✓。\n\n为什么它是反面教材：n = 1000 时 n! 有 2568 位，中间每一步都是大数乘大数；而答案只是数因子 5 的个数，与乘积本身无关——做了 100% 的无用功。它的存在价值是印证『计数题先找决定性因子，不要真算』。\n\n易错点：\n- 数零用 %10 //10 循环，别用 str(fact).count('0')——会把中间的 0 也数进去。\n- n = 0、n = 1 时 n! = 1 无尾随 0，循环自然给 0，但要想清楚为什么。",
+          "code": "def trailingZeroes_brute(n: int) -> int:\n    fact = 1\n    for i in range(2, n + 1):   # 真的把 n! 乘出来（大数）\n        fact *= i\n    ans = 0\n    while fact % 10 == 0:       # 不断剥掉尾随 0\n        fact //= 10\n        ans += 1\n    return ans"
+        },
+        {
+          "name": "逐个统计因子 5",
+          "idea": "遍历 1..n 中每个 5 的倍数，对它不断除以 5 数贡献。正确但每个数都要再循环，整体多一个 log 因子。",
+          "complexity": "时间 O(n log n)，空间 O(1)",
+          "detail": "步骤拆解：\n1. for i in range(5, n+1, 5)：只遍历 5 的倍数。\n2. 对每个 i 用 t = i 做 while t % 5 == 0: t //= 5; ans += 1，数出它含几个因子 5。\n\n示例走查：n = 25：i = 5、10、15、20 各贡献 1 个 5，i = 25 贡献 2 个（25 → 5 → 1）→ 共 6 ✓（25! 尾随 0 确为 6）。\n\n为什么正确：每个数对尾随 0 的贡献就是它含因子 5 的幂次，逐个分解统计与勒让德公式逐层统计是同一件事的两种遍历顺序；外层 n/5 次循环、内层平均不到一次，整体比公式法多一个 log 因子。\n\n易错点：\n- 步长 range(5, n+1, 5) 从 5 开始跳着走，别全量遍历 1..n 再判 i % 5。\n- 内层必须 while 而不是 if——25、125 这类含 5 的幂的数贡献多个 5。",
+          "code": "def trailingZeroes_each(n: int) -> int:\n    ans = 0\n    for i in range(5, n + 1, 5):  # 只遍历 5 的倍数\n        t = i\n        while t % 5 == 0:         # 25、125 等贡献多个 5\n            ans += 1\n            t //= 5\n    return ans"
+        },
+        {
+          "name": "逐层除以 5（勒让德公式）",
+          "idea": "直接按贡献层数统计：n//5 给出至少含一个因子 5 的数的个数，n//25 给出至少含两个的（再补一个），n//125 再补……循环 n //= 5 并累加即可。对数级步数，无需碰任何大数。",
+          "complexity": "时间 O(log₅ n)，空间 O(1)",
+          "optimal": true,
+          "detail": "步骤拆解：\n1. ans = 0；while n：n //= 5; ans += n。\n2. 第一层加的是所有 5 的倍数各 1 个 5，第二层是 25 的倍数再各补 1 个，依此累加到 n 变 0。\n\n示例走查：n = 25：n = 25//5 = 5, ans = 5；n = 5//5 = 1, ans = 6；n = 1//5 = 0 停 → 6 ✓。n = 100：20 + 4 = 24（100! 尾随 0 是 24 个）。\n\n为什么正确：n! 中因子 5 的个数 = Σ_{k>=1} floor(n/5^k)（勒让德定理）——floor(n/5) 数出至少含一个 5 的数，floor(n/25) 数出至少含两个的（第二个 5 此前没数到）……循环 n //= 5 恰好逐层计算这个和。因子 2 远多于 5，min(2 的个数, 5 的个数) 就是 5 的个数。循环 log_5 n 层，n = 10^9 也只要 13 层。\n\n易错点：\n- 循环体是先 n //= 5 再 ans += n（先除后加），顺序反了会多数一层。\n- 不要对 2 也做一遍再取 min——纯属浪费，直接数 5。\n- 更高幂（625、3125……）由循环自动覆盖，无需手写 n//625。",
+          "code": "def trailingZeroes_legendre(n: int) -> int:\n    ans = 0\n    while n:\n        n //= 5        # 每层统计能提供因子 5 的数：n/5, n/25, n/125 ...\n        ans += n       # 5 的倍数贡献 1 个，25 的倍数额外再贡献 1 个，依此累加\n    return ans         # 累加和 = n! 中因子 5 的总数 = 尾随 0 的个数"
+        }
+      ],
+      "code": "class Solution:\n    def trailingZeroes(self, n: int) -> int:\n        ans = 0\n        while n:\n            n //= 5        # 每层统计能提供因子 5 的数：n/5, n/25, n/125 ...\n            ans += n       # 5 的倍数贡献 1 个 5，25 的倍数额外再贡献 1 个，依此累加\n        return ans         # 累加和 = n! 中因子 5 的总数 = 尾随 0 的个数",
+      "templates": [
+        "n! 中质因子 p 的个数（勒让德定理）：ans = Σ n // p^k，k = 1, 2, 3, ...；求尾随 0 取 p = 5",
+        "计数类题先找『决定性因子』：0 由 2 和 5 配对产生，取个数较少的 5，避免一切无效计算"
+      ],
+      "companies": [
+        "华为",
+        "字节跳动"
+      ],
+      "samples": [
+        {
+          "input": "n = 3",
+          "output": "0",
+          "explain": "3! = 6，无尾随 0"
+        },
+        {
+          "input": "n = 5",
+          "output": "1",
+          "explain": "5! = 120，1 个尾随 0"
+        },
+        {
+          "input": "n = 25",
+          "output": "6",
+          "explain": "25//5 + 25//25 = 5 + 1 = 6"
+        }
+      ],
+      "acmCode": "# ACM 模式：完整可运行程序（stdin -> stdout）\n# 输入格式：一行一个整数 n\n# 输出格式：一行，n! 中尾随 0 的个数\nimport sys\n\ndef main():\n    n = int(sys.stdin.read().split()[0])\n    ans = 0\n    while n:                     # 勒让德公式：n/5 + n/25 + n/125 + ...\n        n //= 5\n        ans += n\n    print(ans)\n\nif __name__ == '__main__':\n    main()",
+      "codeCpp": "class Solution {\npublic:\n    int trailingZeroes(int n) {\n        int ans = 0;\n        while (n) {\n            n /= 5;    // 每层统计能提供因子 5 的数：n/5, n/25, n/125 ...\n            ans += n;  // 5 的倍数贡献 1 个 5，25 的倍数额外再贡献 1 个，依此累加\n        }\n        // 累加和 = n! 中因子 5 的总数 = 尾随 0 的个数（勒让德定理）\n        return ans;\n    }\n};",
+      "acmCodeCpp": "// ACM 模式：完整可运行程序（stdin -> stdout）\n// 输入格式：一行一个整数 n\n// 输出格式：一行，n! 中尾随 0 的个数\n#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    long long n;\n    cin >> n;                      // 读入整数 n\n    long long ans = 0;\n    while (n) {                    // 勒让德公式：n/5 + n/25 + n/125 + ...\n        n /= 5;                    // 每层统计能提供因子 5 的数\n        ans += n;                  // 5 的倍数贡献 1 个，25 的倍数再贡献 1 个\n    }\n    // 累加和 = n! 中因子 5 的总数 = 尾随 0 的个数\n    cout << ans << endl;\n    return 0;\n}",
+      "codeJava": "class Solution {\n    public int trailingZeroes(int n) {\n        int ans = 0;\n        while (n > 0) {\n            n /= 5;    // 每层统计能提供因子 5 的数：n/5, n/25, n/125 ...\n            ans += n;  // 5 的倍数贡献 1 个 5，25 的倍数额外再贡献 1 个，依此累加\n        }\n        // 累加和 = n! 中因子 5 的总数 = 尾随 0 的个数（勒让德定理）\n        return ans;\n    }\n}",
+      "codeJs": "/**\n * @param {number} n\n * @return {number}\n */\nvar trailingZeroes = function (n) {\n  let ans = 0;\n  while (n > 0) {\n    n = Math.floor(n / 5); // 每层统计能提供因子 5 的数：n/5, n/25, n/125 ...\n    ans += n;              // 5 的倍数贡献 1 个 5，25 的倍数额外再贡献 1 个\n  }\n  // 累加和 = n! 中因子 5 的总数 = 尾随 0 的个数（勒让德定理）\n  return ans;\n};",
+      "codeGo": "func trailingZeroes(n int) int {\n\tans := 0\n\tfor n > 0 {\n\t\tn /= 5   // 每层统计能提供因子 5 的数：n/5, n/25, n/125 ...\n\t\tans += n // 5 的倍数贡献 1 个 5，25 的倍数额外再贡献 1 个，依此累加\n\t}\n\t// 累加和 = n! 中因子 5 的总数 = 尾随 0 的个数（勒让德定理）\n\treturn ans\n}"
+    },
+    {
+      "id": 149,
+      "title": "Max Points on a Line",
+      "titleCn": "直线上最多的点数",
+      "difficulty": "hard",
+      "frequency": 2,
+      "question": "给你一个数组 points，其中 points[i] = [xi, yi] 表示 X-Y 平面上的一个点。求最多的点数，使这些点都在同一条直线上。\n\n示例 1：输入 points = [[1,1],[2,2],[3,3]]，输出 3。\n示例 2：输入 points = [[1,1],[3,2],[5,3],[4,1],[2,3],[1,4]]，输出 4。\n\n提示：1 <= points.length <= 300；所有给定的点互不相同。",
+      "hints": [
+        "审题诀窍：浮点斜率（dy/dx 直接相除）会因精度误差把不同直线判成同一条——必须用最简整数比 (dx/g, dy/g) 做哈希键。",
+        "审题诀窍：竖直线 dx = 0 时 gcd(0, dy) = |dy|，约分不会出错；但要统一符号——(1,-2) 和 (-1,2) 是同一斜率，约定 dx > 0（dx = 0 时 dy > 0）。",
+        "突破口：枚举每个点 i 作为锚点，用哈希表统计其余点与 i 连线的最简斜率比；同一键的最大计数 + 1（锚点自己）就是过 i 的直线上最多的点数。",
+        "追问预备：点可能重复出现怎么办？（重合点单独计数，最终加到每条过锚点直线的答案上）；n 放大到 10^4 怎么办？（随机化取点对，期望线性）"
+      ],
+      "keyPoints": [
+        "斜率用 (dx/g, dy/g) 最简整数比表示，彻底避免浮点误差",
+        "统一符号（dx > 0，或 dx == 0 时 dy > 0）保证同一条直线不同方向得到同一个键",
+        "以每个点为锚点统计斜率计数，cnt + 1 与全局答案取 max",
+        "点两两互不相同，无需额外处理重合点；时间 O(n²)、空间 O(n)"
+      ],
+      "structureTags": [
+        "math",
+        "hashmap"
+      ],
+      "approaches": [
+        {
+          "name": "暴力枚举三点组合",
+          "idea": "枚举所有三点组合，用叉积 dx1*dy2 - dy1*dx2 == 0 验证共线，维护最大的共线集合大小。正确但组合数是立方级。",
+          "complexity": "时间 O(n³)，空间 O(1)",
+          "detail": "步骤拆解：\n1. 两点确定一条直线：枚举所有点对 (i, j)（j > i）。\n2. 对每个点对再枚举 k > j，用叉积判共线：以 i 为基准，向量 ij = (x1, y1) 与 ik = (x2, y2) 满足 x1*y2 - y1*x2 == 0 则三点共线，cnt 加一。\n3. 每个点对的 cnt（初值 2，含 i、j 自身）与答案取 max。\n\n示例走查：points = [[1,1],[2,2],[3,3]]：点对 (0,1) 时 k = 2：向量 (1,1) 与 (2,2)，叉积 1*2 - 1*2 = 0 → cnt = 3 ✓。\n\n为什么它是基线：叉积判共线是几何题的原子操作，纯整数乘法无精度问题；O(n^3) 在 n = 300 时约 4.5e6 个三元组勉强可跑，但它没有利用『共线关系可按斜率分组合并』的传递性——哈希法把内层 k 的枚举摊进一张哈希表，降为 O(n^2)。\n\n易错点：\n- 叉积的减法基准必须是同一点 i，两个向量分别用 (j-i) 与 (k-i)，混用基准会判错。\n- 内层 k 从 j+1 开始只是避免重复枚举点对；cnt 初值是 2（i、j 自己），别写成 1。\n- 坐标是整数时叉积精确；若题面给浮点坐标要改用误差容忍比较。",
+          "code": "def maxPoints_brute(points) -> int:\n    n = len(points)\n    if n <= 2:\n        return n                 # 不超过 2 个点必然共线\n    ans = 0\n    for i in range(n):\n        for j in range(i + 1, n):        # 每两点确定一条直线\n            cnt = 2                      # i、j 两点必在该直线上\n            for k in range(j + 1, n):    # 数其余点是否与 i、j 共线\n                x1 = points[j][0] - points[i][0]\n                y1 = points[j][1] - points[i][1]\n                x2 = points[k][0] - points[i][0]\n                y2 = points[k][1] - points[i][1]\n                if x1 * y2 - y1 * x2 == 0:   # 叉积为 0：三点共线\n                    cnt += 1\n            ans = max(ans, cnt)\n    return ans"
+        },
+        {
+          "name": "枚举锚点 + 哈希统计斜率",
+          "idea": "固定锚点 i，对其余每个点 j 计算向量 (dx, dy)，用 gcd 约分成最简整数比并统一符号后作为键存入哈希表；同键的点必然与 i 共线。每个锚点统计一次，cnt[key] + 1（含锚点）更新答案。只需枚举锚点与点对，平方级完成。",
+          "complexity": "时间 O(n²)，空间 O(n)",
+          "optimal": true,
+          "detail": "步骤拆解：\n1. n <= 2 直接返回 n（必共线）。\n2. 枚举锚点 i；对每个 j > i 计算 dx、dy，g = gcd(dx, dy) 约分成最简整数比 (dx/g, dy/g)。\n3. 统一符号：dx < 0 或 (dx == 0 且 dy < 0) 时整体取反——保证 (1,-2) 与 (-1,2) 映射到同一个键。\n4. cnt[key] += 1，ans = max(ans, cnt[key] + 1)（+1 是锚点自己）。\n\n示例走查：points = [[1,1],[3,2],[5,3],[4,1],[2,3],[1,4]]。锚点 3 = (4,1)：到 (3,2)、(2,3)、(1,4) 的向量 (-1,1)、(-2,2)、(-3,3)，gcd 约分并统一符号后同为 (1,-1)，cnt = 3 → 3 + 1 = 4 ✓。\n\n为什么正确：与同一锚点连线斜率（最简整数比）相同的点必共线——斜率相等且共享锚点即同一直线；整数比对 (dx/g, dy/g) 精确无浮点误差，统一符号避免同一直线被拆成两个键。gcd 非负且 dx、dy 不会同时为 0（点互不相同），约分总可进行。\n\n易错点：\n- 用浮点 dy/dx 做键会被精度误差把不同直线判成同一条，必须整数比。\n- 符号统一规则：dx < 0 或 (dx == 0 且 dy < 0) 时取反，漏掉 dx == 0 的竖线分支会把竖线拆键。\n- j 从 i+1 开始即可（i 之前的点作锚点时已统计过反向斜率）；cnt[key] + 1 的 +1 是锚点自己，别忘。",
+          "code": "from math import gcd\n\ndef maxPoints_hash(points) -> int:\n    n = len(points)\n    if n <= 2:\n        return n\n    ans = 0\n    for i in range(n):\n        cnt = {}                 # 以 i 为锚点：(dx/g, dy/g) -> 同斜率点数\n        for j in range(i + 1, n):\n            dx = points[j][0] - points[i][0]\n            dy = points[j][1] - points[i][1]\n            g = gcd(dx, dy)      # gcd 返回非负数，dx/dy 不会同时为 0\n            dx, dy = dx // g, dy // g\n            if dx < 0 or (dx == 0 and dy < 0):\n                dx, dy = -dx, -dy    # 统一符号：(1,-2) 与 (-1,2) 同一斜率\n            key = (dx, dy)\n            cnt[key] = cnt.get(key, 0) + 1\n            ans = max(ans, cnt[key] + 1)   # +1 是锚点自己\n    return ans"
+        }
+      ],
+      "code": "from math import gcd\n\nclass Solution:\n    def maxPoints(self, points: List[List[int]]) -> int:\n        n = len(points)\n        if n <= 2:\n            return n                      # 不超过 2 个点必然共线\n        ans = 0\n        for i in range(n):\n            cnt = {}                      # 以 i 为锚点：(dx/g, dy/g) -> 同斜率点数\n            for j in range(i + 1, n):\n                dx = points[j][0] - points[i][0]\n                dy = points[j][1] - points[i][1]\n                g = gcd(dx, dy)           # gcd 返回非负数，dx/dy 不会同时为 0\n                dx, dy = dx // g, dy // g\n                if dx < 0 or (dx == 0 and dy < 0):\n                    dx, dy = -dx, -dy     # 统一符号：(1,-2) 与 (-1,2) 是同一斜率\n                key = (dx, dy)\n                cnt[key] = cnt.get(key, 0) + 1\n                ans = max(ans, cnt[key] + 1)   # +1 是锚点自己\n        return ans",
+      "templates": [
+        "『过定点的直线统计』模板：固定锚点 i，其余点按最简整数斜率比分组计数；共线问题一律用整数比或叉积，禁用浮点斜率",
+        "判共线用叉积 dx1*dy2 - dy1*dx2 == 0；斜率哈希时记得 gcd 约分并统一符号"
+      ],
+      "companies": [
+        "Momenta",
+        "华为"
+      ],
+      "samples": [
+        {
+          "input": "points = [[1,1],[2,2],[3,3]]",
+          "output": "3",
+          "explain": "三点都在 y = x 上"
+        },
+        {
+          "input": "points = [[1,1],[3,2],[5,3],[4,1],[2,3],[1,4]]",
+          "output": "4",
+          "explain": "(1,4)、(2,3)、(3,2)、(4,1) 四点共线，斜率 -1"
+        }
+      ],
+      "acmCode": "# ACM 模式：完整可运行程序（stdin -> stdout）\n# 输入格式：\n#   第一行：n（点的个数）\n#   第二行：2n 个整数，依次为 x1 y1 x2 y2 ...（空格分隔）\n# 输出格式：一行，同一条直线上的最多点数\nimport sys\nfrom math import gcd\n\ndef main():\n    data = sys.stdin.read().split()\n    n = int(data[0])\n    pts = []\n    for i in range(n):\n        x = int(data[1 + 2 * i])\n        y = int(data[2 + 2 * i])\n        pts.append((x, y))\n    if n <= 2:                   # 不超过 2 个点必然共线\n        print(n)\n        return\n    ans = 0\n    for i in range(n):\n        cnt = {}                 # 锚点 i：最简斜率比 -> 同斜率点数\n        for j in range(i + 1, n):\n            dx = pts[j][0] - pts[i][0]\n            dy = pts[j][1] - pts[i][1]\n            g = gcd(dx, dy)      # gcd 非负，且 dx/dy 不同时为 0\n            dx, dy = dx // g, dy // g\n            if dx < 0 or (dx == 0 and dy < 0):\n                dx, dy = -dx, -dy    # 统一符号\n            key = (dx, dy)\n            cnt[key] = cnt.get(key, 0) + 1\n            ans = max(ans, cnt[key] + 1)\n    print(ans)\n\nif __name__ == '__main__':\n    main()",
+      "codeCpp": "class Solution {\npublic:\n    int maxPoints(vector<vector<int>>& points) {\n        int n = (int)points.size();\n        if (n <= 2) return n;         // 不超过 2 个点必然共线\n        int ans = 0;\n        for (int i = 0; i < n; ++i) {\n            // 以 i 为锚点：最简斜率比 (dx/g, dy/g) -> 同斜率点数\n            map<pair<int, int>, int> cnt;\n            for (int j = i + 1; j < n; ++j) {\n                int dx = points[j][0] - points[i][0];\n                int dy = points[j][1] - points[i][1];\n                int g = std::gcd(dx, dy);   // gcd 返回非负数，dx/dy 不会同时为 0\n                dx /= g; dy /= g;           // 约分成最简整数比，避免浮点误差\n                // 统一符号：(1,-2) 与 (-1,2) 是同一斜率\n                if (dx < 0 || (dx == 0 && dy < 0)) { dx = -dx; dy = -dy; }\n                ++cnt[{dx, dy}];\n                ans = max(ans, cnt[{dx, dy}] + 1);   // +1 是锚点自己\n            }\n        }\n        return ans;\n    }\n};",
+      "acmCodeCpp": "// ACM 模式：完整可运行程序（stdin -> stdout）\n// 输入格式：\n//   第一行：n（点的个数）\n//   第二行：2n 个整数，依次为 x1 y1 x2 y2 ...（空格分隔）\n// 输出格式：一行，同一条直线上的最多点数\n#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);   // 关闭同步，读入更快\n    cin.tie(nullptr);\n\n    int n;\n    cin >> n;\n    vector<pair<int, int>> pts(n);\n    for (auto& p : pts) cin >> p.first >> p.second;\n    if (n <= 2) {                  // 不超过 2 个点必然共线\n        cout << n << endl;\n        return 0;\n    }\n    int ans = 0;\n    for (int i = 0; i < n; ++i) {\n        map<pair<int, int>, int> cnt;   // 锚点 i：最简斜率比 -> 同斜率点数\n        for (int j = i + 1; j < n; ++j) {\n            int dx = pts[j].first - pts[i].first;\n            int dy = pts[j].second - pts[i].second;\n            int g = std::gcd(dx, dy);   // gcd 非负，且 dx/dy 不同时为 0\n            dx /= g; dy /= g;           // 约分成最简整数比，避免浮点误差\n            if (dx < 0 || (dx == 0 && dy < 0)) {   // 统一符号，同一斜率同一键\n                dx = -dx;\n                dy = -dy;\n            }\n            ++cnt[{dx, dy}];\n            ans = max(ans, cnt[{dx, dy}] + 1);   // +1 是锚点自己\n        }\n    }\n    cout << ans << endl;\n    return 0;\n}",
+      "codeJava": "class Solution {\n    public int maxPoints(int[][] points) {\n        int n = points.length;\n        if (n <= 2) return n;      // 不超过 2 个点必然共线\n        int ans = 0;\n        for (int i = 0; i < n; i++) {\n            // 以 i 为锚点：最简斜率比编码成一个 long 作 key -> 同斜率点数\n            Map<Long, Integer> cnt = new HashMap<>();\n            for (int j = i + 1; j < n; j++) {\n                int dx = points[j][0] - points[i][0];\n                int dy = points[j][1] - points[i][1];\n                int g = gcd(Math.abs(dx), Math.abs(dy));  // 自实现 gcd，返回非负数\n                dx /= g; dy /= g;   // 约分成最简整数比，避免浮点误差\n                // 统一符号：(1,-2) 与 (-1,2) 是同一斜率\n                if (dx < 0 || (dx == 0 && dy < 0)) { dx = -dx; dy = -dy; }\n                // 坐标差绝对值 <= 2*10^4 < 40001/2，该编码不会碰撞\n                long key = (long) dx * 40001L + dy;\n                cnt.merge(key, 1, Integer::sum);\n                ans = Math.max(ans, cnt.get(key) + 1);   // +1 是锚点自己\n            }\n        }\n        return ans;\n    }\n\n    private int gcd(int a, int b) {\n        // 欧几里得算法：辗转相除求最大公约数\n        return b == 0 ? a : gcd(b, a % b);\n    }\n}",
+      "codeJs": "/**\n * @param {number[][]} points\n * @return {number}\n */\nvar maxPoints = function (points) {\n  const gcd = (a, b) => { // 欧几里得算法：辗转相除求最大公约数\n    while (b) {\n      const t = a % b;\n      a = b;\n      b = t;\n    }\n    return a;\n  };\n  const n = points.length;\n  if (n <= 2) return n;   // 不超过 2 个点必然共线\n  let ans = 0;\n  for (let i = 0; i < n; i++) {\n    const cnt = new Map(); // 以 i 为锚点：最简斜率比字符串 -> 同斜率点数\n    for (let j = i + 1; j < n; j++) {\n      let dx = points[j][0] - points[i][0];\n      let dy = points[j][1] - points[i][1];\n      const g = gcd(Math.abs(dx), Math.abs(dy)); // 自实现 gcd，返回非负数\n      dx /= g; // g 整除 dx，除法结果精确为整数\n      dy /= g;\n      // 统一符号：(1,-2) 与 (-1,2) 是同一斜率\n      if (dx < 0 || (dx === 0 && dy < 0)) {\n        dx = -dx;\n        dy = -dy;\n      }\n      const key = dx + ',' + dy; // 字符串化数对，避免浮点斜率的精度误差\n      cnt.set(key, (cnt.get(key) || 0) + 1);\n      ans = Math.max(ans, cnt.get(key) + 1); // +1 是锚点自己\n    }\n  }\n  return ans;\n};",
+      "codeGo": "func maxPoints(points [][]int) int {\n\tn := len(points)\n\tif n <= 2 {\n\t\treturn n // 不超过 2 个点必然共线\n\t}\n\tans := 0\n\tfor i := 0; i < n; i++ {\n\t\t// 以 i 为锚点：最简斜率比 (dx/g, dy/g) -> 同斜率点数\n\t\tcnt := map[[2]int]int{}\n\t\tfor j := i + 1; j < n; j++ {\n\t\t\tdx := points[j][0] - points[i][0]\n\t\t\tdy := points[j][1] - points[i][1]\n\t\t\tg := gcd(abs(dx), abs(dy)) // 自实现 gcd，返回非负数\n\t\t\tdx /= g                    // 约分成最简整数比，避免浮点误差\n\t\t\tdy /= g\n\t\t\t// 统一符号：(1,-2) 与 (-1,2) 是同一斜率\n\t\t\tif dx < 0 || (dx == 0 && dy < 0) {\n\t\t\t\tdx, dy = -dx, -dy\n\t\t\t}\n\t\t\tkey := [2]int{dx, dy} // 数组是可比较类型，可直接作 map key\n\t\t\tcnt[key]++\n\t\t\tif cnt[key]+1 > ans { // +1 是锚点自己\n\t\t\t\tans = cnt[key] + 1\n\t\t\t}\n\t\t}\n\t}\n\treturn ans\n}\n\nfunc gcd(a, b int) int { // 欧几里得算法：辗转相除求最大公约数\n\tfor b != 0 {\n\t\ta, b = b, a%b\n\t}\n\treturn a\n}\n\nfunc abs(x int) int { // 求绝对值（int 版，省去 import \"math\" 的 float 转换）\n\tif x < 0 {\n\t\treturn -x\n\t}\n\treturn x\n}"
+    },
+    {
+      "id": 268,
+      "title": "Missing Number",
+      "titleCn": "丢失的数字",
+      "difficulty": "easy",
+      "frequency": 4,
+      "question": "给定一个包含 [0, n] 中 n 个数的数组 nums，找出 [0, n] 这个范围内没有出现在数组中的那个数。进阶：你能否实现线性时间复杂度、仅使用额外常数空间来解决？\n\n示例 1：输入 nums = [3,0,1]，输出 2。\n示例 2：输入 nums = [0,1]，输出 2。\n示例 3：输入 nums = [9,6,4,2,3,5,7,0,1]，输出 8。",
+      "hints": [
+        "审题诀窍：数组存的是 [0, n] 中缺一个的数——下标 0..n-1 与值 0..n 天然配对，把『下标 + 边界 n』与『值』一起异或即可消元。",
+        "审题诀窍：高斯求和 n(n+1)/2 减数组和也可行，但 C++ 中 n 大时求和可能溢出；异或无溢出风险，两者同为 O(n)/O(1)。",
+        "突破口：ans 初值取 n（补上缺失的下标 n），循环中 ans ^= i ^ x；配对的值与下标全部抵消，剩下的就是缺失的数。",
+        "追问预备：缺失两个数怎么找？（异或全体后按最低不同位分组二次消元，或 sum 与平方和联立方程）；数组不允许修改、要求 O(1) 空间怎么满足？（异或法天然不改输入、常数空间）"
+      ],
+      "keyPoints": [
+        "值集合与下标集合（补上边界 n）几乎完全配对，适合异或消元",
+        "ans 初始化为 n，循环中 ans ^= i ^ x",
+        "等价写法：高斯求和 n(n+1)/2 - sum(nums)，同样 O(n)/O(1)",
+        "时间 O(n)、空间 O(1)"
+      ],
+      "structureTags": [
+        "math",
+        "bit"
+      ],
+      "approaches": [
+        {
+          "name": "排序后扫描",
+          "idea": "排序后找第一个 nums[i] != i 的位置；若全部匹配则答案是 n。思路直观，但排序引入 log 因子。",
+          "complexity": "时间 O(n log n)，空间 O(log n)",
+          "detail": "步骤拆解：\n1. nums.sort()。\n2. 扫 i = 0..n-1，第一个 nums[i] != i 的位置就是缺失数（缺失处之后整体错位）。\n3. 全部匹配则缺的是 n。\n\n示例走查：[3,0,1] 排序 → [0,1,3]：i = 2 时 nums[2] = 3 != 2 → 缺 2 ✓；[0,1]：全部匹配 → 缺 n = 2 ✓。\n\n为什么正确：[0, n] 缺一个数排序后，缺失位置之前的值与下标相等、从缺失处开始错位；扫描一遍定位第一个错位点即可。O(n log n) 的排序是它相对 O(n) 解法的全部劣势。\n\n易错点：\n- 循环扫完没找到要返回 n（不是 -1 或 0）。\n- 排序会修改原数组，面试问『能否不修改输入』时要能切换到异或/求和解法。",
+          "code": "def missingNumber_sort(nums):\n    nums.sort()                  # 排序后从缺失处开始错位\n    for i, x in enumerate(nums):\n        if x != i:               # 第一个错位点就是缺失数\n            return i\n    return len(nums)             # 全部匹配，缺的是 n"
+        },
+        {
+          "name": "哈希集合",
+          "idea": "全部数字放进集合，再遍历 0..n 检查哪个不在集合中。时间线性但付出 O(n) 空间，不满足进阶要求。",
+          "complexity": "时间 O(n)，空间 O(n)",
+          "detail": "步骤拆解：\n1. seen = set(nums) 把所有数字放进集合。\n2. 遍历 0..n 共 n+1 个数，第一个不在 seen 中的就是答案。\n\n示例走查：[3,0,1] → seen = {0,1,3}；查 0 有、1 有、2 无 → 返回 2 ✓。\n\n为什么正确：集合把存在性查询降到 O(1)，逐一核对 [0, n] 中哪个数缺席，直接对应题意。时间 O(n)、空间 O(n)——空间不满足进阶的 O(1)，这是它与异或/求和解法的唯一差距。\n\n易错点：\n- 遍历范围是 0..n 共 n+1 个数（含 n），range(n) 会漏掉缺 n 的情形。\n- 用集合别用列表 in（列表成员检查 O(n)，整体退化 O(n^2)）。",
+          "code": "def missingNumber_set(nums):\n    seen = set(nums)             # O(1) 存在性查询\n    for i in range(len(nums) + 1):   # 范围 0..n，含 n\n        if i not in seen:\n            return i\n    return -1                    # 题目保证有解，此行仅为完整性"
+        },
+        {
+          "name": "高斯求和",
+          "idea": "0..n 的和为 n(n+1)/2，减去数组实际和即缺失的数。一遍求和、一个变量，但 n 很大时其他语言中求和可能溢出整型。",
+          "complexity": "时间 O(n)，空间 O(1)",
+          "detail": "步骤拆解：\n1. 期望和 = n*(n+1)//2（0..n 的等差数列和）。\n2. 实际和 = sum(nums)。两者之差就是缺失的数。\n\n示例走查：[3,0,1]：n = 3，期望 6，实际 4 → 缺 2 ✓；[0,1]：期望 3，实际 1 → 缺 2 ✓。\n\n为什么正确：0..n 全集与数组恰好差一个元素，其余元素一一对应抵消，和的差就是缺失元素本身。一遍求和 O(n)、常数空间，与异或法同阶；差别在溢出特性——C++/Java 中 n 大时 n(n+1)/2 超 int 要 long long，而异或天然无溢出。\n\n易错点：\n- 别忘期望和里含 n 本身（数组长度是 n，值域到 n）。\n- C++ 中 n(n+1) 先乘后除会溢出 int，要 long long。",
+          "code": "def missingNumber_sum(nums):\n    n = len(nums)\n    return n * (n + 1) // 2 - sum(nums)   # 0..n 的期望和减去实际和"
+        },
+        {
+          "name": "异或消元",
+          "idea": "利用 x^x=0：把下标 0..n-1、边界值 n 与数组所有值全部异或到一起。出现过的值与对应下标配对抵消，唯一缺失的数因没有配对下标而留下来。无溢出风险，一遍扫描常数空间。",
+          "complexity": "时间 O(n)，空间 O(1)",
+          "optimal": true,
+          "detail": "步骤拆解：\n1. ans = n（下标只有 0..n-1，把边界值 n 补进异或池）。\n2. 遍历 i, x = enumerate(nums)：ans ^= i ^ x——下标 0..n-1 与值 0..n 中除缺失数外全部成对。\n3. 成对的 x^x = 0 互相抵消，ans 剩下的就是缺失数。\n\n示例走查：nums = [3,0,1]，n = 3。ans = 3；i=0, x=3：ans = 3^0^3 = 0；i=1, x=0：ans = 0^1^0 = 1；i=2, x=1：ans = 1^2^1 = 2。返回 2 ✓。\n\n为什么正确：异或满足交换律、结合律且 x^x = 0、x^0 = x——把『下标 0..n-1 并上边界 n』与『数组全部值』共 2n+1 个数整体异或，出现两次的全部消成 0，唯一缺失的数只出现一次留在 ans。无溢出风险、不修改输入、一遍扫描 O(n)/O(1)，是最优解。\n\n易错点：\n- ans 初值是 n 不是 0（n 没有对应下标可配，必须手动补进异或）。\n- 循环里 ans ^= i ^ x 一次异或两个数，拆成两行也行但别漏了 i。\n- 思路记忆点：『值与下标天然配对』，光异或数组自身是消不出答案的。",
+          "code": "def missingNumber_xor(nums):\n    ans = len(nums)              # 下标只有 0..n-1，先把边界值 n 补进异或\n    for i, x in enumerate(nums):\n        ans ^= i ^ x             # 值与下标成对出现则互相抵消，x^x=0\n    return ans                   # 唯一缺失的数没有配对下标，保留下来"
+        }
+      ],
+      "code": "class Solution:\n    def missingNumber(self, nums: List[int]) -> int:\n        ans = len(nums)             # 下标只有 0..n-1，先把边界值 n 补进异或\n        for i, x in enumerate(nums):\n            ans ^= i ^ x            # 位技巧：值与下标成对出现则互相抵消，x^x=0\n        return ans                  # 唯一缺失的数没有配对下标，保留下来",
+      "templates": [
+        "缺失/多余一个数模板：异或『下标（补齐边界）与值』消元得答案；或高斯求和做差。两者 O(n)/O(1)，异或无溢出风险",
+        "『值与下标存在天然对应』时优先想异或消元或原地交换（41 题思想同源）"
+      ],
+      "companies": [
+        "腾讯",
+        "快手",
+        "百度"
+      ],
+      "samples": [
+        {
+          "input": "nums = [3,0,1]",
+          "output": "2",
+          "explain": "[0,3] 中缺 2"
+        },
+        {
+          "input": "nums = [0,1]",
+          "output": "2",
+          "explain": "n = 2，缺的是边界值本身"
+        },
+        {
+          "input": "nums = [9,6,4,2,3,5,7,0,1]",
+          "output": "8"
+        }
+      ],
+      "acmCode": "# ACM 模式：完整可运行程序（stdin -> stdout）\n# 输入格式：\n#   第一行：n（数组长度）\n#   第二行：n 个整数（[0, n] 中缺一个）\n# 输出格式：一行，缺失的数字\nimport sys\n\ndef main():\n    data = sys.stdin.read().split()\n    n = int(data[0])\n    nums = [int(x) for x in data[1:1 + n]]\n    ans = n                      # 先把边界值 n 补进异或\n    for i, x in enumerate(nums):\n        ans ^= i ^ x             # 成对的值与下标互相抵消\n    print(ans)\n\nif __name__ == '__main__':\n    main()",
+      "codeCpp": "class Solution {\npublic:\n    int missingNumber(vector<int>& nums) {\n        int ans = (int)nums.size();  // 下标只有 0..n-1，先把边界值 n 补进异或\n        for (int i = 0; i < (int)nums.size(); ++i) {\n            ans ^= i ^ nums[i];      // 位技巧：值与下标成对出现则互相抵消，x^x=0\n        }\n        // 唯一缺失的数没有配对下标，保留下来\n        return ans;\n    }\n};",
+      "acmCodeCpp": "// ACM 模式：完整可运行程序（stdin -> stdout）\n// 输入格式：\n//   第一行：n（数组长度）\n//   第二行：n 个整数（[0, n] 中缺一个）\n// 输出格式：一行，缺失的数字\n#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);   // 关闭同步，读入更快\n    cin.tie(nullptr);\n\n    int n;\n    cin >> n;\n    int ans = n;                   // 先把边界值 n 补进异或\n    for (int i = 0; i < n; ++i) {\n        int x;\n        cin >> x;\n        ans ^= i ^ x;              // 成对的值与下标互相抵消，x^x=0\n    }\n    cout << ans << endl;           // 唯一缺失的数没有配对下标，保留下来\n    return 0;\n}",
+      "codeJava": "class Solution {\n    public int missingNumber(int[] nums) {\n        int ans = nums.length;   // 下标只有 0..n-1，先把边界值 n 补进异或\n        for (int i = 0; i < nums.length; i++) {\n            ans ^= i ^ nums[i];  // 位技巧：值与下标成对出现则互相抵消，x^x=0\n        }\n        // 唯一缺失的数没有配对下标，保留下来\n        return ans;\n    }\n}",
+      "codeJs": "/**\n * @param {number[]} nums\n * @return {number}\n */\nvar missingNumber = function (nums) {\n  let ans = nums.length; // 下标只有 0..n-1，先把边界值 n 补进异或\n  for (let i = 0; i < nums.length; i++) {\n    ans ^= i ^ nums[i];  // 位技巧：值与下标成对出现则互相抵消，x^x=0\n  }\n  return ans;            // 唯一缺失的数没有配对下标，保留下来\n};",
+      "codeGo": "func missingNumber(nums []int) int {\n\tans := len(nums) // 下标只有 0..n-1，先把边界值 n 补进异或\n\tfor i, x := range nums {\n\t\tans ^= i ^ x // 位技巧：值与下标成对出现则互相抵消，x^x=0\n\t}\n\treturn ans // 唯一缺失的数没有配对下标，保留下来\n}"
+    }
+  ]
+}

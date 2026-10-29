@@ -1,0 +1,771 @@
+{
+  "topic": "数组与字符串",
+  "problems": [
+    {
+      "id": 80,
+      "title": "Remove Duplicates from Sorted Array II",
+      "titleCn": "删除有序数组中的重复项 II",
+      "difficulty": "medium",
+      "frequency": 3,
+      "companies": [
+        "字节跳动",
+        "腾讯",
+        "美团"
+      ],
+      "question": "给定一个非严格递增排列的整数数组 nums，请你原地删除重复出现的元素，使得每个元素最多出现两次，返回删除后数组的新长度。元素的相对顺序应保持一致，且必须在不使用额外数组空间的情况下原地修改输入数组（O(1) 额外空间）。\n\n示例 1：输入 nums = [1,1,1,2,2,3]，输出 5, nums = [1,1,2,2,3]（超出新长度的部分无关紧要）。\n示例 2：输入 nums = [0,0,1,1,1,1,2,3,3]，输出 7, nums = [0,0,1,1,2,3,3]。",
+      "samples": [
+        {
+          "input": "nums = [1,1,1,2,2,3]",
+          "output": "5, nums 前 5 位为 [1,1,2,2,3]",
+          "explain": "1 已保留两次，第三个 1 必须删除"
+        },
+        {
+          "input": "nums = [0,0,1,1,1,1,2,3,3]",
+          "output": "7, nums 前 7 位为 [0,0,1,1,2,3,3]",
+          "explain": "四个 1 只保留前两个，0/2/3/3 均未超两次"
+        }
+      ],
+      "hints": [
+        "审题诀窍：『最多出现两次』不是『去重』——允许保留两个相同元素，判断对象是「已保留区间的倒数第二个元素」，而不是简单比较相邻元素。",
+        "审题诀窍：『原地』『O(1) 额外空间』『保持相对顺序』三约束同时出现，基本指向读写双指针：慢指针维护答案前缀，快指针负责扫描。",
+        "突破口：数组有序 ⇒ 重复元素必然连续聚集，所以只需盯住已保留部分的末尾做一次比较，完全不需要哈希计数。",
+        "追问预备：泛化成「每个元素最多保留 k 次」怎么改？（比较对象换成 nums[l-k]）；若数组无序且要求保序 O(1) 空间，能做到吗？（做不到：要么先排序 O(nlogn) 破坏稳定，要么哈希计数付 O(n) 空间）"
+      ],
+      "keyPoints": [
+        "读写双指针：l 是写入位置，r 是扫描位置；不变量是 nums[0..l) 永远是「每元素最多两次」的合法结果区",
+        "保留条件写成 nums[l-2] != nums[r]：与结果区倒数第二个比较，若相同则写入就会产生第三个连续重复",
+        "l < 2 时无条件保留：结果区不足两个元素时不可能违反约束",
+        "r 无论是否保留都前进，l 只在保留时前进——两指针的速度差正是被删除的元素个数"
+      ],
+      "structureTags": [
+        "two_pointer",
+        "dedup"
+      ],
+      "approaches": [
+        {
+          "name": "哈希计数 + 重建",
+          "idea": "用哈希表统计每个元素出现次数，再遍历数组把次数不超过 2 的元素写回。完全没有利用『有序』这一最强条件，还要付出 O(n) 额外空间，仅作为思维基线。",
+          "detail": "步骤拆解：\n1. 开哈希表 cnt，键是元素值，值是「这个值到目前为止已写入结果区的次数」。\n2. 顺序扫描 nums：对每个 x 查 cnt.get(x, 0)，不足 2 就执行 nums[l] = x、l += 1，并令 cnt[x] 自增；达到 2 就直接跳过。\n3. 扫描结束后 l 就是新长度，nums 前 l 位即结果。\n\n示例走查：nums = [1,1,1,2,2,3]。x=1：cnt[1]=0<2，写入位置 0，cnt[1]=1；x=1：cnt[1]=1<2，写入位置 1，cnt[1]=2；x=1：cnt[1]=2，跳过；x=2：写入位置 2，cnt[2]=1；x=2：写入位置 3，cnt[2]=2；x=3：写入位置 4。最终 l=5，前缀 [1,1,2,2,3] ✓。\n\n为什么正确：写入顺序就是扫描顺序，天然保序；cnt 统计的是「已保留次数」而不是全数组出现次数，恰好对应「最多保留两次」的约束——超过即拦截。\n\n易错点：\n- cnt 必须在「写入成功后」才自增；若先自增再判断，第一次出现的元素也会被挡掉；\n- 这个解法对无序数组同样成立，但对有序输入是浪费——完全没用上「重复必相邻」的性质，还多付了 O(n) 空间与哈希开销；\n- 面试陈述时要主动点出「没用上有序性」，顺势引出双指针解法，体现优化意识。",
+          "complexity": "时间 O(n)，空间 O(n)",
+          "code": "def removeDuplicates_count(nums):\n    # 哈希计数版：不利用有序性，思路最直白\n    cnt = {}                        # 值 -> 该值已写入结果区的次数\n    l = 0                           # 写入位置\n    for x in nums:\n        c = cnt.get(x, 0)\n        if c < 2:                   # 保留次数不足两次，可以继续写\n            cnt[x] = c + 1          # 写入成功后才计数\n            nums[l] = x\n            l += 1\n    return l                        # nums 前 l 位即结果"
+        },
+        {
+          "name": "读写双指针（与结果区倒数第二个比较）",
+          "idea": "l 为写入位置，r 为读位置。因为数组有序、重复必连续，所以只需检查 nums[r] 是否等于已保留区间的倒数第二个元素 nums[l-2]：不相等就保留（写入并 l+=1），相等说明写入会形成第三个连续重复，直接跳过。把 2 换成 k 即可泛化为「每个元素最多保留 k 次」。",
+          "detail": "步骤拆解：\n1. l 是写入指针，不变量：nums[0..l) 是「每元素最多两次」的合法结果区；r 是读指针，扫每个元素。\n2. 保留条件：l < 2（结果区还不满两个，保留必然合法），或 nums[l-2] != nums[r]（与结果区倒数第二个不同，写入不会形成第三个连续重复）。满足则 nums[l] = nums[r] 且 l += 1。\n3. r 无论是否保留都前进；返回 l。\n\n示例走查：nums = [1,1,1,2,2,3]。r=0：l=0<2，写入 1，l=1；r=1：l=1<2，写入 1，l=2；r=2：nums[0]=1 == nums[2]=1，跳过；r=3：nums[1]=1 != 2，写入位置 2，l=3；r=4：nums[2]=1 != 2，写入位置 3，l=4；r=5：nums[3]=2 != 3，写入位置 4，l=5。结果前缀 [1,1,2,2,3]，返回 5 ✓。\n\n为什么正确：数组有序 ⇒ 等值元素必然连续。若 nums[r] 与结果区倒数第二个元素相等，说明结果区末尾已经是两个连续的该值，再写入就是第三个；与更早的位置比较没有意义。把 2 换成 k，比较 nums[l-k]，即得「每个元素最多保留 k 次」的泛化。\n\n易错点：\n- 比较对象是 nums[l-2]（结果区倒数第二个），不是 nums[r-1]——拿 [1,1,1] 走一遍立刻能看出差别：比较相邻元素会在「保留两个后再来一个」时误判；\n- 条件顺序不能颠倒：l < 2 必须先判，靠短路求值保证 l-2 为负时不会去读 nums[l-2]；\n- r 的前进要写在分支外，若放进 else，被跳过的元素会让 r 卡死原地。",
+          "complexity": "时间 O(n)，空间 O(1)",
+          "optimal": true,
+          "code": "def removeDuplicates_keep2(nums):\n    # 读写双指针：l 是写入位置，nums[0..l) 恒为合法结果区\n    l = 0\n    for r in range(len(nums)):\n        # l < 2：结果区不足两个，保留必然合法\n        # nums[l-2] != nums[r]：与结果区倒数第二个比较，相同则写入就是第 3 个\n        if l < 2 or nums[l - 2] != nums[r]:\n            nums[l] = nums[r]\n            l += 1\n        # r 由 for 循环推进，无论是否保留都前进\n    return l                        # l 恰为新长度"
+        }
+      ],
+      "code": "class Solution:\n    def removeDuplicates(self, nums: List[int]) -> int:\n        # l 指向下一个写入位置：nums[0..l) 是「每元素最多两次」的合法结果区\n        # r 是读指针：r 无条件前进，l 只在保留元素时前进，速度差即删除个数\n        l, r = 0, 0\n        while r < len(nums):\n            # l < 2：结果区还不满两个，保留必然合法\n            # nums[l-2] != nums[r]：与结果区倒数第二个比较，相同则写入就是第 3 个连续重复\n            if l < 2 or nums[l - 2] != nums[r]:\n                nums[l] = nums[r]   # 覆盖写入，天然保持相对顺序\n                l += 1\n            r += 1                  # 易错点：r 必须在分支外前进，被跳过的元素不写回\n        return l                    # l 恰好是保留后的新长度",
+      "acmCode": "# ACM 模式：完整可运行程序（stdin -> stdout）\n# 输入格式：\n#   第一行：n（数组长度）\n#   第二行：n 个整数（非严格递增数组）\n# 输出格式：\n#   第一行：新长度 k\n#   第二行：保留后的 k 个整数（空格分隔）\nimport sys\n\n\ndef main():\n    data = sys.stdin.read().split()\n    n = int(data[0])\n    nums = [int(x) for x in data[1:1 + n]]\n    l = 0\n    for r in range(n):\n        if l < 2 or nums[l - 2] != nums[r]:   # 与结果区倒数第二个比较\n            nums[l] = nums[r]\n            l += 1\n    print(l)\n    print(' '.join(map(str, nums[:l])))\n\n\nif __name__ == '__main__':\n    main()",
+      "templates": [
+        "『原地删除/去重』万能模板：慢指针 write 维护合法前缀，快指针 read 扫描，满足保留条件才 write+=1 并写入；把比较对象换成 nums[write-k] 即可泛化为「每个元素最多保留 k 次」（本题 k=2，26 题 k=1）。",
+        "有序数组的重复必连续：任何与重复相关的原地操作，先想「只需看结果区末尾」，而不是开计数表。"
+      ],
+      "codeCpp": "class Solution {\npublic:\n    int removeDuplicates(vector<int>& nums) {\n        // l 指向下一个写入位置：nums[0..l) 是「每元素最多两次」的合法结果区\n        int l = 0;\n        for (int r = 0; r < (int)nums.size(); ++r) {\n            // l < 2：结果区还不满两个，保留必然合法\n            // nums[l-2] == nums[r]：再写入就是第 3 个连续重复，必须跳过\n            if (l < 2 || nums[l - 2] != nums[r]) {\n                nums[l] = nums[r];   // 覆盖写入，天然保持相对顺序\n                ++l;\n            }\n            // 易错点：r 无条件前进，被跳过的元素不写回\n        }\n        return l;                    // l 恰好是保留后的新长度\n    }\n};",
+      "acmCodeCpp": "// ACM 模式：完整可运行程序（stdin -> stdout）\n// 输入格式：\n//   第一行：n（数组长度）\n//   第二行：n 个整数（非严格递增数组）\n// 输出格式：\n//   第一行：新长度 k\n//   第二行：保留后的 k 个整数（空格分隔）\n#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);   // 关闭同步，读入更快\n    cin.tie(nullptr);\n\n    int n;\n    cin >> n;\n    vector<int> nums(n);\n    for (auto& x : nums) cin >> x;\n\n    int l = 0;                     // l 指向下一个写入位置\n    for (int r = 0; r < n; ++r) {\n        if (l < 2 || nums[l - 2] != nums[r]) {  // 与结果区倒数第二个比较\n            nums[l] = nums[r];\n            ++l;\n        }\n    }\n    cout << l << \"\\n\";             // 第一行：新长度 k\n    for (int i = 0; i < l; ++i) {  // 第二行：保留后的 k 个整数\n        if (i) cout << ' ';\n        cout << nums[i];\n    }\n    cout << \"\\n\";\n    return 0;\n}",
+      "codeJava": "class Solution {\n    public int removeDuplicates(int[] nums) {\n        // l 指向下一个写入位置：nums[0..l) 是「每元素最多两次」的合法结果区\n        int l = 0;\n        for (int r = 0; r < nums.length; r++) {\n            // l < 2：结果区还不满两个，保留必然合法\n            // nums[l-2] == nums[r]：再写入就是第 3 个连续重复，必须跳过\n            if (l < 2 || nums[l - 2] != nums[r]) {\n                nums[l] = nums[r];   // 覆盖写入，天然保持相对顺序\n                l++;\n            }\n            // 易错点：r 无条件前进，被跳过的元素不写回\n        }\n        return l;                    // l 恰好是保留后的新长度\n    }\n}",
+      "codeJs": "/**\n * @param {number[]} nums\n * @return {number}\n */\nvar removeDuplicates = function (nums) {\n  // l 指向下一个写入位置：nums[0..l) 是「每元素最多两次」的合法结果区\n  let l = 0;\n  for (let r = 0; r < nums.length; r++) {\n    // l < 2：结果区还不满两个，保留必然合法\n    // nums[l - 2] === nums[r]：再写入就是第 3 个连续重复，必须跳过\n    if (l < 2 || nums[l - 2] !== nums[r]) {\n      nums[l] = nums[r]; // 覆盖写入，天然保持相对顺序\n      l++;\n    }\n    // 易错点：r 无条件前进，被跳过的元素不写回\n  }\n  return l; // l 恰好是保留后的新长度\n};",
+      "codeGo": "func removeDuplicates(nums []int) int {\n\t// l 指向下一个写入位置：nums[0..l) 是「每元素最多两次」的合法结果区\n\tl := 0\n\tfor r := 0; r < len(nums); r++ {\n\t\t// l < 2：结果区还不满两个，保留必然合法\n\t\t// nums[l-2] == nums[r]：再写入就是第 3 个连续重复，必须跳过\n\t\tif l < 2 || nums[l-2] != nums[r] {\n\t\t\tnums[l] = nums[r] // 覆盖写入，天然保持相对顺序\n\t\t\tl++\n\t\t}\n\t\t// 易错点：r 无条件前进，被跳过的元素不写回\n\t}\n\treturn l // l 恰好是保留后的新长度\n}"
+    },
+    {
+      "id": 88,
+      "title": "Merge Sorted Array",
+      "titleCn": "合并两个有序数组",
+      "difficulty": "easy",
+      "frequency": 4,
+      "companies": [
+        "字节跳动",
+        "美团",
+        "华为"
+      ],
+      "question": "给你两个按非递减顺序排列的整数数组 nums1 和 nums2，以及两个整数 m 和 n，分别表示 nums1 和 nums2 中的元素数目。请你把 nums2 合并到 nums1 中，使合并后的数组同样按非递减顺序排列。注意：最终结果应由 nums1 的前 m+n 个元素存放（nums1 的初始化长度为 m+n，后 n 个位置设为 0，仅用于占位）。\n\n示例 1：输入 nums1 = [1,2,3,0,0,0], m = 3, nums2 = [2,5,6], n = 3，输出 [1,2,2,3,5,6]。\n示例 2：输入 nums1 = [1], m = 1, nums2 = [], n = 0，输出 [1]。",
+      "samples": [
+        {
+          "input": "nums1 = [1,2,3,0,0,0], m = 3, nums2 = [2,5,6], n = 3",
+          "output": "[1,2,2,3,5,6]",
+          "explain": "合并两个非递减数组"
+        },
+        {
+          "input": "nums1 = [1], m = 1, nums2 = [], n = 0",
+          "output": "[1]",
+          "explain": "nums2 为空，nums1 原样保留"
+        },
+        {
+          "input": "nums1 = [0], m = 0, nums2 = [1], n = 1",
+          "output": "[1]",
+          "explain": "nums1 无有效元素，结果全部来自 nums2"
+        }
+      ],
+      "hints": [
+        "审题诀窍：nums1 的长度是 m+n 而不是 m——题目免费给了你「尾部 n 个空位」，且约束是『必须存回 nums1』，所以返回新数组、借助额外缓冲区的方案直接出局。",
+        "审题诀窍：如果按归并排序的习惯从前往后合并，nums1 前段的有效数据会被自己覆盖——读题发现「空位恰好在尾部」是本题最大的突破口。",
+        "突破口：三个指针都从末尾出发、从大到小填充；被写入的位置永远在被读取数据的右侧，任何元素都不会被提前覆盖。",
+        "追问预备：两个数组都只读、要输出到新数组怎么做？（标准归并：谁小取谁，剩尾整段拷贝）；nums1 的空位在头部怎么办？（正序合并或先把有效段整体后移）；这题是归并排序 merge 步骤的原型，能推广到 k 个数组吗？（小顶堆多路归并 O(Nlogk)）"
+      ],
+      "keyPoints": [
+        "逆序合并：l 指向 nums1 有效末尾 (m-1)、r 指向 nums2 末尾 (n-1)、k 指向写入末尾 (m+n-1)，三者同时左移",
+        "每步取 l、r 指向元素中较大者放入 k 位置——因为写入点在最右端，放最大元素永远安全",
+        "主循环条件是 while r >= 0（只看 nums2 是否用完），而不是 while l >= 0 and r >= 0——nums1 有剩余时它们本就在正确位置",
+        "易错点：比较时要先判 l >= 0，否则 nums1 耗尽后会误读前面的占位数据"
+      ],
+      "structureTags": [
+        "two_pointer"
+      ],
+      "approaches": [
+        {
+          "name": "先拼接再排序",
+          "idea": "把 nums2 直接写进 nums1 的尾部空位，再对整个 nums1 排序。代码最短，但完全丢弃了「两个数组各自有序」这一信息。",
+          "detail": "步骤拆解：\n1. 把 nums2 的 n 个元素逐个写进 nums1 的尾部空位（下标 m..m+n-1，即题目初始化为 0 的占位区）。\n2. 对整个 nums1 调 sort()。\n3. 结束，nums1 原地有序。\n\n示例走查：nums1=[1,2,3,0,0,0], nums2=[2,5,6]。拼接后 nums1=[1,2,3,2,5,6]，整体排序得 [1,2,2,3,5,6] ✓。\n\n为什么正确：排序本身当然正确，它只是不挑食——完全无视「nums1 前 m 个有序、nums2 自身有序」这两条免费信息，用 O((m+n)log(m+n)) 的时间买了个省心。\n\n易错点：\n- 拼接位置必须从下标 m 开始，写到 0 开始会把 nums1 的有效数据覆盖掉；\n- 面试写这个解要主动说明它是 baseline，并补一句「两数组各自有序的信息被浪费了」，展示你知道下一步的优化方向；\n- 若面试官限制「不许用内置排序」，此路不通，直接转入逆向三指针合并。",
+          "complexity": "时间 O((m+n)log(m+n))，空间 O(1)",
+          "code": "def merge_sort(nums1, m, nums2, n):\n    # 基线版：把 nums2 填进尾部空位后整体排序\n    for i in range(n):\n        nums1[m + i] = nums2[i]     # 从下标 m 开始写，避开 nums1 的有效前缀\n    nums1.sort()                    # 丢弃「各自有序」的信息，代价 O((m+n)log(m+n))\n    return nums1"
+        },
+        {
+          "name": "逆向三指针合并",
+          "idea": "l 指向 nums1 有效末尾，r 指向 nums2 末尾，k 指向 nums1 的物理末尾；每次取两者中较大者写入 k 并左移对应指针。从后往前填，写入位置永远在被读取数据的右侧，绝不覆盖未处理元素，一次线性扫描完成。",
+          "detail": "步骤拆解：\n1. 三个指针从右往左：l = m-1（nums1 有效数据的末尾）、r = n-1（nums2 的末尾）、k = m+n-1（写入位置，nums1 的物理末尾）。\n2. 每轮比较 nums1[l] 与 nums2[r]，大者写入 nums1[k]，对应读指针左移；k 每轮恒左移。\n3. 循环条件 while r >= 0：nums2 用完即结束——nums1 若还有剩余，它们本就躺在正确位置，无需搬动。\n\n示例走查：nums1=[1,2,3,0,0,0], nums2=[2,5,6]。k=5：3<6 → 写 6，r=1；k=4：3<5 → 写 5，r=0；k=3：3>2 → 写 3，l=1；k=2：nums1[1]=2 与 2 相等，不满足 >，走 else 写 2，r=-1；循环结束。nums1=[1,2,2,3,5,6] ✓。\n\n为什么正确：写入点 k 与读取点 l 满足不变量 k = l + r + 1，k 永远在 l、r 右侧，所以被覆盖的只可能是「已经搬走的数据或本来就是空位」，任何未处理元素都安全。从后往前「谁大谁放后」，恰好产出非递减序。\n\n易错点：\n- 主循环条件写成 l >= 0 and r >= 0 会在 nums2 先耗尽时提前退出（此时剩余的 nums2 才是必须处理的），必须写 while r >= 0；\n- 比较 nums1[l] 前必须先判 l >= 0：nums1 耗尽后 l=-1，Python 的 nums1[-1] 会静默读到末尾元素，不报错但结果错——最阴险的一类 bug；\n- 相等时（nums1[l] == nums2[r]）走 else 放 nums2 的元素，结果照样正确，不需要特判。",
+          "complexity": "时间 O(m+n)，空间 O(1)",
+          "optimal": true,
+          "code": "def merge(nums1, m, nums2, n):\n    # l、r 分别是两个数组「尚未处理的最后一个元素」下标，k 是写入位置\n    # 逆序的原因：nums1 尾部是空位，从后往前填不会覆盖未比较的数据\n    l, r, k = m - 1, n - 1, m + n - 1\n    while r >= 0:                       # 只需关心 nums2 是否用完\n        if l >= 0 and nums1[l] > nums2[r]:\n            nums1[k] = nums1[l]         # nums1 的大元素后挪\n            l -= 1\n        else:\n            nums1[k] = nums2[r]         # 放 nums2 的元素（l 已耗尽也走这里）\n            r -= 1\n        k -= 1\n    return nums1                        # nums1 剩余前缀本就在正确位置"
+        }
+      ],
+      "code": "class Solution:\n    def merge(self, nums1: List[int], m: int, nums2: List[int], n: int) -> None:\n        # l、r 分别是两个数组「尚未处理的最后一个元素」的下标，k 是写入位置\n        # 逆序的原因：nums1 尾部是空位，从后往前填不会覆盖 nums1 中还没比较的数据\n        l, r = m - 1, n - 1\n        k = m + n - 1\n        while r >= 0:                       # 只需关心 nums2 是否还有剩余\n            if l >= 0 and nums1[l] > nums2[r]:\n                nums1[k] = nums1[l]         # nums1 的较大元素后挪到尾部\n                l -= 1\n            else:\n                nums1[k] = nums2[r]         # 放 nums2 的元素（l 已耗尽时也走这里）\n                r -= 1\n            k -= 1\n        # 循环结束时若 l >= 0，nums1 的前缀本来就留在原位，无需任何搬动",
+      "acmCode": "# ACM 模式：完整可运行程序（stdin -> stdout）\n# 输入格式：\n#   第一行：m n\n#   第二行：m 个整数（nums1 的有效部分）\n#   第三行：n 个整数（nums2）\n# 输出格式：一行 m+n 个整数（合并后的非递减数组，空格分隔）\nimport sys\n\n\ndef main():\n    data = sys.stdin.read().split()\n    m, n = int(data[0]), int(data[1])\n    nums1 = [int(x) for x in data[2:2 + m]] + [0] * n   # 补上尾部空位\n    nums2 = [int(x) for x in data[2 + m:2 + m + n]]\n    l, r, k = m - 1, n - 1, m + n - 1\n    while r >= 0:                       # 逆向三指针合并\n        if l >= 0 and nums1[l] > nums2[r]:\n            nums1[k] = nums1[l]\n            l -= 1\n        else:\n            nums1[k] = nums2[r]\n            r -= 1\n        k -= 1\n    print(' '.join(map(str, nums1)))\n\n\nif __name__ == '__main__':\n    main()",
+      "templates": [
+        "『有序数组原地合并』模板：写入侧与读取侧共用同一数组时，一律从尾部逆序操作，让写入位置始终在读取位置右侧，即可 O(1) 空间不覆盖；正向不行时先想「能不能倒过来做」。",
+        "归并思想的落地要点：谁大谁先放；一个数组耗尽后，剩余部分可以整段处理（本题 nums1 剩余恰好不用动，普通归并则要整段拷贝）。"
+      ],
+      "codeCpp": "class Solution {\npublic:\n    void merge(vector<int>& nums1, int m, vector<int>& nums2, int n) {\n        // l、r 分别是两个数组「尚未处理的最后一个元素」的下标，k 是写入位置\n        // 逆序的原因：nums1 尾部是空位，从后往前填不会覆盖 nums1 中还没比较的数据\n        int l = m - 1, r = n - 1, k = m + n - 1;\n        while (r >= 0) {                        // 只需关心 nums2 是否还有剩余\n            if (l >= 0 && nums1[l] > nums2[r]) {\n                nums1[k] = nums1[l];            // nums1 的较大元素后挪到尾部\n                --l;\n            } else {\n                nums1[k] = nums2[r];            // 放 nums2 的元素（l 已耗尽也走这里）\n                --r;\n            }\n            --k;\n        }\n        // 循环结束时若 l >= 0，nums1 的前缀本来就留在原位，无需任何搬动\n    }\n};",
+      "acmCodeCpp": "// ACM 模式：完整可运行程序（stdin -> stdout）\n// 输入格式：\n//   第一行：m n\n//   第二行：m 个整数（nums1 的有效部分）\n//   第三行：n 个整数（nums2）\n// 输出格式：一行 m+n 个整数（合并后的非递减数组，空格分隔）\n#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);   // 关闭同步，读入更快\n    cin.tie(nullptr);\n\n    int m, n;\n    cin >> m >> n;\n    vector<int> nums1(m + n, 0);   // 尾部预留 n 个空位，等价题面的 0 填充\n    for (int i = 0; i < m; ++i) cin >> nums1[i];\n    vector<int> nums2(n);\n    for (auto& x : nums2) cin >> x;\n\n    // 逆向三指针合并：l、r 是待比较元素，k 是写入位置\n    int l = m - 1, r = n - 1, k = m + n - 1;\n    while (r >= 0) {               // 只需关心 nums2 是否还有剩余\n        if (l >= 0 && nums1[l] > nums2[r]) {\n            nums1[k] = nums1[l];   // nums1 的较大元素后挪到尾部\n            --l;\n        } else {\n            nums1[k] = nums2[r];   // 放 nums2 的元素\n            --r;\n        }\n        --k;\n    }\n\n    for (int i = 0; i < m + n; ++i) {\n        if (i) cout << ' ';\n        cout << nums1[i];\n    }\n    cout << \"\\n\";\n    return 0;\n}",
+      "codeJava": "class Solution {\n    public void merge(int[] nums1, int m, int[] nums2, int n) {\n        // l、r 分别是两个数组「尚未处理的最后一个元素」的下标，k 是写入位置\n        // 逆序的原因：nums1 尾部是空位，从后往前填不会覆盖 nums1 中还没比较的数据\n        int l = m - 1, r = n - 1, k = m + n - 1;\n        while (r >= 0) {                        // 只需关心 nums2 是否还有剩余\n            if (l >= 0 && nums1[l] > nums2[r]) {\n                nums1[k] = nums1[l];            // nums1 的较大元素后挪到尾部\n                l--;\n            } else {\n                nums1[k] = nums2[r];            // 放 nums2 的元素（l 已耗尽也走这里）\n                r--;\n            }\n            k--;\n        }\n        // 循环结束时若 l >= 0，nums1 的前缀本来就留在原位，无需任何搬动\n    }\n}",
+      "codeJs": "/**\n * @param {number[]} nums1\n * @param {number} m\n * @param {number[]} nums2\n * @param {number} n\n * @return {void} Do not return anything, modify nums1 in-place instead.\n */\nvar merge = function (nums1, m, nums2, n) {\n  // l、r 分别是两个数组「尚未处理的最后一个元素」的下标，k 是写入位置\n  // 逆序的原因：nums1 尾部是空位，从后往前填不会覆盖 nums1 中还没比较的数据\n  let l = m - 1, r = n - 1, k = m + n - 1;\n  while (r >= 0) { // 只需关心 nums2 是否还有剩余\n    if (l >= 0 && nums1[l] > nums2[r]) {\n      nums1[k] = nums1[l]; // nums1 的较大元素后挪到尾部\n      l--;\n    } else {\n      nums1[k] = nums2[r]; // 放 nums2 的元素（l 已耗尽也走这里）\n      r--;\n    }\n    k--;\n  }\n  // 循环结束时若 l >= 0，nums1 的前缀本来就留在原位，无需任何搬动\n};",
+      "codeGo": "func merge(nums1 []int, m int, nums2 []int, n int) {\n\t// l、r 分别是两个数组「尚未处理的最后一个元素」的下标，k 是写入位置\n\t// 逆序的原因：nums1 尾部是空位，从后往前填不会覆盖 nums1 中还没比较的数据\n\tl, r, k := m-1, n-1, m+n-1\n\tfor r >= 0 { // 只需关心 nums2 是否还有剩余\n\t\tif l >= 0 && nums1[l] > nums2[r] {\n\t\t\tnums1[k] = nums1[l] // nums1 的较大元素后挪到尾部\n\t\t\tl--\n\t\t} else {\n\t\t\tnums1[k] = nums2[r] // 放 nums2 的元素（l 已耗尽也走这里）\n\t\t\tr--\n\t\t}\n\t\tk--\n\t}\n\t// 循环结束时若 l >= 0，nums1 的前缀本来就留在原位，无需任何搬动\n}"
+    },
+    {
+      "id": 27,
+      "title": "Remove Element",
+      "titleCn": "移除元素",
+      "difficulty": "easy",
+      "frequency": 4,
+      "companies": [
+        "腾讯",
+        "美团",
+        "华为"
+      ],
+      "question": "给你一个数组 nums 和一个整数 val，请你原地移除所有数值等于 val 的元素，并返回移除后数组的新长度。注意：元素的顺序可以更改（与「删除有序数组中的重复项」不同）。你不需要考虑数组中超出新长度后面的元素。\n\n示例 1：输入 nums = [3,2,2,3], val = 3，输出 2, nums = [2,2]。\n示例 2：输入 nums = [0,1,2,2,3,0,4,2], val = 2，输出 5, nums 的前 5 个元素为 [0,1,3,0,4]（顺序可不同，只要前 5 位都不等于 2 且长度为 5 即正确）。",
+      "samples": [
+        {
+          "input": "nums = [3,2,2,3], val = 3",
+          "output": "2, nums 前 2 位为 [2,2]",
+          "explain": "两个 3 全部移除"
+        },
+        {
+          "input": "nums = [0,1,2,2,3,0,4,2], val = 2",
+          "output": "5, nums 前 5 位为 [0,1,3,0,4]（顺序可不同）",
+          "explain": "只要前 5 位都不等于 2 且长度为 5 即正确"
+        }
+      ],
+      "hints": [
+        "审题诀窍：本题明确说『元素的顺序可以更改』——这是题目在暗示你可以交换/覆盖，从而允许对撞双指针；若要求保序，就只能用快慢指针逐一覆盖。",
+        "审题诀窍：返回的是「新长度」而不是数组本身，超出新长度的内容随意——这意味着尾部元素可以拿来「填坑」，是被允许牺牲的。",
+        "突破口：把要删的元素视为「洞」，用尾部不需要的元素从右往左补洞：l 负责找洞，r 负责供料。",
+        "追问预备：要求保序怎么做？（快慢指针覆盖写）；如果数组里一个 val 都没有，两种写法各做多少次赋值？（对撞 0 次、快慢 n 次「自赋值」）；本题与 26/80 题的保留条件差异是什么？（!=val / 首次出现 / 最多两次）"
+      ],
+      "keyPoints": [
+        "对撞双指针：l 从左找等于 val 的位置（洞），r 从右提供替补元素",
+        "用尾部元素覆盖后不能立刻 l+=1：替补元素本身可能也等于 val，必须停留在原位重查（最常见错误）",
+        "循环条件是 l <= r：当 l > r 时，[0, l) 全是保留元素，l 恰为新长度",
+        "对比保序快慢指针（每个保留元素都要赋值一次）：对撞写法的赋值次数等于实际删除次数，删除少时更省，代价是打乱顺序"
+      ],
+      "structureTags": [
+        "two_pointer"
+      ],
+      "approaches": [
+        {
+          "name": "保序快慢指针",
+          "idea": "慢指针 l 维护「不等于 val 的前缀」，快指针 r 扫描全数组，遇到 nums[r] != val 就写入 nums[l] 并 l+=1。简单且保序，但每个保留元素都要赋值一次。",
+          "detail": "步骤拆解：\n1. 慢指针 l 是「保留前缀」的下一个写入位置（不变量：nums[0..l) 都不等于 val，且保持原相对顺序）。\n2. 快指针 r 从 0 扫到 n-1：nums[r] != val 时执行 nums[l] = nums[r]、l += 1；等于 val 就什么都不做。\n3. 返回 l。\n\n示例走查：nums = [0,1,2,2,3,0,4,2], val=2。r=0：0≠2 写入位 0，l=1；r=1：1≠2 写入位 1，l=2；r=2：2=2 跳过；r=3：跳过；r=4：3≠2 写入位 2，l=3；r=5：0≠2 写入位 3，l=4；r=6：4≠2 写入位 4，l=5；r=7：跳过。返回 5，前 5 位 [0,1,3,0,4] ✓。\n\n为什么正确：每个不等于 val 的元素都被依次搬到前缀区，保序且不遗漏；等于 val 的元素被后续保留元素自然覆盖，l 的终值就是保留个数。\n\n易错点：\n- 找到保留元素时「先赋值再 l+=1」，顺序反了会漏写或把旧值留在前缀里；\n- 本解法赋值次数 = 保留个数：val 很少时大部分赋值是「原地自赋值」，效率不如对撞写法，面试可主动对比两者的适用条件；\n- 它与 26/80 题同属读写双指针家族，区别只在「保留条件」：!=val / 首次出现 / 最多两次。",
+          "complexity": "时间 O(n)，空间 O(1)",
+          "code": "def removeElement_keep(nums, val):\n    # 保序快慢指针：l 是保留前缀的写入位置，r 扫描全数组\n    l = 0\n    for r in range(len(nums)):\n        if nums[r] != val:          # 保留元素 => 写入前缀并扩区\n            nums[l] = nums[r]\n            l += 1\n    return l                        # nums 前 l 位均为保留元素，保持原顺序"
+        },
+        {
+          "name": "对撞双指针（尾部填坑）",
+          "idea": "l、r 从两端出发：nums[l] != val 就跳过（l+=1）；否则用 nums[r] 覆盖 nums[l] 并 r-=1（l 不动，因为替补可能也等于 val）。被删的元素从尾部「牺牲」，赋值次数恰为删除次数。",
+          "detail": "步骤拆解：\n1. l=0 从左找「等于 val 的洞」，r=n-1 从右提供替补。\n2. nums[l] != val：l 右移；nums[l] == val：执行 nums[l] = nums[r]、r -= 1，注意 l 不动——替补自己可能也等于 val，必须留在原地重查。\n3. 循环条件 l <= r；结束时 [0, l) 全部不等于 val，l 即新长度。\n\n示例走查：nums = [3,2,2,3], val=3。l=0,r=3：nums[0]=3 是洞 → nums[0]=nums[3]=3，r=2（l 不动）；l=0,r=2：nums[0]=3 仍是洞 → nums[0]=nums[2]=2，r=1；l=0,r=1：nums[0]=2≠3 → l=1；nums[1]=2≠3 → l=2 > r=1，结束。返回 2，前 2 位 [2,2] ✓。\n\n为什么正确：区间 (r, n) 里的元素全部已被「处决」——要么是被删的 val，要么被搬去了左边；r 左移就是缩小问题规模。l 越过 r 时，[0,l) 恰好收集完全部保留元素。\n\n易错点：\n- 覆盖后必须让 l 原地重查：写成 l += 1 会漏删「替补也等于 val」的情况——拿 nums=[3,3], val=3 验证，正确返回 0，写错返回 1；\n- 循环条件必须是 l <= r 而不是 l < r，否则单元素用例 nums=[2], val=1 会把唯一的保留元素判丢（返回 0 而非 1）；\n- 题目允许打乱顺序才有资格用「尾部填坑」；若要求保序，退回快慢指针写法。",
+          "complexity": "时间 O(n)，空间 O(1)",
+          "optimal": true,
+          "code": "def removeElement_swap(nums, val):\n    # 对撞双指针：l 找「该删的洞」，r 从尾部提供替补\n    # 题目允许改变顺序，才有资格用这种「尾部填坑」写法\n    l, r = 0, len(nums) - 1\n    while l <= r:\n        if nums[l] != val:\n            l += 1                  # 保留，左指针右移\n        else:\n            nums[l] = nums[r]       # 尾部元素覆盖洞口\n            r -= 1                  # 易错点：l 不动！替补可能也等于 val\n    return l                        # [0, l) 全是保留元素，l 即新长度"
+        }
+      ],
+      "code": "class Solution:\n    def removeElement(self, nums: List[int], val: int) -> int:\n        # 对撞双指针：l 找「该删的洞」，r 从尾部提供替补\n        # 题目允许改变顺序，才有资格用这种「尾部填坑」写法\n        l, r = 0, len(nums) - 1\n        while l <= r:\n            if nums[l] != val:\n                l += 1              # 当前元素保留，左指针右移\n            else:\n                nums[l] = nums[r]   # 用尾部元素覆盖洞口\n                r -= 1              # 易错点：l 不动！替补可能也等于 val，需原地重查\n        return l                    # [0, l) 全是保留元素，l 即新长度",
+      "acmCode": "# ACM 模式：完整可运行程序（stdin -> stdout）\n# 输入格式：\n#   第一行：n val\n#   第二行：n 个整数\n# 输出格式：\n#   第一行：新长度 k\n#   第二行：k 个整数（移除所有 val 后的元素，顺序不限）\nimport sys\n\n\ndef main():\n    data = sys.stdin.read().split()\n    n, val = int(data[0]), int(data[1])\n    nums = [int(x) for x in data[2:2 + n]]\n    l, r = 0, n - 1\n    while l <= r:                   # 对撞双指针：尾部填坑\n        if nums[l] != val:\n            l += 1\n        else:\n            nums[l] = nums[r]\n            r -= 1                  # l 不动，替补可能也等于 val\n    print(l)\n    print(' '.join(map(str, nums[:l])))\n\n\nif __name__ == '__main__':\n    main()",
+      "templates": [
+        "『原地移除』模板分两派：要保序 → 快慢指针覆盖写；可乱序 → 对撞指针尾部填坑，赋值次数 = 删除次数。",
+        "「尾部元素拿来填坑」必须警惕：替补自身可能同样是要删除的值，覆盖之后要停留在同一位置重新检查，而不是双指针同时前进。"
+      ],
+      "codeCpp": "class Solution {\npublic:\n    int removeElement(vector<int>& nums, int val) {\n        // 对撞双指针：l 找「该删的洞」，r 从尾部提供替补\n        // 题目允许改变顺序，才有资格用这种「尾部填坑」写法\n        int l = 0, r = (int)nums.size() - 1;\n        while (l <= r) {\n            if (nums[l] != val) {\n                ++l;                // 当前元素保留，左指针右移\n            } else {\n                nums[l] = nums[r];  // 用尾部元素覆盖洞口\n                --r;                // 易错点：l 不动！替补可能也等于 val，需原地重查\n            }\n        }\n        return l;                   // [0, l) 全是保留元素，l 即新长度\n    }\n};",
+      "acmCodeCpp": "// ACM 模式：完整可运行程序（stdin -> stdout）\n// 输入格式：\n//   第一行：n val\n//   第二行：n 个整数\n// 输出格式：\n//   第一行：新长度 k\n//   第二行：k 个整数（移除所有 val 后的元素，顺序不限）\n#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);   // 关闭同步，读入更快\n    cin.tie(nullptr);\n\n    int n, val;\n    cin >> n >> val;\n    vector<int> nums(n);\n    for (auto& x : nums) cin >> x;\n\n    int l = 0, r = n - 1;          // 对撞双指针：尾部填坑\n    while (l <= r) {\n        if (nums[l] != val) {\n            ++l;                   // 当前元素保留\n        } else {\n            nums[l] = nums[r];     // 用尾部元素覆盖洞口\n            --r;                   // l 不动，替补可能也等于 val\n        }\n    }\n\n    cout << l << \"\\n\";             // 第一行：新长度 k\n    for (int i = 0; i < l; ++i) {  // 第二行：保留的 k 个整数\n        if (i) cout << ' ';\n        cout << nums[i];\n    }\n    cout << \"\\n\";\n    return 0;\n}",
+      "codeJava": "class Solution {\n    public int removeElement(int[] nums, int val) {\n        // 对撞双指针：l 找「该删的洞」，r 从尾部提供替补\n        // 题目允许改变顺序，才有资格用这种「尾部填坑」写法\n        int l = 0, r = nums.length - 1;\n        while (l <= r) {\n            if (nums[l] != val) {\n                l++;                // 当前元素保留，左指针右移\n            } else {\n                nums[l] = nums[r];  // 用尾部元素覆盖洞口\n                r--;                // 易错点：l 不动！替补可能也等于 val，需原地重查\n            }\n        }\n        return l;                   // [0, l) 全是保留元素，l 即新长度\n    }\n}",
+      "codeJs": "/**\n * @param {number[]} nums\n * @param {number} val\n * @return {number}\n */\nvar removeElement = function (nums, val) {\n  // 对撞双指针：l 找「该删的洞」，r 从尾部提供替补\n  // 题目允许改变顺序，才有资格用这种「尾部填坑」写法\n  let l = 0, r = nums.length - 1;\n  while (l <= r) {\n    if (nums[l] !== val) {\n      l++; // 当前元素保留，左指针右移\n    } else {\n      nums[l] = nums[r]; // 用尾部元素覆盖洞口\n      r--; // 易错点：l 不动！替补可能也等于 val，需原地重查\n    }\n  }\n  return l; // [0, l) 全是保留元素，l 即新长度\n};",
+      "codeGo": "func removeElement(nums []int, val int) int {\n\t// 对撞双指针：l 找「该删的洞」，r 从尾部提供替补\n\t// 题目允许改变顺序，才有资格用这种「尾部填坑」写法\n\tl, r := 0, len(nums)-1\n\tfor l <= r {\n\t\tif nums[l] != val {\n\t\t\tl++ // 当前元素保留，左指针右移\n\t\t} else {\n\t\t\tnums[l] = nums[r] // 用尾部元素覆盖洞口\n\t\t\tr--               // 易错点：l 不动！替补可能也等于 val，需原地重查\n\t\t}\n\t}\n\treturn l // [0, l) 全是保留元素，l 即新长度\n}"
+    },
+    {
+      "id": 26,
+      "title": "Remove Duplicates from Sorted Array",
+      "titleCn": "删除有序数组中的重复项",
+      "difficulty": "easy",
+      "frequency": 4,
+      "companies": [
+        "腾讯",
+        "字节跳动",
+        "华为"
+      ],
+      "question": "给定一个非严格递增排列的数组 nums，请你原地删除重复出现的元素，使每个元素只出现一次，返回删除后数组的新长度。元素的相对顺序应保持一致，且必须在 O(1) 额外空间下原地修改输入数组。\n\n示例 1：输入 nums = [1,1,2]，输出 2, nums = [1,2]。\n示例 2：输入 nums = [0,0,1,1,1,2,2,3,3,4]，输出 5, nums = [0,1,2,3,4]。",
+      "samples": [
+        {
+          "input": "nums = [1,1,2]",
+          "output": "2, nums = [1,2]",
+          "explain": "第二个 1 被删除"
+        },
+        {
+          "input": "nums = [0,0,1,1,1,2,2,3,3,4]",
+          "output": "5, nums = [0,1,2,3,4]",
+          "explain": "每个值只保留首次出现"
+        }
+      ],
+      "hints": [
+        "审题诀窍：『非严格递增』『原地』『O(1) 空间』——有序性保证重复元素相邻，因此不需要哈希表计数，只比较相邻关系即可判定重复。",
+        "突破口：维护不变量「前缀 [0..l] 永远是已去重结果」，r 只需和 nums[l]（结果区最后一个元素）比较，不同才是新值。",
+        "审题诀窍：第 0 个元素永远保留，所以 l 从 0 开始、r 从 1 开始；最后返回的是「长度 l+1」而不是下标 l。",
+        "追问预备：最多保留两次怎么做？（80 题，比较对象换成 nums[l-2]）；数组无序且要求保序呢？（排序破坏稳定语义，只能哈希计数付 O(n) 空间）；链表版（83 题删除排序链表重复元素）的指针写法差异在哪？（链表是断链而非覆盖，写指针语义变成 prev）"
+      ],
+      "keyPoints": [
+        "读写双指针：l 指向已去重区的最后一个元素，r 扫描；nums[r] != nums[l] 才把值写入 l+1 并扩区",
+        "有序 ⇒ 重复必相邻 ⇒ 只需比较 nums[r] 与 nums[l]，无需任何额外数据结构",
+        "返回 l + 1（长度），易错点是返回下标 l",
+        "本题是 80 题（最多保留两次）的 k=1 特例，两题共用同一模板，体现「保留 k 次」的泛化"
+      ],
+      "structureTags": [
+        "two_pointer",
+        "dedup"
+      ],
+      "approaches": [
+        {
+          "name": "集合去重再拷回",
+          "idea": "用集合记录见过的元素，过滤后拷回原数组前缀。正确但既没利用有序性，也需要 O(n) 额外空间。",
+          "detail": "步骤拆解：\n1. 开 seen 集合记录「已保留」的值；l=0 为写入位置。\n2. 扫描 nums：x 不在 seen 就加入 seen、写入 nums[l]、l += 1；在就跳过。\n3. 返回 l，nums 前 l 位即去重结果。\n\n示例走查：nums=[0,0,1,1,1,2,2,3,3,4]。x=0：新值，写入位 0；x=0：seen 已有，跳过；x=1：写入位 1；两个 1 跳过；x=2：写入位 2；两个 2 跳过；x=3：写入位 3；x=4：写入位 4。l=5，前缀 [0,1,2,3,4] ✓。\n\n为什么正确：seen 记录的是「已保留」的值集合，任何重复出现都会被拦下；写入顺序等于扫描顺序，保序成立。\n\n易错点：\n- 数组有序时集合完全多余——重复必相邻，只需比较 nums[r] 与 nums[l] 一次，集合是白付的 O(n) 空间和哈希开销；\n- 本题约束 O(1) 额外空间，这个解法直接违规，只能当思维基线讲；\n- 它只在无序数组上有一席之地，但也只是排序前的权宜之计。",
+          "complexity": "时间 O(n)，空间 O(n)",
+          "code": "def removeDuplicates_set(nums):\n    # 集合去重：正确但未利用有序性，且需要 O(n) 额外空间\n    seen = set()                    # 记录已保留的值\n    l = 0\n    for x in nums:\n        if x not in seen:           # 首次出现才保留\n            seen.add(x)\n            nums[l] = x\n            l += 1\n    return l"
+        },
+        {
+          "name": "快慢双指针",
+          "idea": "l 指向去重区末尾，r 从 1 扫描；因为有序，重复元素必然相邻，所以 nums[r] != nums[l] 说明遇到新值，写入 nums[l+1] 并扩区。一次扫描、原地完成。",
+          "detail": "步骤拆解：\n1. l 指向去重区最后一个元素（初始 0，第 0 个元素必保留）；r 从 1 开始扫描。\n2. nums[r] != nums[l]：说明遇到新值，先 l += 1 腾出位置，再 nums[l] = nums[r]；相等则 r 直接前进。\n3. 返回 l + 1（长度！）。\n\n示例走查：nums=[0,0,1,1,1,2,2,3,3,4]。l=0,r=1：nums[1]=0==nums[0]，跳过；r=2：1≠0 → l=1，nums[1]=1；r=3、r=4：1==1 跳过；r=5：2≠1 → l=2，nums[2]=2；r=6：跳过；r=7：3≠2 → l=3，nums[3]=3；r=8：跳过；r=9：4≠3 → l=4，nums[4]=4。返回 5，前缀 [0,1,2,3,4] ✓。\n\n为什么正确：有序 ⇒ 相同元素必然相邻，所以「与去重区末尾不同」等价于「全数组首次出现」；不变量 nums[0..l] 恒为已去重结果，r 扫完即得答案。\n\n易错点：\n- 返回的是长度 l+1 不是下标 l，判题按 len 对拍，错一位直接挂；\n- 写入顺序是「先 l+=1 再赋值」（l 是最后一个元素下标，新值写到 l+1）；与 80 题的口径（l 是写入位置，先赋值再 l+=1）容易混，两套写法别串；\n- n=0 的空数组要特判（本题约束 n>=1，但 ACM 输入要防）。",
+          "complexity": "时间 O(n)，空间 O(1)",
+          "optimal": true,
+          "code": "def removeDuplicates(nums):\n    # 快慢双指针：l 指向去重区最后一个元素，r 扫描\n    # 有序数组中相同元素必然相邻，只需和「去重区末尾」比较一次\n    if not nums:\n        return 0\n    l = 0\n    for r in range(1, len(nums)):\n        if nums[r] != nums[l]:      # 遇到新值\n            l += 1                  # 去重区扩一格\n            nums[l] = nums[r]       # 先扩区再写入\n    return l + 1                    # 易错点：返回长度 l+1，不是下标 l"
+        }
+      ],
+      "code": "class Solution:\n    def removeDuplicates(self, nums: List[int]) -> int:\n        # l：去重区最后一个元素的下标；r：扫描指针\n        # 有序数组中相同元素必然相邻，所以只需和「去重区末尾」比较一次\n        l, r = 0, 1\n        while r < len(nums):\n            if nums[r] != nums[l]:\n                l += 1              # 发现新值，去重区扩一格\n                nums[l] = nums[r]   # 把新值写入扩出来的位置\n            r += 1                  # r 无条件前进，重复值直接跳过\n        return l + 1                # 易错点：返回长度 l+1，不是下标 l",
+      "acmCode": "# ACM 模式：完整可运行程序（stdin -> stdout）\n# 输入格式：\n#   第一行：n（数组长度）\n#   第二行：n 个整数（非严格递增）\n# 输出格式：\n#   第一行：去重后的新长度 k\n#   第二行：k 个整数（每个元素只出现一次，保持相对顺序）\nimport sys\n\n\ndef main():\n    data = sys.stdin.read().split()\n    n = int(data[0])\n    nums = [int(x) for x in data[1:1 + n]]\n    if n == 0:\n        print(0)\n        return\n    l = 0\n    for r in range(1, n):\n        if nums[r] != nums[l]:      # 与去重区末尾比较\n            l += 1\n            nums[l] = nums[r]\n    print(l + 1)\n    print(' '.join(map(str, nums[:l + 1])))\n\n\nif __name__ == '__main__':\n    main()",
+      "templates": [
+        "『保序原地去重』模板：l 为已处理合法区末尾；r 扫描，满足保留条件就 nums[l+1]=nums[r]、l+=1，返回 l+1。与 80 题同源，比较对象换成 nums[l-k+1] 即可「最多保留 k 次」。",
+        "看到「有序 + 原地 + O(1) 空间」三件套，先想读写双指针，把答案直接写在数组前缀里。"
+      ],
+      "codeCpp": "class Solution {\npublic:\n    int removeDuplicates(vector<int>& nums) {\n        int n = (int)nums.size();\n        if (n == 0) return 0;      // 空数组边界，防御性处理\n        // l：去重区最后一个元素的下标；r：扫描指针\n        // 有序数组中相同元素必然相邻，所以只需和「去重区末尾」比较一次\n        int l = 0;\n        for (int r = 1; r < n; ++r) {\n            if (nums[r] != nums[l]) {\n                ++l;               // 发现新值，去重区扩一格\n                nums[l] = nums[r]; // 把新值写入扩出来的位置\n            }\n            // r 无条件前进，重复值直接跳过\n        }\n        return l + 1;              // 易错点：返回长度 l+1，不是下标 l\n    }\n};",
+      "acmCodeCpp": "// ACM 模式：完整可运行程序（stdin -> stdout）\n// 输入格式：\n//   第一行：n（数组长度）\n//   第二行：n 个整数（非严格递增）\n// 输出格式：\n//   第一行：去重后的新长度 k\n//   第二行：k 个整数（每个元素只出现一次，保持相对顺序）\n#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);   // 关闭同步，读入更快\n    cin.tie(nullptr);\n\n    int n;\n    cin >> n;\n    vector<int> nums(n);\n    for (auto& x : nums) cin >> x;\n    if (n == 0) {                  // 空数组边界\n        cout << 0 << \"\\n\";\n        return 0;\n    }\n\n    int l = 0;                     // 去重区最后一个元素的下标\n    for (int r = 1; r < n; ++r) {\n        if (nums[r] != nums[l]) {  // 与去重区末尾比较\n            ++l;\n            nums[l] = nums[r];\n        }\n    }\n\n    cout << l + 1 << \"\\n\";         // 第一行：新长度\n    for (int i = 0; i <= l; ++i) { // 第二行：去重结果\n        if (i) cout << ' ';\n        cout << nums[i];\n    }\n    cout << \"\\n\";\n    return 0;\n}",
+      "codeJava": "class Solution {\n    public int removeDuplicates(int[] nums) {\n        int n = nums.length;\n        if (n == 0) return 0;      // 空数组边界，防御性处理\n        // l：去重区最后一个元素的下标；r：扫描指针\n        // 有序数组中相同元素必然相邻，所以只需和「去重区末尾」比较一次\n        int l = 0;\n        for (int r = 1; r < n; r++) {\n            if (nums[r] != nums[l]) {\n                l++;               // 发现新值，去重区扩一格\n                nums[l] = nums[r]; // 把新值写入扩出来的位置\n            }\n            // r 无条件前进，重复值直接跳过\n        }\n        return l + 1;              // 易错点：返回长度 l+1，不是下标 l\n    }\n}",
+      "codeJs": "/**\n * @param {number[]} nums\n * @return {number}\n */\nvar removeDuplicates = function (nums) {\n  const n = nums.length;\n  if (n === 0) return 0; // 空数组边界，防御性处理\n  // l：去重区最后一个元素的下标；r：扫描指针\n  // 有序数组中相同元素必然相邻，所以只需和「去重区末尾」比较一次\n  let l = 0;\n  for (let r = 1; r < n; r++) {\n    if (nums[r] !== nums[l]) {\n      l++; // 发现新值，去重区扩一格\n      nums[l] = nums[r]; // 把新值写入扩出来的位置\n    }\n    // r 无条件前进，重复值直接跳过\n  }\n  return l + 1; // 易错点：返回长度 l+1，不是下标 l\n};",
+      "codeGo": "func removeDuplicates(nums []int) int {\n\tn := len(nums)\n\tif n == 0 {\n\t\treturn 0 // 空数组边界，防御性处理\n\t}\n\t// l：去重区最后一个元素的下标；r：扫描指针\n\t// 有序数组中相同元素必然相邻，所以只需和「去重区末尾」比较一次\n\tl := 0\n\tfor r := 1; r < n; r++ {\n\t\tif nums[r] != nums[l] {\n\t\t\tl++ // 发现新值，去重区扩一格\n\t\t\tnums[l] = nums[r] // 把新值写入扩出来的位置\n\t\t}\n\t\t// r 无条件前进，重复值直接跳过\n\t}\n\treturn l + 1 // 易错点：返回长度 l+1，不是下标 l\n}"
+    },
+    {
+      "id": 169,
+      "title": "Majority Element",
+      "titleCn": "多数元素",
+      "difficulty": "easy",
+      "frequency": 5,
+      "companies": [
+        "字节跳动",
+        "腾讯",
+        "美团"
+      ],
+      "question": "给定一个大小为 n 的数组 nums，返回其中的多数元素。多数元素是指在数组中出现次数大于 ⌊n/2⌋ 的元素。你可以假设数组是非空的，并且给定的数组总是存在多数元素。进阶：尝试设计时间复杂度为 O(n)、空间复杂度为 O(1) 的算法。\n\n示例 1：输入 nums = [3,2,3]，输出 3。\n示例 2：输入 nums = [2,2,1,1,1,2,2]，输出 2。",
+      "samples": [
+        {
+          "input": "nums = [3,2,3]",
+          "output": "3",
+          "explain": "3 出现 2 次，大于 n/2 = 1.5"
+        },
+        {
+          "input": "nums = [2,2,1,1,1,2,2]",
+          "output": "2",
+          "explain": "2 出现 4 次，大于 ⌊7/2⌋ = 3"
+        }
+      ],
+      "hints": [
+        "审题诀窍：题目保证『一定存在多数元素』且次数『大于 n/2』——这个严格大于是 Boyer-Moore 投票正确性的根基；若只说「出现次数最多」则投票法不成立。",
+        "突破口：多数元素的出现次数比其他所有元素加起来还多——让它们两两「对拼抵消」，最后活下来的只能是多数元素。",
+        "审题诀窍：进阶要求 O(n)/O(1)，排序 O(nlogn)、哈希 O(n) 空间都不达标——这几乎是在点名摩尔投票法。",
+        "追问预备：多数元素可能不存在时怎么改？（投票后二次扫描验证真实票数 > n/2）；找所有出现超过 n/3 的元素怎么做？（229 题，双候选广义摩尔投票，至多 2 个）；分治解法怎么讲？（左右众数相同直接返回，不同则两边各数一遍比票数，T(n)=2T(n/2)+O(n)）"
+      ],
+      "keyPoints": [
+        "Boyer-Moore 投票：维护候选者 candidate 与净票数 count；同党 +1、异党 -1、归零就换当前元素当候选",
+        "正确性核心：多数元素票数 > 其余元素总和，无论怎么配对抵消都耗不尽它的票",
+        "抵消不破坏「多数」性质：每次配对至多删掉一个多数元素和一个非多数元素，多数元素在新数组中仍占多数（归纳成立）",
+        "若题目不保证多数元素存在，投票结束后必须再扫描一遍验证票数——这是面试的高频追问"
+      ],
+      "structureTags": [
+        "single_pass"
+      ],
+      "approaches": [
+        {
+          "name": "哈希表计数",
+          "idea": "一遍遍历用哈希表统计每个元素的出现次数，遇到次数超过 n/2 的立即返回。直观可靠，但需要 O(n) 额外空间，不满足进阶要求。",
+          "detail": "步骤拆解：\n1. 开字典 cnt；遍历 nums，每遇到 x 就 cnt[x] 自增。\n2. 每次自增后立刻检查 cnt[x] > n // 2（严格大于 ⌊n/2⌋），命中即返回 x——不必扫完全程。\n3. 兜底返回（题目保证多数元素存在，逻辑上走不到）。\n\n示例走查：nums = [2,2,1,1,1,2,2]，n=7，门槛是 >3。计数过程 2:1 → 2:2 → 1:1 → 1:2 → 1:3 → 2:3 → 2:4，最后一个 2 使 cnt[2]=4>3，返回 2 ✓。\n\n为什么正确：多数元素的定义就是「出现次数 > ⌊n/2⌋」，计数到它的那一刻条件必然被触发；命中即返回让期望扫描次数小于 n。\n\n易错点：\n- 门槛是严格大于 n // 2：写成 >= 会把「恰好一半」的元素误判（本题保证存在所以不出错，但防御性上要分清）；\n- Python 的 n // 2 是向下取整，与题面 ⌊n/2⌋ 一致，不必再写 floor；\n- 空间 O(n) 不满足进阶要求（O(n)/O(1)），面试要主动接摩尔投票，这是本题的出题意图。",
+          "complexity": "时间 O(n)，空间 O(n)",
+          "code": "def majorityElement_hash(nums):\n    # 哈希计数：一遍统计 + 命中即返回\n    cnt = {}                        # 值 -> 出现次数\n    n = len(nums)\n    for x in nums:\n        cnt[x] = cnt.get(x, 0) + 1\n        if cnt[x] > n // 2:         # 严格大于 ⌊n/2⌋ 即为多数元素\n            return x\n    return -1                       # 题目保证存在，此行仅为完整性"
+        },
+        {
+          "name": "排序取中位",
+          "idea": "多数元素出现超过一半，排序后必占据下标 n//2 的位置，直接返回。代码最短，但 O(nlogn) 且没利用「保证存在」之外的结构信息。",
+          "detail": "步骤拆解：\n1. nums.sort() 升序排序。\n2. 直接返回 nums[n // 2]（中点元素）。\n\n示例走查：nums = [2,2,1,1,1,2,2] 排序后 [1,1,1,2,2,2,2]，下标 3 的元素是 2 ✓。nums=[3,2,3] 排序后 [2,3,3]，下标 1 是 3 ✓。\n\n为什么正确：多数元素占超过一半的席位，排序后它占据的连续区间长度 > n/2，无论起点在哪，这个区间必然覆盖中点下标 n//2——所以中点元素必是它。\n\n易错点：\n- 依赖「多数元素一定存在」这一前提；若不保证存在，中位数可能只是普通众数，必须另行验证；\n- sort() 会原地修改入节数组，LeetCode 无所谓，工程/ACM 里要注意副作用，可换 sorted(nums)；\n- O(nlogn) 达不到进阶的 O(n)，它是「一行代码」的卖点而非效率的卖点，讲完要主动升级到摩尔投票。",
+          "complexity": "时间 O(nlogn)，空间 O(1)",
+          "code": "def majorityElement_sort(nums):\n    # 排序取中位：多数元素占据超过一半席位，必横跨中点\n    nums.sort()\n    return nums[len(nums) // 2]     # 下标 n//2 一定落在多数元素区间内"
+        },
+        {
+          "name": "Boyer-Moore 摩尔投票",
+          "idea": "candidate 记当前候选，count 记净票数；元素与候选相同则 +1、不同则 -1，减到 0 就把候选换成当前元素。多数元素与其他元素对拼抵消后票数必有剩余，遍历结束时的 candidate 即答案。",
+          "detail": "步骤拆解：\n1. candidate 记当前候选、count 记它的净票数，初始 (任意值, 0)。\n2. 遍历 x：count == 0 时把 candidate 换成 x（之前的对拼同归于尽）；随后 x == candidate 则 count += 1，否则 count -= 1。\n3. 遍历结束返回 candidate。\n\n示例走查：nums = [2,2,1,1,1,2,2]。x=2：count=0 → candidate=2，count=1；x=2：count=2；x=1：count=1；x=1：count=0；x=1：count=0 → candidate=1，count=1；x=2：count=0；x=2：count=0 → candidate=2，count=1。返回 2 ✓。\n\n为什么正确：把「多数元素」与「其余所有元素」看成两军对拼，多数元素票数严格多于对方总和，两两抵消后必有剩余——最后存活的候选必是它。归纳论证：每次 count 归零意味着已扫前缀中两方票数恰好相等，把这段整体扔掉，剩余后缀中多数元素仍是多数，性质保持。\n\n易错点：\n- 「先判 count==0 再比较」的顺序不能反：反了的话首轮 candidate 还是初值 0 就参与比较，语义错乱；\n- 本题保证多数元素存在才可免二次验证；若不保证，投票只能给出「候选」，必须再扫一遍统计真实票数是否 > n/2（高频面试追问）；\n- 找「出现超过 n/3 的所有元素」要推广为双候选广义摩尔投票（229 题），单候选会漏解。",
+          "complexity": "时间 O(n)，空间 O(1)",
+          "optimal": true,
+          "code": "def majorityElement(nums):\n    # Boyer-Moore 投票：多数元素与其他元素两两对拼抵消，票数必有剩余\n    candidate, count = 0, 0         # 候选者与其净票数\n    for x in nums:\n        if count == 0:              # 之前的对拼同归于尽，换 x 当候选\n            candidate = x\n        if x == candidate:\n            count += 1              # 同党 +1\n        else:\n            count -= 1              # 异党抵消一票\n    return candidate                # 题目保证多数元素存在，无需二次验证"
+        }
+      ],
+      "code": "class Solution:\n    def majorityElement(self, nums: List[int]) -> int:\n        # Boyer-Moore 投票：把「多数元素 vs 其他所有元素」看成两军对拼\n        # candidate 是当前活着的候选，count 是它的净票数（count>0 才代表候选有效）\n        candidate, count = 0, 0\n        for x in nums:\n            if count == 0:\n                candidate = x   # 票数归零说明之前互拼同归于尽，换 x 当新候选\n            if x == candidate:\n                count += 1      # 同党：加一票\n            else:\n                count -= 1      # 异党：抵消一票\n        return candidate        # 题目保证多数元素存在，无需二次验证",
+      "acmCode": "# ACM 模式：完整可运行程序（stdin -> stdout）\n# 输入格式：\n#   第一行：n（数组长度）\n#   第二行：n 个整数（保证存在多数元素）\n# 输出格式：一行，多数元素\nimport sys\n\n\ndef main():\n    data = sys.stdin.read().split()\n    n = int(data[0])\n    nums = [int(x) for x in data[1:1 + n]]\n    candidate, count = 0, 0\n    for x in nums:\n        if count == 0:\n            candidate = x\n        count += 1 if x == candidate else -1\n    print(candidate)\n\n\nif __name__ == '__main__':\n    main()",
+      "templates": [
+        "『票数抵消』模板：找出现次数 > n/k 的元素，可用 k-1 个候选位做广义摩尔投票（k=2 即本题，k=3 对应 229 求众数 II）。",
+        "面试提醒：若题目不保证多数元素一定存在，投票法只能给出「候选」，必须追加一次 O(n) 的验证扫描统计真实票数。"
+      ],
+      "codeCpp": "class Solution {\npublic:\n    int majorityElement(vector<int>& nums) {\n        // Boyer-Moore 投票：把「多数元素 vs 其他所有元素」看成两军对拼\n        // candidate 是当前活着的候选，count 是它的净票数（count>0 才代表候选有效）\n        int candidate = 0, count = 0;\n        for (int x : nums) {\n            if (count == 0) candidate = x;       // 票数归零说明之前互拼同归于尽，换 x 当新候选\n            count += (x == candidate) ? 1 : -1;  // 同党加一票，异党抵消一票\n        }\n        return candidate;    // 题目保证多数元素存在，无需二次验证\n    }\n};",
+      "acmCodeCpp": "// ACM 模式：完整可运行程序（stdin -> stdout）\n// 输入格式：\n//   第一行：n（数组长度）\n//   第二行：n 个整数（保证存在多数元素）\n// 输出格式：一行，多数元素\n#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);   // 关闭同步，读入更快\n    cin.tie(nullptr);\n\n    int n;\n    cin >> n;\n    vector<int> nums(n);\n    for (auto& x : nums) cin >> x;\n\n    // Boyer-Moore 投票：candidate 当前候选，count 是它的净票数\n    int candidate = 0, count = 0;\n    for (int x : nums) {\n        if (count == 0) candidate = x;       // 票数归零，换 x 当新候选\n        count += (x == candidate) ? 1 : -1;  // 同党加一票，异党抵消一票\n    }\n    cout << candidate << endl;     // 题目保证多数元素存在，无需二次验证\n    return 0;\n}",
+      "codeJava": "class Solution {\n    public int majorityElement(int[] nums) {\n        // Boyer-Moore 投票：把「多数元素 vs 其他所有元素」看成两军对拼\n        // candidate 是当前活着的候选，count 是它的净票数（count>0 才代表候选有效）\n        int candidate = 0, count = 0;\n        for (int x : nums) {\n            if (count == 0) candidate = x;       // 票数归零说明之前互拼同归于尽，换 x 当新候选\n            count += (x == candidate) ? 1 : -1;  // 同党加一票，异党抵消一票\n        }\n        return candidate;    // 题目保证多数元素存在，无需二次验证\n    }\n}",
+      "codeJs": "/**\n * @param {number[]} nums\n * @return {number}\n */\nvar majorityElement = function (nums) {\n  // Boyer-Moore 投票：把「多数元素 vs 其他所有元素」看成两军对拼\n  // candidate 是当前活着的候选，count 是它的净票数（count>0 才代表候选有效）\n  let candidate = 0, count = 0;\n  for (const x of nums) {\n    if (count === 0) candidate = x; // 票数归零说明之前互拼同归于尽，换 x 当新候选\n    count += x === candidate ? 1 : -1; // 同党加一票，异党抵消一票\n  }\n  return candidate; // 题目保证多数元素存在，无需二次验证\n};",
+      "codeGo": "func majorityElement(nums []int) int {\n\t// Boyer-Moore 投票：把「多数元素 vs 其他所有元素」看成两军对拼\n\t// candidate 是当前活着的候选，count 是它的净票数（count>0 才代表候选有效）\n\tcandidate, count := 0, 0\n\tfor _, x := range nums {\n\t\tif count == 0 { // 票数归零说明之前互拼同归于尽，换 x 当新候选\n\t\t\tcandidate = x\n\t\t}\n\t\tif x == candidate {\n\t\t\tcount++ // 同党：加一票\n\t\t} else {\n\t\t\tcount-- // 异党：抵消一票\n\t\t}\n\t}\n\treturn candidate // 题目保证多数元素存在，无需二次验证\n}"
+    },
+    {
+      "id": 189,
+      "title": "Rotate Array",
+      "titleCn": "轮转数组",
+      "difficulty": "medium",
+      "frequency": 4,
+      "companies": [
+        "字节跳动",
+        "腾讯"
+      ],
+      "question": "给定一个整数数组 nums，将数组中的元素向右轮转 k 个位置，其中 k 是非负数。要求使用 O(1) 原地空间算法，并尽可能想出多种解决方案。\n\n示例 1：输入 nums = [1,2,3,4,5,6,7], k = 3，输出 [5,6,7,1,2,3,4]。\n示例 2：输入 nums = [-1,-100,3,99], k = 2，输出 [3,99,-1,-100]。",
+      "samples": [
+        {
+          "input": "nums = [1,2,3,4,5,6,7], k = 3",
+          "output": "[5,6,7,1,2,3,4]",
+          "explain": "向右轮转 3 位：末尾 3 个元素 5,6,7 整体搬到头部"
+        },
+        {
+          "input": "nums = [-1,-100,3,99], k = 2",
+          "output": "[3,99,-1,-100]",
+          "explain": "向右轮转 2 位"
+        }
+      ],
+      "hints": [
+        "审题诀窍：k 可能大于数组长度 n——动手前永远先做 k %= n，否则切片边界、翻转下标全会出错（经典易错点）。",
+        "突破口：右转 k 步 ⇔ 「前 n-k 段」与「后 k 段」整体交换位置；而任意区间的整体交换可以靠三次原地翻转完成。",
+        "审题诀窍：题目强调 O(1) 空间，切片拼接 nums[-k:] + nums[:-k] 一行搞定但用了 O(n) 辅助空间，面试里只能算 baseline 而非最终答案。",
+        "追问预备：向左轮转 k 位怎么做？（对称：先翻后 n-k 个、再翻前 k 个、最后整体翻转）；环状替换的数学原理是什么？（从 0 出发按 (i+k)%n 跳环，共 gcd(n,k) 个置换环，每个元素恰好移动一次）；三种解法各付出多少空间？（切片 O(n)、翻转 O(1)、环替换 O(1)）"
+      ],
+      "keyPoints": [
+        "先 k %= n 再操作：k 为 0 时直接返回，避免无意义翻转甚至越界",
+        "三次翻转口诀：先整体翻转，再翻转前 k 个，最后翻转后 n-k 个（先翻两段再整体是等价的对称做法）",
+        "翻转是原地操作的原语：对撞双指针两头交换即可，O(n) 时间 O(1) 空间",
+        "环状替换是另一种 O(1) 空间解法，但要处理 gcd(n,k) 个循环、极易写错；面试推荐三次翻转"
+      ],
+      "structureTags": [
+        "two_pointer",
+        "math"
+      ],
+      "approaches": [
+        {
+          "name": "辅助数组切片",
+          "idea": "新建数组，把 nums[n-k:] 与 nums[:n-k] 拼接后整体拷回。思路最直接，但不满足 O(1) 空间要求。",
+          "detail": "步骤拆解：\n1. 先 k %= n（k 可能大于 n）。\n2. tmp = nums[n-k:] + nums[:n-k]：后 k 个元素提前，前 n-k 个殿后。\n3. nums[:] = tmp 写回原数组——必须用切片赋值保持对象引用不变。\n\n示例走查：nums=[1,2,3,4,5,6,7], k=3。nums[4:]=[5,6,7]，nums[:4]=[1,2,3,4]，tmp=[5,6,7,1,2,3,4]，写回 ✓。\n\n为什么正确：右旋 k 位就是把「末尾 k 个」整体搬到头部，切片拼接是这个定义的直接翻译，每个元素恰好被复制一次。\n\n易错点：\n- 忘记取模：k=10、n=7 时 nums[n-k:] 变成 nums[-3:]，负下标语义突变，结果完全错误；\n- 写成 nums = tmp 只是让局部变量指向新列表，调用方数组纹丝不动——LeetCode 的原地要求就卡在这里，必须 nums[:] = tmp；\n- O(n) 辅助空间不满足本题要求，只能当 baseline 讲，随后给出三次翻转。",
+          "complexity": "时间 O(n)，空间 O(n)",
+          "code": "def rotate_slice(nums, k):\n    # 辅助数组版：思路最直接，但 O(n) 空间不满足题目要求\n    n = len(nums)\n    k %= n                          # 易错点：k 可能大于 n，先取模\n    tmp = nums[n - k:] + nums[:n - k]   # 后 k 段提前 + 前 n-k 段殿后\n    nums[:] = tmp                   # 切片赋值写回，保持引用不变\n    return nums"
+        },
+        {
+          "name": "三次翻转（局部翻转法）",
+          "idea": "把数组看成 [A|B]（A 为前 n-k 个，B 为后 k 个）。先整体翻转得 B^R|A^R，再分别翻转前 k 个与后 n-k 个，两段各自回到正序，得到 B|A。全程原地，无需任何辅助数组。",
+          "detail": "步骤拆解：\n1. k %= n，若 k == 0 直接返回。\n2. reverse(0, n-1)：整体翻转 → [7,6,5,4,3,2,1]。\n3. reverse(0, k-1)：前 k 个回正 → [5,6,7,4,3,2,1]。\n4. reverse(k, n-1)：后 n-k 个回正 → [5,6,7,1,2,3,4]。\n\n示例走查：nums=[1,2,3,4,5,6,7], k=3。整体翻转得 [7,6,5,4,3,2,1]；翻转前 3 个得 [5,6,7,4,3,2,1]；翻转后 4 个得 [5,6,7,1,2,3,4] ✓。\n\n为什么正确：把数组看成 [A|B]（A 长 n-k，B 长 k），目标是 [B|A]。整体翻转得 [B^R|A^R]，再对两段各自翻转抵消 ^R，即得 [B|A]。翻转只是元素交换，每个元素至多被交换两次，全程原地，O(n) 时间 O(1) 空间。\n\n易错点：\n- 三步顺序：先整体、再前段、后段（「先两段再整体」是对称等价做法，但前一种最不容易漏边界）；\n- 闭区间边界：前段是 [0, k-1]、后段是 [k, n-1]，把 k-1 写成 k 会多翻一个元素；\n- k %= n 后 k 可能为 0，直接继续翻转无害但浪费时间；不取模则下标直接越界，这是本题第一易错点。",
+          "complexity": "时间 O(n)，空间 O(1)",
+          "optimal": true,
+          "code": "def rotate(nums, k):\n    # 三次翻转：整体翻转 -> 翻前 k 个 -> 翻后 n-k 个\n    n = len(nums)\n    k %= n                          # 易错点：先取模，防 k > n\n    if k == 0:\n        return nums\n\n    def reverse(l, r):              # 对撞双指针原地翻转闭区间 [l, r]\n        while l < r:\n            nums[l], nums[r] = nums[r], nums[l]\n            l += 1\n            r -= 1\n\n    reverse(0, n - 1)               # 整体翻转 -> [7,6,5,4,3,2,1]\n    reverse(0, k - 1)               # 前 k 个回正 -> [5,6,7,4,3,2,1]\n    reverse(k, n - 1)               # 后 n-k 个回正 -> [5,6,7,1,2,3,4]\n    return nums"
+        }
+      ],
+      "code": "class Solution:\n    def rotate(self, nums: List[int], k: int) -> None:\n        n = len(nums)\n        k %= n                  # 易错点：k 可能大于 n，先取模；k 为 0 时后续翻转自然无害\n        if k == 0:\n            return\n\n        # reverse(l, r)：对撞双指针原地翻转闭区间 [l, r]，是「原地交换两段」的原语\n        def reverse(l, r):\n            while l < r:\n                nums[l], nums[r] = nums[r], nums[l]\n                l += 1\n                r -= 1\n\n        reverse(0, n - 1)       # 第一步：整体翻转 -> [7,6,5,4,3,2,1]\n        reverse(0, k - 1)       # 第二步：翻转前 k 个 -> [5,6,7,4,3,2,1]\n        reverse(k, n - 1)       # 第三步：翻转后 n-k 个 -> [5,6,7,1,2,3,4]",
+      "acmCode": "# ACM 模式：完整可运行程序（stdin -> stdout）\n# 输入格式：\n#   第一行：n k\n#   第二行：n 个整数\n# 输出格式：一行 n 个整数（向右轮转 k 位后的数组，空格分隔）\nimport sys\n\n\ndef main():\n    data = sys.stdin.read().split()\n    n, k = int(data[0]), int(data[1])\n    nums = [int(x) for x in data[2:2 + n]]\n    k %= n                          # k 可能大于 n，先取模\n    if k:\n        def reverse(l, r):          # 对撞双指针原地翻转闭区间 [l, r]\n            while l < r:\n                nums[l], nums[r] = nums[r], nums[l]\n                l += 1\n                r -= 1\n        reverse(0, n - 1)           # 三次翻转实现原地轮转\n        reverse(0, k - 1)\n        reverse(k, n - 1)\n    print(' '.join(map(str, nums)))\n\n\nif __name__ == '__main__':\n    main()",
+      "templates": [
+        "『三次翻转』模板：整体翻转 → 翻转前 k 个 → 翻转后 n-k 个，实现「把任意两段原地交换位置」；左旋是对称变体（先翻后两段再整体）。任何循环移位题都可套用。",
+        "凡「循环移位/区间交换」题，第一步永远是 k %= n；在 O(1) 空间约束下，翻转是比循环赋值（gcd 环状替换）更稳、更好讲清的原语。"
+      ],
+      "codeCpp": "class Solution {\npublic:\n    void rotate(vector<int>& nums, int k) {\n        int n = (int)nums.size();\n        k %= n;                 // 易错点：k 可能大于 n，先取模；k 为 0 时后续翻转自然无害\n        if (k == 0) return;\n\n        // reverse 闭区间 [l, r]：对撞双指针原地翻转，是「原地交换两段」的原语\n        auto reverseSeg = [&](int l, int r) {\n            while (l < r) {\n                swap(nums[l], nums[r]);\n                ++l;\n                --r;\n            }\n        };\n\n        reverseSeg(0, n - 1);   // 第一步：整体翻转 -> [7,6,5,4,3,2,1]\n        reverseSeg(0, k - 1);   // 第二步：翻转前 k 个 -> [5,6,7,4,3,2,1]\n        reverseSeg(k, n - 1);   // 第三步：翻转后 n-k 个 -> [5,6,7,1,2,3,4]\n    }\n};",
+      "acmCodeCpp": "// ACM 模式：完整可运行程序（stdin -> stdout）\n// 输入格式：\n//   第一行：n k\n//   第二行：n 个整数\n// 输出格式：一行 n 个整数（向右轮转 k 位后的数组，空格分隔）\n#include <bits/stdc++.h>\nusing namespace std;\n\n// 对撞双指针原地翻转闭区间 [l, r]\nvoid reverseSeg(vector<int>& a, int l, int r) {\n    while (l < r) {\n        swap(a[l], a[r]);\n        ++l;\n        --r;\n    }\n}\n\nint main() {\n    ios::sync_with_stdio(false);   // 关闭同步，读入更快\n    cin.tie(nullptr);\n\n    int n, k;\n    cin >> n >> k;\n    vector<int> nums(n);\n    for (auto& x : nums) cin >> x;\n\n    k %= n;                        // k 可能大于 n，先取模\n    if (k) {                       // 三次翻转实现原地轮转\n        reverseSeg(nums, 0, n - 1);\n        reverseSeg(nums, 0, k - 1);\n        reverseSeg(nums, k, n - 1);\n    }\n\n    for (int i = 0; i < n; ++i) {\n        if (i) cout << ' ';\n        cout << nums[i];\n    }\n    cout << \"\\n\";\n    return 0;\n}",
+      "codeJava": "class Solution {\n    public void rotate(int[] nums, int k) {\n        int n = nums.length;\n        k %= n;                 // 易错点：k 可能大于 n，先取模；k 为 0 时后续翻转自然无害\n        if (k == 0) return;\n\n        reverseSeg(nums, 0, n - 1);   // 第一步：整体翻转 -> [7,6,5,4,3,2,1]\n        reverseSeg(nums, 0, k - 1);   // 第二步：翻转前 k 个 -> [5,6,7,4,3,2,1]\n        reverseSeg(nums, k, n - 1);   // 第三步：翻转后 n-k 个 -> [5,6,7,1,2,3,4]\n    }\n\n    // 闭区间 [l, r] 内对撞双指针原地翻转，是「原地交换两段」的原语\n    private void reverseSeg(int[] nums, int l, int r) {\n        while (l < r) {\n            int t = nums[l];        // 经典三步交换，原地完成两段位置对调\n            nums[l] = nums[r];\n            nums[r] = t;\n            l++;\n            r--;\n        }\n    }\n}",
+      "codeJs": "/**\n * @param {number[]} nums\n * @param {number} k\n * @return {void} Do not return anything, modify nums in-place instead.\n */\nvar rotate = function (nums, k) {\n  const n = nums.length;\n  k %= n; // 易错点：k 可能大于 n，先取模；k 为 0 时后续翻转自然无害\n  if (k === 0) return;\n\n  // 对撞双指针原地翻转闭区间 [l, r]，是「原地交换两段」的原语\n  const reverseSeg = (l, r) => {\n    while (l < r) {\n      [nums[l], nums[r]] = [nums[r], nums[l]];\n      l++;\n      r--;\n    }\n  };\n\n  reverseSeg(0, n - 1); // 第一步：整体翻转 -> [7,6,5,4,3,2,1]\n  reverseSeg(0, k - 1); // 第二步：翻转前 k 个 -> [5,6,7,4,3,2,1]\n  reverseSeg(k, n - 1); // 第三步：翻转后 n-k 个 -> [5,6,7,1,2,3,4]\n};",
+      "codeGo": "func rotate(nums []int, k int) {\n\tn := len(nums)\n\tk %= n // 易错点：k 可能大于 n，先取模；k 为 0 时后续翻转自然无害\n\tif k == 0 {\n\t\treturn\n\t}\n\n\t// 闭区间 [l, r] 内对撞双指针原地翻转，是「原地交换两段」的原语\n\tvar reverseSeg func(l, r int)\n\treverseSeg = func(l, r int) {\n\t\tfor l < r {\n\t\t\tnums[l], nums[r] = nums[r], nums[l]\n\t\t\tl++\n\t\t\tr--\n\t\t}\n\t}\n\n\treverseSeg(0, n-1) // 第一步：整体翻转 -> [7,6,5,4,3,2,1]\n\treverseSeg(0, k-1) // 第二步：翻转前 k 个 -> [5,6,7,4,3,2,1]\n\treverseSeg(k, n-1) // 第三步：翻转后 n-k 个 -> [5,6,7,1,2,3,4]\n}"
+    },
+    {
+      "id": 121,
+      "title": "Best Time to Buy and Sell Stock",
+      "titleCn": "买卖股票的最佳时机",
+      "difficulty": "easy",
+      "frequency": 5,
+      "companies": [
+        "腾讯",
+        "美团",
+        "京东"
+      ],
+      "question": "给定一个数组 prices，它的第 i 个元素 prices[i] 表示一支给定股票第 i 天的价格。你只能选择某一天买入这只股票，并选择在未来的某一个不同的日子卖出。设计一个算法计算你所能获取的最大利润；如果不能获取任何利润（价格一路下跌），返回 0。\n\n示例 1：输入 prices = [7,1,5,3,6,4]，输出 5（第 2 天以价 1 买入，第 5 天以价 6 卖出，利润 6-1=5）。\n示例 2：输入 prices = [7,6,4,3,1]，输出 0（不交易）。",
+      "samples": [
+        {
+          "input": "prices = [7,1,5,3,6,4]",
+          "output": "5",
+          "explain": "第 2 天以价 1 买入，第 5 天以价 6 卖出，利润 6-1=5"
+        },
+        {
+          "input": "prices = [7,6,4,3,1]",
+          "output": "0",
+          "explain": "价格一路下跌，不交易，利润为 0"
+        }
+      ],
+      "hints": [
+        "审题诀窍：『先买入、未来卖出』『只能交易一次』——卖出日必须在买入日之后，这把问题锁定为「对每个卖出日，找它左侧出现过的最低买入价」。",
+        "突破口：一次遍历中同时维护「历史最低价」与「以今天卖出能赚多少」，两个状态各自滚动更新、互不干扰。",
+        "审题诀窍：同一天先更新利润再更新最低价并不会引入「当天买卖」的错误——当天买卖利润为 0，永远不会是最大值的更新来源。",
+        "追问预备：可以买卖多次怎么做？（122 题，贪心收集所有正收益差 sum(max(0, p[i]-p[i-1]))）；最多买卖两次？（123 题，前后缀最大利润拼接或四状态 DP）；带冷冻期/手续费怎么做？（309/714 题，状态机 DP，状态=持有/不持有）"
+      ],
+      "keyPoints": [
+        "单调维护历史最低价 minPrice：它是「今天及之前」的最佳买入点",
+        "每天用 price - minPrice 刷新最大利润，答案必然在某一天的这次尝试中产生",
+        "本质是一维 DP：状态是「到第 i 天为止的最低价」，转移为 min(minPrice, price)——想通这一点就能迁移到带手续费/冷冻期系列",
+        "初始化 minPrice 为 +∞（或 prices[0]）、利润为 0，保证全跌时返回 0 而不是负数（易错点）"
+      ],
+      "structureTags": [
+        "greedy",
+        "single_pass"
+      ],
+      "approaches": [
+        {
+          "name": "暴力枚举买卖对",
+          "idea": "双重循环枚举所有（买入日, 卖出日）组合取最大利润。是写出优化解前必须建立的思维基线，但数据一大就超时。",
+          "detail": "步骤拆解：\n1. 双重循环：外层 i 枚举买入日，内层 j 从 i+1 枚举卖出日（卖出必须晚于买入）。\n2. profit = prices[j] - prices[i]，取全局最大；初始 best = 0（不交易也合法）。\n\n示例走查：prices = [7,1,5,3,6,4]。i=1（价 1）时 j=4（价 6）给出 6-1=5，是所有组合的最大值 ✓。全跌数组 [7,6,4,3,1] 所有差值为负，答案保持初始 0 ✓。\n\n为什么正确：穷举了全部（买入, 卖出）组合，无遗漏；初始 0 保证「不交易」选项参与竞争。\n\n易错点：\n- 内层 j 必须从 i+1 开始：从 i 开始会把「当天买卖」（利润 0）算进去，虽不影响最大值但逻辑不严谨；\n- n 达到 1e5 时约 5e9 次比较，必然超时——这正是引出 O(n) 解法的信号，面试讲 30 秒即可；\n- 初始值别设成负无穷：本题「不赚就返回 0」，与「必须交易一次」的变体题不同。",
+          "complexity": "时间 O(n²)，空间 O(1)",
+          "code": "def maxProfit_brute(prices):\n    # 暴力基线：枚举全部（买入, 卖出）组合\n    n = len(prices)\n    best = 0                        # 「不交易」也合法，初始为 0\n    for i in range(n):              # 买入日\n        for j in range(i + 1, n):   # 卖出日必须晚于买入日\n            best = max(best, prices[j] - prices[i])\n    return best"
+        },
+        {
+          "name": "一次遍历维护历史最低价（贪心/DP）",
+          "idea": "从左往右扫，minPrice 记录迄今最低价；每天尝试以当天价格卖出，用 price - minPrice 更新答案。等价于 DP：状态 = 历史最低买入价，每天 O(1) 转移一次。",
+          "detail": "步骤拆解：\n1. minPrice 初始化为 +∞，profit 初始化为 0。\n2. 从左到右扫每天价格 price：先执行 profit = max(profit, price - minPrice)（尝试今天卖出，minPrice 是今天之前出现过的最低买入价）；再执行 minPrice = min(minPrice, price)（今天进入候选买点池）。\n3. 返回 profit。\n\n示例走查：prices = [7,1,5,3,6,4]。price=7：7-∞ 为负，profit 保持 0，minPrice=7；price=1：1-7=-6，profit 仍 0，minPrice=1；price=5：5-1=4，profit=4；price=3：3-1=2，profit 仍 4；price=6：6-1=5，profit=5；price=4：4-1=3，profit 仍 5。返回 5 ✓。\n\n为什么正确：对每个卖出日 j，最优利润是 prices[j] - min(prices[0..j-1])，全局答案就是所有 j 的最大值。minPrice 滚动维护「到昨天为止的最低价」，每天 O(1) 完成一次转移——本质是一维 DP：状态 = 历史最低买入价，决策 = 今天卖或不卖。想通这一点就能迁移到 122/123/309/714 股票系列。\n\n易错点：\n- 先更新 profit 再更新 minPrice：若反过来，当天价格先进入 minPrice，price-minPrice 恒为 0，虽然碰巧不出错（当天买卖利润为 0），但语义上「同一天先买后卖」不合法，先卖后更最稳；\n- minPrice 初值用 +∞ 而不是 prices[0]，两者结果相同，+∞ 版本对空数组更稳；\n- 全跌时 profit 保持 0，正好是「不交易」的答案，不要返回负数。",
+          "complexity": "时间 O(n)，空间 O(1)",
+          "optimal": true,
+          "code": "def maxProfit(prices):\n    # 一次遍历：minPrice 是「今天之前」的最佳买入点，每天尝试卖出\n    minPrice = float('inf')         # 迄今最低买入价\n    profit = 0                      # 迄今最大利润，全跌时保持 0\n    for price in prices:\n        profit = max(profit, price - minPrice)   # 先尝试今天卖出\n        minPrice = min(minPrice, price)          # 再更新历史最低价\n    return profit"
+        }
+      ],
+      "code": "class Solution:\n    def maxProfit(self, prices: List[int]) -> int:\n        # minPrice：到今天为止（含今天）的历史最低买入价，即「最佳买入时机」\n        # profit：迄今能取得的最大利润\n        minPrice, profit = float('inf'), 0\n        for price in prices:\n            # 先尝试以今天的价格卖出：只有今天之前出现过的最低价才是合法买点\n            profit = max(profit, price - minPrice)\n            # 再更新最低价，供之后的日子使用\n            minPrice = min(minPrice, price)\n        return profit   # 全程下跌时 profit 保持 0，正好是「不交易」的答案",
+      "acmCode": "# ACM 模式：完整可运行程序（stdin -> stdout）\n# 输入格式：\n#   第一行：n（天数）\n#   第二行：n 个整数（每天股价）\n# 输出格式：一行，最大利润（无法获利输出 0）\nimport sys\n\n\ndef main():\n    data = sys.stdin.read().split()\n    n = int(data[0])\n    prices = [int(x) for x in data[1:1 + n]]\n    min_price, profit = float('inf'), 0\n    for p in prices:\n        profit = max(profit, p - min_price)   # 以今天价格卖出能赚多少\n        min_price = min(min_price, p)         # 更新历史最低买入价\n    print(profit)\n\n\nif __name__ == '__main__':\n    main()",
+      "templates": [
+        "「历史最优状态 + 当天决策」一次遍历模板：维护到 i 为止的某个最优状态（最低价/最大前缀和），每天用 O(1) 决策更新全局答案；53 最大子数组、122 多次交易同属此族。",
+        "股票系列的拆题钥匙是「允许的交易次数」：一次 → 维护历史最低价；无限次 → 贪心收集所有正收益差；两次 → 前后缀分解或状态机 DP。"
+      ],
+      "codeCpp": "class Solution {\npublic:\n    int maxProfit(vector<int>& prices) {\n        // minPrice：到今天为止（含今天）的历史最低买入价，即「最佳买入时机」\n        // profit：迄今能取得的最大利润\n        int minPrice = INT_MAX, profit = 0;\n        for (int price : prices) {\n            // 先尝试以今天的价格卖出：只有今天之前出现过的最低价才是合法买点\n            profit = max(profit, price - minPrice);\n            // 再更新最低价，供之后的日子使用\n            minPrice = min(minPrice, price);\n        }\n        return profit;   // 全程下跌时 profit 保持 0，正好是「不交易」的答案\n    }\n};",
+      "acmCodeCpp": "// ACM 模式：完整可运行程序（stdin -> stdout）\n// 输入格式：\n//   第一行：n（天数）\n//   第二行：n 个整数（每天股价）\n// 输出格式：一行，最大利润（无法获利输出 0）\n#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);   // 关闭同步，读入更快\n    cin.tie(nullptr);\n\n    int n;\n    cin >> n;\n    vector<int> prices(n);\n    for (auto& x : prices) cin >> x;\n\n    // minPrice：历史最低买入价；profit：迄今最大利润\n    int minPrice = INT_MAX, profit = 0;\n    for (int price : prices) {\n        profit = max(profit, price - minPrice);  // 以今天价格卖出能赚多少\n        minPrice = min(minPrice, price);         // 更新历史最低买入价\n    }\n    cout << profit << endl;        // 全程下跌时 profit 保持 0\n    return 0;\n}",
+      "codeJava": "class Solution {\n    public int maxProfit(int[] prices) {\n        // minPrice：到今天为止（含今天）的历史最低买入价，即「最佳买入时机」\n        // profit：迄今能取得的最大利润\n        int minPrice = Integer.MAX_VALUE, profit = 0;\n        for (int price : prices) {\n            // 先尝试以今天的价格卖出：只有今天之前出现过的最低价才是合法买点\n            profit = Math.max(profit, price - minPrice);\n            // 再更新最低价，供之后的日子使用\n            minPrice = Math.min(minPrice, price);\n        }\n        return profit;   // 全程下跌时 profit 保持 0，正好是「不交易」的答案\n    }\n}",
+      "codeJs": "/**\n * @param {number[]} prices\n * @return {number}\n */\nvar maxProfit = function (prices) {\n  // minPrice：到今天为止（含今天）的历史最低买入价，即「最佳买入时机」\n  // profit：迄今能取得的最大利润\n  let minPrice = Infinity, profit = 0;\n  for (const price of prices) {\n    // 先尝试以今天的价格卖出：只有今天之前出现过的最低价才是合法买点\n    profit = Math.max(profit, price - minPrice);\n    // 再更新最低价，供之后的日子使用\n    minPrice = Math.min(minPrice, price);\n  }\n  return profit; // 全程下跌时 profit 保持 0，正好是「不交易」的答案\n};",
+      "codeGo": "func maxProfit(prices []int) int {\n\t// minPrice：到今天为止（含今天）的历史最低买入价，即「最佳买入时机」\n\t// profit：迄今能取得的最大利润\n\tminPrice, profit := math.MaxInt, 0\n\tfor _, price := range prices {\n\t\t// 先尝试以今天的价格卖出：只有今天之前出现过的最低价才是合法买点\n\t\tif price-minPrice > profit {\n\t\t\tprofit = price - minPrice\n\t\t}\n\t\t// 再更新最低价，供之后的日子使用\n\t\tif price < minPrice {\n\t\t\tminPrice = price\n\t\t}\n\t}\n\treturn profit // 全程下跌时 profit 保持 0，正好是「不交易」的答案\n}"
+    },
+    {
+      "id": 55,
+      "title": "Jump Game",
+      "titleCn": "跳跃游戏",
+      "difficulty": "medium",
+      "frequency": 4,
+      "companies": [
+        "字节跳动",
+        "Momenta"
+      ],
+      "question": "给你一个非负整数数组 nums，你最初位于数组的第一个下标。数组中的每个元素代表你在该位置可以跳跃的最大长度。判断你是否能够到达最后一个下标。\n\n示例 1：输入 nums = [2,3,1,1,4]，输出 true（先跳 1 步到下标 1，再从下标 1 跳 3 步到最后）。\n示例 2：输入 nums = [3,2,1,0,4]，输出 false（无论怎么跳都会停在下标 3，而它是 0，跳不出去）。",
+      "samples": [
+        {
+          "input": "nums = [2,3,1,1,4]",
+          "output": "true",
+          "explain": "先跳 1 步到下标 1，再从下标 1 跳 3 步到最后"
+        },
+        {
+          "input": "nums = [3,2,1,0,4]",
+          "output": "false",
+          "explain": "farthest 永远停在下标 3，而它是 0，断层无法跨越"
+        }
+      ],
+      "hints": [
+        "审题诀窍：nums[i] 是「最大」跳跃长度——从 i 出发可以跳任意 1..nums[i] 步，所以只关心「最远能摸到哪里」，完全不需要枚举具体跳法。",
+        "突破口：维护「当前能到达的最远下标 farthest」；只要 i <= farthest，位置 i 就可达，用 i + nums[i] 去扩张 farthest。",
+        "审题诀窍：卡死的判定信号是「i 走到了 farthest 之外」——示例 2 中 farthest 永远停在 3，而 i 最终要走到 4，中间出现断层。",
+        "追问预备：求最少跳跃次数怎么做？（45 题，隐式 BFS 分层贪心）；如果 nums 含负数，贪心还成立吗？（不成立：可达集合不再连续，需改 DP 或 BFS）；倒着贪心「每次找能覆盖当前点的最左起点」的思路是什么？（从终点回推，O(n) 但要小心全 0 前缀）"
+      ],
+      "keyPoints": [
+        "贪心不变量：farthest = max(所有已达位置 i 的 i + nums[i])，即当前「势力范围」的右边界",
+        "遍历中若 i > farthest，说明出现了无法跨越的断层，立即返回 false",
+        "只要 farthest >= n-1 就可提前返回 true，不必扫完全数组",
+        "对比 DP 可达性（dp[i] 表示 i 是否可达，O(n²)）：贪心把「哪些位置可达」压缩成一个边界值，是关键的降维"
+      ],
+      "structureTags": [
+        "greedy"
+      ],
+      "approaches": [
+        {
+          "name": "DP 可达性标记",
+          "idea": "dp[i] 表示下标 i 是否可达；对每个可达的 i，把 i+1..i+nums[i] 标记为可达。正确但存在大量重复更新，是理解问题的好跳板。",
+          "detail": "步骤拆解：\n1. dp[i] 布尔数组表示下标 i 是否可达；dp[0] = True（起点天然可达）。\n2. 对每个 i（从 1 到 n-1），枚举所有 j < i：若 dp[j] 且 j + nums[j] >= i，则 i 可达，dp[i] = True 并 break。\n3. 返回 dp[n-1]。\n\n示例走查：nums = [2,3,1,1,4]。i=1：j=0，0+2>=1 → True；i=2：j=0，0+2>=2 → True；i=3：j=1，1+3>=3 → True；i=4：j=1，1+3>=4 → True。返回 True ✓。nums=[3,2,1,0,4]：dp[4] 需要某个可达 j 满足 j+nums[j]>=4，j=0:3、j=1:3、j=2:3、j=3:3 都不够，返回 False ✓。\n\n为什么正确：「存在一个可达前驱能一步跳到 i」就是 i 可达的充要条件，dp 定义是可达性的直接翻译。\n\n易错点：\n- 本题 n 可到 1e4，O(n²) 约 1e8 次运算，Python 下大概率超时——它是理解问题的跳板，不是答卷；\n- 忘写 dp[0] = True 则全盘皆错；\n- 它的价值在于引出贪心：可达集合其实是连续前缀 [0, farthest]，用一个边界值就能表示，不必逐位记录。",
+          "complexity": "时间 O(n²)，空间 O(n)",
+          "code": "def canJump_dp(nums):\n    # DP 可达性：dp[i] 表示下标 i 是否可达\n    n = len(nums)\n    dp = [False] * n\n    dp[0] = True                    # 起点天然可达\n    for i in range(1, n):\n        for j in range(i):          # 枚举能一步跳到 i 的所有出发点\n            if dp[j] and j + nums[j] >= i:\n                dp[i] = True\n                break\n    return dp[n - 1]"
+        },
+        {
+          "name": "贪心维护最远边界",
+          "idea": "一遍扫描维护 farthest：只要 i <= farthest 就用 i + nums[i] 更新它；i > farthest 说明中间有到不了的断层，返回 false；farthest >= n-1 提前返回 true。",
+          "detail": "步骤拆解：\n1. farthest = 0 为「势力范围」的右边界；i 从 0 扫到 n-1。\n2. 先检查 i > farthest：成立说明出现断层，返回 False；否则 farthest = max(farthest, i + nums[i])。\n3. farthest >= n-1 时提前返回 True，不必扫完全数组。\n\n示例走查：nums = [3,2,1,0,4]。i=0：farthest=3；i=1：max(3,3)=3；i=2：max(3,3)=3；i=3：max(3,3)=3；i=4：4>3 → False ✓。nums=[2,3,1,1,4]：i=0：farthest=2；i=1：max(2,4)=4 >= 4 → True ✓。\n\n为什么正确：可达位置构成连续前缀 [0, farthest]（归纳：i=0 可达；若 <i 都可达且其跳跃覆盖 i，则 i 可达；反之若 i 不可达，其后更不可达）。farthest 是该前缀的右端点；i 走出 farthest 就意味着前缀断裂。\n\n易错点：\n- 检查与扩张的顺序不能反：先判 i > farthest 再更新，若先更新，会用「不可达的 i」算出虚假边界导致漏判；\n- farthest >= n-1 的提前返回只是优化，不写也对（循环走完返回 True 兜底），但 n=1 时逻辑必须能到达兜底分支；\n- nums[i] 可以是 0：站在原地不扩张边界，逻辑天然兼容，无需特判。",
+          "complexity": "时间 O(n)，空间 O(1)",
+          "optimal": true,
+          "code": "def canJump(nums):\n    # 贪心：farthest 是当前「势力范围」的右边界\n    n = len(nums)\n    farthest = 0\n    for i in range(n):\n        if i > farthest:            # 易错点：先检查——i 走出势力范围即断层\n            return False\n        farthest = max(farthest, i + nums[i])   # 从 i 起跳能扩张的新边界\n        if farthest >= n - 1:       # 已覆盖终点，提前收工\n            return True\n    return True                     # 循环未被拦截则必然可达（n=1 也在此兜底）"
+        }
+      ],
+      "code": "class Solution:\n    def canJump(self, nums: List[int]) -> bool:\n        # farthest：当前「势力范围」的右边界——能到达的最远下标\n        farthest = 0\n        n = len(nums)\n        for i in range(n):\n            if i > farthest:    # 易错点：i 走出势力范围 => 中间存在无法跨越的断层\n                return False\n            farthest = max(farthest, i + nums[i])   # 从 i 起跳能扩张到的新边界\n            if farthest >= n - 1:   # 提前收工：已能覆盖最后一个下标\n                return True\n        return True             # 循环未被拦截则必然可达（n=1 等边界也在此兜底）",
+      "acmCode": "# ACM 模式：完整可运行程序（stdin -> stdout）\n# 输入格式：\n#   第一行：n（数组长度）\n#   第二行：n 个非负整数（每格最大跳跃长度）\n# 输出格式：一行，\"true\" 或 \"false\"\nimport sys\n\n\ndef main():\n    data = sys.stdin.read().split()\n    n = int(data[0])\n    nums = [int(x) for x in data[1:1 + n]]\n    farthest = 0\n    ans = True\n    for i in range(n):\n        if i > farthest:            # 断层：永远到不了 i\n            ans = False\n            break\n        farthest = max(farthest, i + nums[i])\n        if farthest >= n - 1:       # 提前判定可达\n            break\n    print('true' if ans else 'false')\n\n\nif __name__ == '__main__':\n    main()",
+      "templates": [
+        "『最远可达边界』贪心模板：维护 farthest，可达下标 i 用 i+nums[i] 扩张边界；i 超出边界即断层。45 跳跃游戏 II 在此模板上增加「当前层边界/最远潜力」两个游标即可统计最少跳数。",
+        "一维可达性问题优先想「边界扩张」而不是 DFS/DP：一维可达往往是 O(n) 贪心，图状结构才考虑搜索。"
+      ],
+      "codeCpp": "class Solution {\npublic:\n    bool canJump(vector<int>& nums) {\n        // farthest：当前「势力范围」的右边界——能到达的最远下标\n        int farthest = 0;\n        int n = (int)nums.size();\n        for (int i = 0; i < n; ++i) {\n            if (i > farthest) return false;          // 易错点：走出势力范围 => 存在断层\n            farthest = max(farthest, i + nums[i]);   // 从 i 起跳能扩张到的新边界\n            if (farthest >= n - 1) return true;      // 提前收工：已能覆盖最后一个下标\n        }\n        return true;             // 循环未被拦截则必然可达（n=1 等边界也在此兜底）\n    }\n};",
+      "acmCodeCpp": "// ACM 模式：完整可运行程序（stdin -> stdout）\n// 输入格式：\n//   第一行：n（数组长度）\n//   第二行：n 个非负整数（每格最大跳跃长度）\n// 输出格式：一行，\"true\" 或 \"false\"\n#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);   // 关闭同步，读入更快\n    cin.tie(nullptr);\n\n    int n;\n    cin >> n;\n    vector<int> nums(n);\n    for (auto& x : nums) cin >> x;\n\n    // farthest：当前「势力范围」的右边界——能到达的最远下标\n    int farthest = 0;\n    bool ans = true;\n    for (int i = 0; i < n; ++i) {\n        if (i > farthest) {        // 断层：永远到不了 i\n            ans = false;\n            break;\n        }\n        farthest = max(farthest, i + nums[i]);  // 从 i 起跳能扩张到的新边界\n        if (farthest >= n - 1) break;           // 提前判定可达\n    }\n    cout << (ans ? \"true\" : \"false\") << endl;\n    return 0;\n}",
+      "codeJava": "class Solution {\n    public boolean canJump(int[] nums) {\n        // farthest：当前「势力范围」的右边界——能到达的最远下标\n        int farthest = 0;\n        int n = nums.length;\n        for (int i = 0; i < n; i++) {\n            if (i > farthest) return false;          // 易错点：走出势力范围 => 存在断层\n            farthest = Math.max(farthest, i + nums[i]);  // 从 i 起跳能扩张到的新边界\n            if (farthest >= n - 1) return true;      // 提前收工：已能覆盖最后一个下标\n        }\n        return true;             // 循环未被拦截则必然可达（n=1 等边界也在此兜底）\n    }\n}",
+      "codeJs": "/**\n * @param {number[]} nums\n * @return {boolean}\n */\nvar canJump = function (nums) {\n  // farthest：当前「势力范围」的右边界——能到达的最远下标\n  let farthest = 0;\n  const n = nums.length;\n  for (let i = 0; i < n; i++) {\n    if (i > farthest) return false; // 易错点：走出势力范围 => 存在断层\n    farthest = Math.max(farthest, i + nums[i]); // 从 i 起跳能扩张到的新边界\n    if (farthest >= n - 1) return true; // 提前收工：已能覆盖最后一个下标\n  }\n  return true; // 循环未被拦截则必然可达（n=1 等边界也在此兜底）\n};",
+      "codeGo": "func canJump(nums []int) bool {\n\t// farthest：当前「势力范围」的右边界——能到达的最远下标\n\tfarthest := 0\n\tn := len(nums)\n\tfor i := 0; i < n; i++ {\n\t\tif i > farthest { // 易错点：走出势力范围 => 存在断层\n\t\t\treturn false\n\t\t}\n\t\tif i+nums[i] > farthest { // 从 i 起跳能扩张到的新边界\n\t\t\tfarthest = i + nums[i]\n\t\t}\n\t\tif farthest >= n-1 { // 提前收工：已能覆盖最后一个下标\n\t\t\treturn true\n\t\t}\n\t}\n\treturn true // 循环未被拦截则必然可达（n=1 等边界也在此兜底）\n}"
+    },
+    {
+      "id": 45,
+      "title": "Jump Game II",
+      "titleCn": "跳跃游戏 II",
+      "difficulty": "medium",
+      "frequency": 3,
+      "companies": [
+        "字节跳动",
+        "Momenta"
+      ],
+      "question": "给定一个长度为 n 的 0 索引整数数组 nums，初始位置为 nums[0]。每个元素 nums[i] 表示从索引 i 向前跳转的最大长度。你的目标是使用最少的跳跃次数到达数组的最后一个位置（题目保证一定可以到达）。\n\n示例 1：输入 nums = [2,3,1,1,4]，输出 2（先跳到下标 1，再跳 3 步到最后）。\n示例 2：输入 nums = [2,3,0,1,4]，输出 2。",
+      "samples": [
+        {
+          "input": "nums = [2,3,1,1,4]",
+          "output": "2",
+          "explain": "先跳到下标 1，再从下标 1 跳 3 步到最后"
+        },
+        {
+          "input": "nums = [2,3,0,1,4]",
+          "output": "2",
+          "explain": "0→1→4，同样是两跳"
+        }
+      ],
+      "hints": [
+        "审题诀窍：题目保证一定可达——不需要像 55 题那样处理断层返回 false/-1，代码可以纯粹地专注「最少次数」这一个目标。",
+        "突破口：把跳跃按次数「分层」——第 1 跳能覆盖的区间、第 2 跳能覆盖的区间……这就是隐式的 BFS 层级，答案就是层数。",
+        "审题诀窍：数层的口径要小心——i 没踩到当前层右边界 curEnd 之前不用跳，只有 i == curEnd 才意味着「这一跳收益用尽、必须起跳」。",
+        "追问预备：终点不可达时如何返回 -1？（当 i 踩到 cur_end 且 farthest 没能越过 i，说明无路可走）；把「跳跃次数」换成「每步代价不同」怎么改？（同层代价相同才可用分层贪心，否则需要 DP/Dijkstra 思想）；为什么「跳最远」不会错过更少步数？（交换论证：最优解每步都不必超过当前层的 farthest）"
+      ],
+      "keyPoints": [
+        "两个游标：curEnd = 当前这一跳能到达的最远位置；farthest = 遍历至今所有可达起跳点攒出的最远位置",
+        "i 踩到 curEnd 时步数 +1，并把 curEnd 更新为 farthest——等价于 BFS 进入下一层",
+        "易错点：只遍历到 n-2（倒数第二格）；扫到最后一格会把「站在终点」也误算成一次跳跃",
+        "贪心正确性：每一步都取当前层能摸到的最远边界，跳数单调不增，贪心选择不会更差"
+      ],
+      "structureTags": [
+        "greedy"
+      ],
+      "approaches": [
+        {
+          "name": "BFS 分层模拟",
+          "idea": "把每个下标看成节点，i 能连到 i+1..i+nums[i]，用队列逐层扩展求最短跳数。思路直观，但每层要显式扩展整段区间，代码量大、常数高。",
+          "detail": "步骤拆解：\n1. 把下标看成节点，i 连向 i+1..i+nums[i]，从 0 出发做 BFS，逐层扩展。\n2. visited 数组防重复入队；每扩展完一整层 steps += 1。\n3. 处理节点时发现 i == n-1，返回当前 steps。\n\n示例走查：nums=[2,3,1,1,4]。第 0 层 [0]；从 0 可到 1、2，下一层 [1,2]，steps=1；从 1 可到 2,3,4、从 2 可到 3，新增 {3,4}，steps=2；处理该层时发现 4 == n-1，返回 2 ✓。\n\n为什么正确：BFS 按跳数分层，首次到达终点的层数就是最少跳数——无权图最短路的性质直接落地。\n\n易错点：\n- 扩展上界要 clamp 到 n-1：range(i+1, min(i+nums[i], n-1) + 1)，否则数组越界；\n- 忘记 visited 会重复扩展同一批下标，最坏退化成指数级；\n- 「出队时判终点」还是「入队时判终点」要统一；入队时判要小心 n=1（起点即终点应返回 0）；\n- 每层扩展整段区间产生大量重复尝试，常数远高于贪心版，是引出隐式分层的伏笔。",
+          "complexity": "时间 O(n²)（最坏），空间 O(1)",
+          "code": "def jump_bfs(nums):\n    # BFS 分层：下标即节点，i 连向 i+1..i+nums[i]\n    n = len(nums)\n    visited = [False] * n\n    visited[0] = True\n    q = [0]                         # 当前层的所有可达位置\n    steps = 0\n    while q:\n        nxt = []                    # 下一层\n        for i in q:\n            if i == n - 1:          # 首次触达终点，当前层数即最少跳数\n                return steps\n            upper = min(i + nums[i], n - 1)   # 上界 clamp 防越界\n            for j in range(i + 1, upper + 1):\n                if not visited[j]:\n                    visited[j] = True\n                    nxt.append(j)\n        q = nxt\n        steps += 1\n    return steps"
+        },
+        {
+          "name": "贪心 + 隐式分层",
+          "idea": "用 curEnd 与 farthest 两个游标把 BFS 的队列压扁：扫到 i == curEnd 就起跳（steps+1）并令 curEnd = farthest。一次扫描即得最少跳数。",
+          "detail": "步骤拆解：\n1. steps=0、cur_end=0（本跳覆盖的右边界）、farthest=0（下一跳的最远潜力）。\n2. i 从 0 扫到 n-2（只到倒数第二格）：farthest = max(farthest, i + nums[i])；当 i == cur_end（本跳收益用尽）时 steps += 1 且 cur_end = farthest。\n3. 返回 steps。\n\n示例走查：nums=[2,3,0,1,4]。i=0：farthest=2；i==cur_end(0) → steps=1，cur_end=2。i=1：farthest=max(2,4)=4。i=2：farthest=4；i==cur_end(2) → steps=2，cur_end=4。i=3：farthest=4。循环结束（只扫到下标 3）。返回 2 ✓。\n\n为什么正确：它是 BFS 的「队列压扁」版：cur_end 是当前层右界，i 扫过本层每个可达点时都在为 farthest 攒「下一层的最远潜力」，踩到 cur_end 就意味着本层结束、起跳进入下一层。贪心正确性（交换论证）：任何最优解的第一跳都不需要超过 farthest，归纳可得每层都取最远边界不会更差。\n\n易错点：\n- 循环必须只到 n-2：扫到最后一格会把「站在终点」误算成一跳——拿 [2,3,1,1,4] 验证，扫到 4 时 i==cur_end 会多加一步得 3；\n- i == cur_end 时若 farthest 仍等于 cur_end（本层无进展）说明不可达；本题保证可达不用处理，ACM 泛化时要防御；\n- steps 在「踩到边界」时才加，不是每前进一步就加。",
+          "complexity": "时间 O(n)，空间 O(1)",
+          "optimal": true,
+          "code": "def jump(nums):\n    # 贪心 + 隐式分层：cur_end 是本跳覆盖的右边界，farthest 是下一跳潜力\n    steps, cur_end, farthest = 0, 0, 0\n    for i in range(len(nums) - 1):  # 只扫到倒数第二格，站在终点不算一跳\n        farthest = max(farthest, i + nums[i])   # 本层每个可达点都在攒下一跳边界\n        if i == cur_end:            # 踩到本跳边界 => 本跳收益用尽，必须起跳\n            steps += 1\n            cur_end = farthest      # 新边界 = 整层攒出的最远点\n    return steps"
+        }
+      ],
+      "code": "class Solution:\n    def jump(self, nums: List[int]) -> int:\n        # 隐式 BFS：cur_end 是「当前这一跳」覆盖到的右边界，farthest 是下一跳的最远潜力\n        steps, cur_end, farthest = 0, 0, 0\n        # 只扫到倒数第二格：站在终点不需要再跳，多扫一格会多算一步（易错点）\n        for i in range(len(nums) - 1):\n            farthest = max(farthest, i + nums[i])  # 本层每个可达点都在为下一跳攒边界\n            if i == cur_end:                       # 踩到本跳边界 => 本跳收益用尽，必须起跳\n                steps += 1\n                cur_end = farthest                 # 新边界 = 整层攒出的最远点\n        return steps",
+      "acmCode": "# ACM 模式：完整可运行程序（stdin -> stdout）\n# 输入格式：\n#   第一行：n（数组长度）\n#   第二行：n 个非负整数（保证能到达终点）\n# 输出格式：一行，最少跳跃次数\nimport sys\n\n\ndef main():\n    data = sys.stdin.read().split()\n    n = int(data[0])\n    nums = [int(x) for x in data[1:1 + n]]\n    steps = cur_end = farthest = 0\n    for i in range(n - 1):          # 只扫到倒数第二格\n        farthest = max(farthest, i + nums[i])\n        if i == cur_end:            # 踩到本跳边界，起跳\n            steps += 1\n            cur_end = farthest\n    print(steps)\n\n\nif __name__ == '__main__':\n    main()",
+      "templates": [
+        "「隐式 BFS」模板：当每次扩展的范围是连续区间（i+1..i+nums[i]）时不必真用队列——用 cur_end（本层右界）+ farthest（下层右界）两个游标逐层计数即可，空间从 O(n) 压到 O(1)。",
+        "「最少跳数/最少操作」且每步影响一段区间 → 先想 BFS 分层计数，再用两个游标把队列压成 O(1) 空间。"
+      ],
+      "codeCpp": "class Solution {\npublic:\n    int jump(vector<int>& nums) {\n        // 隐式 BFS：curEnd 是「当前这一跳」覆盖到的右边界，farthest 是下一跳的最远潜力\n        int steps = 0, curEnd = 0, farthest = 0;\n        // 只扫到倒数第二格：站在终点不需要再跳，多扫一格会多算一步（易错点）\n        for (int i = 0; i < (int)nums.size() - 1; ++i) {\n            farthest = max(farthest, i + nums[i]);  // 本层每个可达点都在为下一跳攒边界\n            if (i == curEnd) {                      // 踩到本跳边界 => 本跳收益用尽，必须起跳\n                ++steps;\n                curEnd = farthest;                  // 新边界 = 整层攒出的最远点\n            }\n        }\n        return steps;\n    }\n};",
+      "acmCodeCpp": "// ACM 模式：完整可运行程序（stdin -> stdout）\n// 输入格式：\n//   第一行：n（数组长度）\n//   第二行：n 个非负整数（保证能到达终点）\n// 输出格式：一行，最少跳跃次数\n#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);   // 关闭同步，读入更快\n    cin.tie(nullptr);\n\n    int n;\n    cin >> n;\n    vector<int> nums(n);\n    for (auto& x : nums) cin >> x;\n\n    // 隐式 BFS：curEnd 是「当前这一跳」的右边界，farthest 是下一跳的最远潜力\n    int steps = 0, curEnd = 0, farthest = 0;\n    for (int i = 0; i < n - 1; ++i) {       // 只扫到倒数第二格\n        farthest = max(farthest, i + nums[i]);  // 本层每个可达点都在为下一跳攒边界\n        if (i == curEnd) {                       // 踩到本跳边界，起跳\n            ++steps;\n            curEnd = farthest;                   // 新边界 = 整层攒出的最远点\n        }\n    }\n    cout << steps << endl;\n    return 0;\n}",
+      "codeJava": "class Solution {\n    public int jump(int[] nums) {\n        // 隐式 BFS：curEnd 是「当前这一跳」覆盖到的右边界，farthest 是下一跳的最远潜力\n        int steps = 0, curEnd = 0, farthest = 0;\n        // 只扫到倒数第二格：站在终点不需要再跳，多扫一格会多算一步（易错点）\n        for (int i = 0; i < nums.length - 1; i++) {\n            farthest = Math.max(farthest, i + nums[i]);  // 本层每个可达点都在为下一跳攒边界\n            if (i == curEnd) {                           // 踩到本跳边界 => 本跳收益用尽，必须起跳\n                steps++;\n                curEnd = farthest;                       // 新边界 = 整层攒出的最远点\n            }\n        }\n        return steps;\n    }\n}",
+      "codeJs": "/**\n * @param {number[]} nums\n * @return {number}\n */\nvar jump = function (nums) {\n  // 隐式 BFS：curEnd 是「当前这一跳」覆盖到的右边界，farthest 是下一跳的最远潜力\n  let steps = 0, curEnd = 0, farthest = 0;\n  // 只扫到倒数第二格：站在终点不需要再跳，多扫一格会多算一步（易错点）\n  for (let i = 0; i < nums.length - 1; i++) {\n    farthest = Math.max(farthest, i + nums[i]); // 本层每个可达点都在为下一跳攒边界\n    if (i === curEnd) { // 踩到本跳边界 => 本跳收益用尽，必须起跳\n      steps++;\n      curEnd = farthest; // 新边界 = 整层攒出的最远点\n    }\n  }\n  return steps;\n};",
+      "codeGo": "func jump(nums []int) int {\n\t// 隐式 BFS：curEnd 是「当前这一跳」覆盖到的右边界，farthest 是下一跳的最远潜力\n\tsteps, curEnd, farthest := 0, 0, 0\n\t// 只扫到倒数第二格：站在终点不需要再跳，多扫一格会多算一步（易错点）\n\tfor i := 0; i < len(nums)-1; i++ {\n\t\tif i+nums[i] > farthest { // 本层每个可达点都在为下一跳攒边界\n\t\t\tfarthest = i + nums[i]\n\t\t}\n\t\tif i == curEnd { // 踩到本跳边界 => 本跳收益用尽，必须起跳\n\t\t\tsteps++\n\t\t\tcurEnd = farthest // 新边界 = 整层攒出的最远点\n\t\t}\n\t}\n\treturn steps\n}"
+    },
+    {
+      "id": 274,
+      "title": "H-Index",
+      "titleCn": "H 指数",
+      "difficulty": "medium",
+      "frequency": 3,
+      "companies": [
+        "字节跳动",
+        "腾讯"
+      ],
+      "question": "给你一个整数数组 citations，其中 citations[i] 表示研究者的第 i 篇论文被引用的次数。计算并返回该研究者的 h 指数。h 指数的定义：h 代表「高引用次数」，一名科研人员的 h 指数是指他至少有 h 篇论文分别被引用了至少 h 次，且其余 n - h 篇论文每篇被引用次数不超过 h 次。如果 h 有多种可能的值，取最大值。\n\n示例 1：输入 citations = [3,0,6,1,5]，输出 3（至少有 3 篇论文各被引用至少 3 次，其余两篇不超过 3 次）。\n示例 2：输入 citations = [1,3,1]，输出 1。",
+      "samples": [
+        {
+          "input": "citations = [3,0,6,1,5]",
+          "output": "3",
+          "explain": "有 3 篇论文（3、6、5）各被引用至少 3 次"
+        },
+        {
+          "input": "citations = [1,3,1]",
+          "output": "1",
+          "explain": "只有 1 篇论文被引用至少 1 次"
+        }
+      ],
+      "hints": [
+        "审题诀窍：h 不可能超过论文总数 n——引用数再高（比如 100），封顶也只按 n 计；这是计数法能把空间压到 O(n) 的关键前提。",
+        "突破口：把「引用 ≥h 次的论文篇数」从大到小累加——h 从 n 往下枚举，第一个满足「累计篇数 >= h」的 h 就是答案。",
+        "审题诀窍：别把 h 指数与「平均引用」「最高引用」混淆；定义里的双向条件（≥h 篇且每篇 ≥h 次）其实只需单向计数即可判定。",
+        "追问预备：citations 已经升序（H 指数 II）怎么做 O(logn)？（二分最小下标 i 满足 citations[i] >= n-i，h = n-i）；如果还要统计「每篇论文至少被引 k 次的论文数」呢？（后缀和一遍预处理）；为什么 h 不可能超过论文总数 n？（定义中「h 篇论文」的上限就是 n）"
+      ],
+      "keyPoints": [
+        "计数桶：cnt[v] 记引用恰为 v 的论文数，v 取 min(c, n) 截断——超过 n 的引用对 h 无额外贡献",
+        "h 从 n 递减、total 累加「引用 ≥h 的篇数」，首个满足 total >= h 的 h 即答案",
+        "对比排序法（降序找第一个 citations[i] < i+1 的位置）：计数法省掉 O(nlogn) 的排序",
+        "易错点：判定条件是 total >= h（至少 h 篇），不是 total == h"
+      ],
+      "structureTags": [
+        "hashmap"
+      ],
+      "approaches": [
+        {
+          "name": "排序扫描",
+          "idea": "将 citations 降序排序，找最大的 i 使得第 i+1 篇论文引用数 ≥ i+1，则 h=i+1。正确直观，但多付出一次排序的代价。",
+          "detail": "步骤拆解：\n1. citations.sort(reverse=True)：降序后第 i 篇（0 起）是引用第 i+1 高的论文。\n2. 从左往右扫：若 citations[i] >= i+1，说明「至少 i+1 篇被引至少 i+1 次」，h 至少为 i+1，更新 h 继续走；否则 break。\n\n示例走查：citations=[3,0,6,1,5] 降序后 [6,5,3,1,0]。i=0：6>=1 → h=1；i=1：5>=2 → h=2；i=2：3>=3 → h=3；i=3：1<4 → break。返回 3 ✓。\n\n为什么正确：h 指数在降序序列上具有单调性——「前 i+1 篇都 >= i+1」随 i 增大一旦失败就不会再成功，扫到第一个失败点即停。\n\n易错点：\n- 条件是 citations[i] >= i+1（下标从 0 起），写成 >= i 会整体偏大 1；\n- h 初值是 0（全 0 引用数组返回 0），不要初始化成 1；\n- 排序 O(nlogn)，计数法可到 O(n)，面试先写排序版再主动优化是标准节奏。",
+          "complexity": "时间 O(nlogn)，空间 O(1)",
+          "code": "def hIndex_sort(citations):\n    # 排序扫描：降序后找最大的 i+1 使前 i+1 篇引用都 >= i+1\n    citations.sort(reverse=True)\n    h = 0\n    for i, c in enumerate(citations):\n        if c >= i + 1:              # 第 i+1 高的论文仍够 i+1 次\n            h = i + 1\n        else:\n            break                   # 单调性：失败后不会再成功\n    return h"
+        },
+        {
+          "name": "计数桶（计数排序思想）",
+          "idea": "用哈希表（或长度 n+1 的数组）统计每个「截断到 n 的引用值」出现的论文数；再从 h=n 往下累加「引用 ≥h 的篇数」，首个 total >= h 的 h 即答案。因为 h 的取值只有 0..n，值域有限，所以能做到线性。",
+          "detail": "步骤拆解：\n1. n = len(citations)；cnt 数组长度 n+1，cnt[v] = 引用次数恰为 v 的论文数；引用 c > n 时记到 cnt[n]（截断）。\n2. h 从 n 递减到 0，total 累加 cnt[h]——此刻 total 即「引用次数 >= h 的论文篇数」。\n3. 第一个满足 total >= h 的 h 就是答案。\n\n示例走查：citations=[3,0,6,1,5]，n=5。cnt[3]=1、cnt[0]=1、cnt[5]=2（6 和 5 都截断到 5）、cnt[1]=1。h=5：total=2 <5；h=4：total=2 <4；h=3：total=3 >=3 → 返回 3 ✓。\n\n为什么正确：h 的取值只有 0..n（h 不可能超过论文总数），值域有限使计数可行；total 随 h 递减单调不减，「total >= h」从大到小第一个命中就是最大可行 h。截断的正确性：引用次数 > n 的论文对任何 h <= n 都贡献「>=h」，统计上与记为 n 等价。\n\n易错点：\n- 判定条件是 total >= h（至少 h 篇），写成 == 会在区间内漏解；\n- 截断必须用 min(c, n)：c 可达 1e3 而 n 可能只有 2，忘掉就数组下标越界；\n- h 要枚举到 0 兜底（全 0 引用时 h=0）：range(n, -1, -1) 的 -1 别写成 0，range(n, 0, -1) 不含 0。",
+          "complexity": "时间 O(n)，空间 O(n)",
+          "optimal": true,
+          "code": "def hIndex(citations):\n    # 计数桶：h 被论文总数 n 封顶，值域有限 => O(n) 计数\n    n = len(citations)\n    cnt = [0] * (n + 1)             # cnt[v]：引用次数恰为 v 的论文数\n    for c in citations:\n        cnt[min(c, n)] += 1         # 引用超过 n 的记到 n，值域封顶\n    total = 0                       # total = 引用次数 >= h 的论文篇数\n    for h in range(n, -1, -1):      # h 从大到小枚举，找最大可行值\n        total += cnt[h]             # 把「恰好 h 次」并入「>= h 次」\n        if total >= h:              # 易错点：条件是 >= h（至少 h 篇）\n            return h\n    return 0                        # h=0 恒成立，此行仅为完整性"
+        }
+      ],
+      "code": "class Solution:\n    def hIndex(self, citations: List[int]) -> int:\n        n = len(citations)\n        # h 的上限是 n：被引 100 次的论文，在「至少 n+1 篇引用 >= n+1」时也只有 1 篇，帮不上忙\n        # cnt[v] = 引用次数恰为 v 的论文篇数（超过 n 的统一记到 n，值域由此被封顶）\n        cnt = {}\n        for c in citations:\n            c = min(c, n)               # 截断：引用数 > n 的在统计上等价于 n\n            cnt[c] = cnt.get(c, 0) + 1  # 哈希计数；也可换成 [0]*(n+1) 的数组\n        total = 0                       # total = 引用次数 >= h 的论文篇数\n        for h in range(n, -1, -1):      # 从大到小枚举 h，找最大可行值\n            total += cnt.get(h, 0)      # 把「恰好 h 次」并入「>= h 次」的累计\n            if total >= h:              # 易错点：条件是 >= h（至少 h 篇），不是 == h\n                return h\n        return 0                        # h=0 恒成立，此行只为语法完整",
+      "acmCode": "# ACM 模式：完整可运行程序（stdin -> stdout）\n# 输入格式：\n#   第一行：n（论文数）\n#   第二行：n 个非负整数（各论文引用次数）\n# 输出格式：一行，h 指数\nimport sys\n\n\ndef main():\n    data = sys.stdin.read().split()\n    n = int(data[0])\n    citations = [int(x) for x in data[1:1 + n]]\n    cnt = [0] * (n + 1)\n    for c in citations:\n        cnt[min(c, n)] += 1         # 截断到 n，值域封顶\n    total = 0\n    ans = 0\n    for h in range(n, -1, -1):\n        total += cnt[h]\n        if total >= h:              # 至少 h 篇被引 >= h 次\n            ans = h\n            break\n    print(ans)\n\n\nif __name__ == '__main__':\n    main()",
+      "templates": [
+        "「值域有限 → 计数代替排序」模板：当目标量（h、次数、分数）被 n 封顶时，用计数桶把 O(nlogn) 排序降为 O(n)；再从大到小累加即可回答「至少为 x 的有多少个」。",
+        "「至少/不超过」类定义题：把双向条件化成单向累计和（引用 ≥h 的篇数），在有序枚举（h 从大到小）中找第一个满足点，即是最大可行值。"
+      ],
+      "codeCpp": "class Solution {\npublic:\n    int hIndex(vector<int>& citations) {\n        int n = (int)citations.size();\n        // h 的上限是 n：被引 100 次的论文，在「至少 n+1 篇引用 >= n+1」时也只有 1 篇，帮不上忙\n        // cnt[v] = 引用次数恰为 v 的论文篇数（超过 n 的统一记到 n，值域由此被封顶）\n        vector<int> cnt(n + 1, 0);\n        for (int c : citations) ++cnt[min(c, n)];   // 截断：引用数 > n 的在统计上等价于 n\n        int total = 0;                  // total = 引用次数 >= h 的论文篇数\n        for (int h = n; h >= 0; --h) {  // 从大到小枚举 h，找最大可行值\n            total += cnt[h];            // 把「恰好 h 次」并入「>= h 次」的累计\n            if (total >= h) return h;   // 易错点：条件是 >= h（至少 h 篇），不是 == h\n        }\n        return 0;                       // h=0 恒成立，此行只为语法完整\n    }\n};",
+      "acmCodeCpp": "// ACM 模式：完整可运行程序（stdin -> stdout）\n// 输入格式：\n//   第一行：n（论文数）\n//   第二行：n 个非负整数（各论文引用次数）\n// 输出格式：一行，h 指数\n#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);   // 关闭同步，读入更快\n    cin.tie(nullptr);\n\n    int n;\n    cin >> n;\n    vector<int> citations(n);\n    for (auto& x : citations) cin >> x;\n\n    // cnt[v] = 引用次数恰为 v 的论文篇数，超过 n 的统一记到 n（值域封顶）\n    vector<int> cnt(n + 1, 0);\n    for (int c : citations) ++cnt[min(c, n)];\n\n    int total = 0;                  // total = 引用次数 >= h 的论文篇数\n    int ans = 0;\n    for (int h = n; h >= 0; --h) {  // 从大到小枚举 h，找最大可行值\n        total += cnt[h];\n        if (total >= h) {           // 至少 h 篇被引 >= h 次\n            ans = h;\n            break;\n        }\n    }\n    cout << ans << endl;\n    return 0;\n}",
+      "codeJava": "class Solution {\n    public int hIndex(int[] citations) {\n        int n = citations.length;\n        // h 的上限是 n：被引 100 次的论文，在「至少 n+1 篇引用 >= n+1」时也只有 1 篇，帮不上忙\n        // cnt[v] = 引用次数恰为 v 的论文篇数（超过 n 的统一记到 n，值域由此被封顶）\n        int[] cnt = new int[n + 1];\n        for (int c : citations) cnt[Math.min(c, n)]++;  // 截断：引用数 > n 的在统计上等价于 n\n        int total = 0;                  // total = 引用次数 >= h 的论文篇数\n        for (int h = n; h >= 0; h--) {  // 从大到小枚举 h，找最大可行值\n            total += cnt[h];            // 把「恰好 h 次」并入「>= h 次」的累计\n            if (total >= h) return h;   // 易错点：条件是 >= h（至少 h 篇），不是 == h\n        }\n        return 0;                       // h=0 恒成立，此行只为语法完整\n    }\n}",
+      "codeJs": "/**\n * @param {number[]} citations\n * @return {number}\n */\nvar hIndex = function (citations) {\n  const n = citations.length;\n  // h 的上限是 n：被引 100 次的论文，在「至少 n+1 篇引用 >= n+1」时也只有 1 篇，帮不上忙\n  // cnt[v] = 引用次数恰为 v 的论文篇数（超过 n 的统一记到 n，值域由此被封顶）\n  const cnt = new Array(n + 1).fill(0);\n  for (const c of citations) cnt[Math.min(c, n)]++; // 截断：引用数 > n 的在统计上等价于 n\n  let total = 0; // total = 引用次数 >= h 的论文篇数\n  for (let h = n; h >= 0; h--) { // 从大到小枚举 h，找最大可行值\n    total += cnt[h]; // 把「恰好 h 次」并入「>= h 次」的累计\n    if (total >= h) return h; // 易错点：条件是 >= h（至少 h 篇），不是 == h\n  }\n  return 0; // h=0 恒成立，此行只为语法完整\n};",
+      "codeGo": "func hIndex(citations []int) int {\n\tn := len(citations)\n\t// h 的上限是 n：被引 100 次的论文，在「至少 n+1 篇引用 >= n+1」时也只有 1 篇，帮不上忙\n\t// cnt[v] = 引用次数恰为 v 的论文篇数（超过 n 的统一记到 n，值域由此被封顶）\n\tcnt := make([]int, n+1)\n\tfor _, c := range citations {\n\t\tif c > n {\n\t\t\tc = n // 截断：引用数 > n 的在统计上等价于 n\n\t\t}\n\t\tcnt[c]++\n\t}\n\ttotal := 0                  // total = 引用次数 >= h 的论文篇数\n\tfor h := n; h >= 0; h-- {   // 从大到小枚举 h，找最大可行值\n\t\ttotal += cnt[h]         // 把「恰好 h 次」并入「>= h 次」的累计\n\t\tif total >= h {         // 易错点：条件是 >= h（至少 h 篇），不是 == h\n\t\t\treturn h\n\t\t}\n\t}\n\treturn 0 // h=0 恒成立，此行只为语法完整\n}"
+    },
+    {
+      "id": 238,
+      "title": "Product of Array Except Self",
+      "titleCn": "除自身以外数组的乘积",
+      "difficulty": "medium",
+      "frequency": 4,
+      "companies": [
+        "字节跳动",
+        "阿里巴巴"
+      ],
+      "question": "给你一个整数数组 nums，返回数组 answer，其中 answer[i] 等于 nums 中除 nums[i] 之外其余各元素的乘积。题目保证数组中任意元素的前缀乘积和后缀乘积都在 32 位整数范围内。要求：不要使用除法，且在 O(n) 时间复杂度内完成本题。\n\n示例 1：输入 nums = [1,2,3,4]，输出 [24,12,8,6]。\n示例 2：输入 nums = [-1,1,0,-3,3]，输出 [0,0,9,0,0]。",
+      "samples": [
+        {
+          "input": "nums = [1,2,3,4]",
+          "output": "[24,12,8,6]",
+          "explain": "除自身外其余元素的乘积"
+        },
+        {
+          "input": "nums = [-1,1,0,-3,3]",
+          "output": "[0,0,9,0,0]",
+          "explain": "含 0 时除法解法失效，前后缀乘积依然正确"
+        }
+      ],
+      "hints": [
+        "审题诀窍：『不要使用除法』直接封死「总乘积 ÷ 自身」的捷径——除法解法在数组含 0 时会崩溃，这正是题目禁用的原因，必须改用前缀/后缀乘积。",
+        "突破口：answer[i] =（nums[0..i-1] 的乘积）×（nums[i+1..n-1] 的乘积）——左右两段可以分别预处理，再按位置相乘。",
+        "审题诀窍：进阶问 O(1) 额外空间——前缀乘积可以就地写进 answer，后缀用一个滚动变量代替整个数组，两趟扫描完成。",
+        "追问预备：允许用除法时怎么解、为什么数组含 0 会崩溃？（总积÷自身遇 0 会除零或错值，需按 0 的个数分类讨论）；「前缀 × 后缀」分解还适用于哪些题？（剑指 Offer 66 与本题同源，42 接雨水的左右两侧扫描同构）；为什么这道题禁除法还要保证 32 位不溢出？（出题人在把解法逼向前缀乘积这条路）"
+      ],
+      "keyPoints": [
+        "分解：answer[i] = 前缀乘积 × 后缀乘积，两段都不含 nums[i] 自身（易错点：边界 L[0] = R[n-1] = 1）",
+        "第一遍从左往右把前缀乘积写进 answer；第二遍从右往左用滚动变量 right 乘上去",
+        "滚动变量的更新顺序：先 answer[i] *= right（此刻 right 是 i 右侧的乘积），再 right *= nums[i]——先使用再自乘，保证 right 不含 nums[i]",
+        "空间演化三连：双辅助数组 O(n) → 单辅助数组 → 原地复用 answer 达到 O(1) 额外空间，面试要能逐级讲清"
+      ],
+      "structureTags": [
+        "dp"
+      ],
+      "approaches": [
+        {
+          "name": "暴力逐项连乘",
+          "idea": "对每个 i，把其余 n-1 个元素逐个连乘。最直白的基线，n 稍大就超时，且大量重复计算。",
+          "detail": "步骤拆解：\n1. 对每个 i，内层把 nums 中除 i 外的 n-1 个元素逐个连乘得 answer[i]。\n2. n=1 时内层不乘任何数，answer=[1]（空乘积约定为 1）。\n\n示例走查：nums=[1,2,3,4]。i=0：2*3*4=24；i=1：1*3*4=12；i=2：1*2*4=8；i=3：1*2*3=6 → [24,12,8,6] ✓。\n\n为什么正确：题面定义的直译，逻辑无懈可击；它存在的意义是标定问题结构——每一项都重复计算了 n-2 个公共因子，这就是优化的切入点。\n\n易错点：\n- O(n²) 在本题 n=1e5 规模下约 1e10 次乘法，必超时；\n- 含 0 数组时「乘自己再除回去」的写法会除零崩溃，而它依然正确——正好用来解释题目为什么禁除法；\n- 跳过自身要用 if j != i 显式判断，不要靠「先全乘再除」的捷径。",
+          "complexity": "时间 O(n²)，空间 O(1)",
+          "code": "def productExceptSelf_brute(nums):\n    # 暴力基线：对每个 i 连乘其余 n-1 个元素\n    n = len(nums)\n    ans = []\n    for i in range(n):\n        p = 1\n        for j in range(n):\n            if j != i:              # 跳过自身\n                p *= nums[j]\n        ans.append(p)\n    return ans"
+        },
+        {
+          "name": "前缀 × 后缀双数组",
+          "idea": "开 L、R 两个数组分别存 i 左侧与右侧所有元素的乘积，answer[i] = L[i] * R[i]。结构最清晰、最好讲，但需要 O(n) 辅助空间。",
+          "detail": "步骤拆解：\n1. L[i] = nums[0..i-1] 的乘积（L[0]=1），正向递推 L[i] = L[i-1] * nums[i-1]。\n2. R[i] = nums[i+1..n-1] 的乘积（R[n-1]=1），反向递推 R[i] = R[i+1] * nums[i+1]。\n3. answer[i] = L[i] * R[i]。\n\n示例走查：nums=[1,2,3,4]。L=[1,1,2,6]；R=[24,12,4,1]；answer=[1*24, 1*12, 2*4, 6*1]=[24,12,8,6] ✓。含 0 例 nums=[-1,1,0,-3,3]：L=[1,-1,-1,0,0]，R=[0,0,-9,3,1]，answer=[0,0,9,0,0] ✓。\n\n为什么正确：answer[i] 的定义就是「左侧全部元素的乘积 × 右侧全部元素的乘积」，L、R 把两段各自预处理，任一位置 O(1) 合成；全程不涉及除法，0 与负数天然兼容。\n\n易错点：\n- 边界 L[0] = R[n-1] = 1（乘法单位元），初始化成 0 全盘皆错；\n- 递推下标：L 用 nums[i-1]、R 用 nums[i+1]，错位一位会把 nums[i] 自身卷进乘积；\n- 空间 O(n)，下一步优化是复用 answer 数组存前缀、用单变量滚后缀，降到 O(1) 额外空间。",
+          "complexity": "时间 O(n)，空间 O(n)",
+          "code": "def productExceptSelf_twoArrays(nums):\n    # 前缀 × 后缀双数组：结构最清晰、最好讲\n    n = len(nums)\n    L, R = [1] * n, [1] * n\n    for i in range(1, n):           # L[i] = nums[0..i-1] 的乘积\n        L[i] = L[i - 1] * nums[i - 1]\n    for i in range(n - 2, -1, -1):  # R[i] = nums[i+1..n-1] 的乘积\n        R[i] = R[i + 1] * nums[i + 1]\n    return [L[i] * R[i] for i in range(n)]"
+        },
+        {
+          "name": "原地前缀 + 滚动后缀",
+          "idea": "第一遍把前缀乘积直接写进 answer；第二遍从右往左，用单个变量 right 累积右侧乘积并就地乘进 answer。省掉后缀数组，达到 O(1) 额外空间。",
+          "detail": "步骤拆解：\n1. 第一遍正向：ans[i] = ans[i-1] * nums[i-1]，把前缀乘积直接写进输出数组（ans[0] 保持 1）。\n2. 第二遍反向：right=1（i 右侧的后缀乘积，滚动变量）；每步先 ans[i] *= right，再 right *= nums[i]。\n\n示例走查：nums=[1,2,3,4]。第一遍后 ans=[1,1,2,6]。反向：i=3：ans[3]=6*1=6，right=4；i=2：ans[2]=2*4=8，right=12；i=1：ans[1]=1*12=12，right=24；i=0：ans[0]=1*24=24。得 [24,12,8,6] ✓。\n\n为什么正确：合成时 right 恰好是 nums[i+1..n-1] 的乘积（还没乘入 nums[i]），所以 ans[i] = 左前缀 × 右后缀，正是「除自身外的乘积」；「先使用再自乘」的顺序保证 right 永不含 nums[i]。\n\n易错点：\n- 第二遍必须先 ans[i] *= right 再 right *= nums[i]：顺序颠倒会把 nums[i] 乘进自身项——拿 [2,3] 验证，正确 [3,2]，颠倒得 [6,2]；\n- 输出数组不计入空间复杂度是题目明文约定，额外空间确实只有变量 right 的 O(1)；\n- 第一遍 ans[0] 必须保持 1，用 [1]*n 初始化即可，别手滑改成 nums[0]。",
+          "complexity": "时间 O(n)，空间 O(1)（输出数组不计入）",
+          "optimal": true,
+          "code": "def productExceptSelf(nums):\n    # 原地前缀 + 滚动后缀：O(1) 额外空间（输出数组不计入）\n    n = len(nums)\n    ans = [1] * n\n    for i in range(1, n):           # 第一遍：ans[i] = 左侧全部元素的乘积\n        ans[i] = ans[i - 1] * nums[i - 1]\n    right = 1                       # right = i 右侧的后缀乘积，滚动维护\n    for i in range(n - 1, -1, -1):\n        ans[i] *= right             # 合成：左乘积 × 右乘积\n        right *= nums[i]            # 易错点：先使用再自乘，保证 right 不含 nums[i]\n    return ans"
+        }
+      ],
+      "code": "class Solution:\n    def productExceptSelf(self, nums: List[int]) -> List[int]:\n        n = len(nums)\n        # dp[i] 先充当「前缀乘积表」：dp[i] = nums[0..i-1] 的乘积（不含自身）\n        dp = [1] * n\n        for i in range(1, n):\n            dp[i] = dp[i - 1] * nums[i - 1]   # 递推：左侧全部元素的乘积\n        right = 1                 # right = i 右侧所有元素的后缀乘积，滚动维护\n        for i in range(n - 1, -1, -1):\n            dp[i] *= right        # 合成：左乘积 × 右乘积 = 除自身外的乘积\n            right *= nums[i]      # 易错点：先使用再自乘，保证 right 始终不含 nums[i]\n        return dp",
+      "acmCode": "# ACM 模式：完整可运行程序（stdin -> stdout）\n# 输入格式：\n#   第一行：n（数组长度）\n#   第二行：n 个整数\n# 输出格式：一行 n 个整数（除自身以外的乘积，空格分隔）\nimport sys\n\n\ndef main():\n    data = sys.stdin.read().split()\n    n = int(data[0])\n    nums = [int(x) for x in data[1:1 + n]]\n    ans = [1] * n\n    for i in range(1, n):           # 前缀乘积写进 ans\n        ans[i] = ans[i - 1] * nums[i - 1]\n    right = 1\n    for i in range(n - 1, -1, -1):  # 滚动变量补后缀乘积\n        ans[i] *= right\n        right *= nums[i]\n    print(' '.join(map(str, ans)))\n\n\nif __name__ == '__main__':\n    main()",
+      "templates": [
+        "『前缀 × 后缀』分解模板：answer[i] 由「左侧聚合 × 右侧聚合」构成时，先正向扫一遍写前缀，再反向扫用滚动变量补后缀；除法被禁或数组含 0 时尤其好用。",
+        "优化空间的三级跳：双辅助数组 → 单辅助数组 → 原地复用输出数组；面试先写清晰版，再主动给出原地版是标准加分动作。"
+      ],
+      "codeCpp": "class Solution {\npublic:\n    vector<int> productExceptSelf(vector<int>& nums) {\n        int n = (int)nums.size();\n        // ans 先充当「前缀乘积表」：ans[i] = nums[0..i-1] 的乘积（不含自身）\n        vector<int> ans(n, 1);\n        for (int i = 1; i < n; ++i) {\n            ans[i] = ans[i - 1] * nums[i - 1];   // 递推：左侧全部元素的乘积\n        }\n        int right = 1;                  // right = i 右侧所有元素的后缀乘积，滚动维护\n        for (int i = n - 1; i >= 0; --i) {\n            ans[i] *= right;            // 合成：左乘积 × 右乘积 = 除自身外的乘积\n            right *= nums[i];           // 易错点：先使用再自乘，保证 right 始终不含 nums[i]\n        }\n        return ans;\n    }\n};",
+      "acmCodeCpp": "// ACM 模式：完整可运行程序（stdin -> stdout）\n// 输入格式：\n//   第一行：n（数组长度）\n//   第二行：n 个整数\n// 输出格式：一行 n 个整数（除自身以外的乘积，空格分隔）\n#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);   // 关闭同步，读入更快\n    cin.tie(nullptr);\n\n    int n;\n    cin >> n;\n    vector<int> nums(n);\n    for (auto& x : nums) cin >> x;\n\n    vector<int> ans(n, 1);\n    for (int i = 1; i < n; ++i) {  // 前缀乘积写进 ans\n        ans[i] = ans[i - 1] * nums[i - 1];\n    }\n    int right = 1;                 // right = i 右侧所有元素的后缀乘积\n    for (int i = n - 1; i >= 0; --i) {\n        ans[i] *= right;           // 左乘积 × 右乘积 = 除自身外的乘积\n        right *= nums[i];          // 先使用再自乘，right 始终不含 nums[i]\n    }\n\n    for (int i = 0; i < n; ++i) {\n        if (i) cout << ' ';\n        cout << ans[i];\n    }\n    cout << \"\\n\";\n    return 0;\n}",
+      "codeJava": "class Solution {\n    public int[] productExceptSelf(int[] nums) {\n        int n = nums.length;\n        // ans 先充当「前缀乘积表」：ans[i] = nums[0..i-1] 的乘积（不含自身）\n        int[] ans = new int[n];\n        java.util.Arrays.fill(ans, 1);\n        for (int i = 1; i < n; i++) {\n            ans[i] = ans[i - 1] * nums[i - 1];   // 递推：左侧全部元素的乘积\n        }\n        int right = 1;                  // right = i 右侧所有元素的后缀乘积，滚动维护\n        for (int i = n - 1; i >= 0; i--) {\n            ans[i] *= right;            // 合成：左乘积 × 右乘积 = 除自身外的乘积\n            right *= nums[i];           // 易错点：先使用再自乘，保证 right 始终不含 nums[i]\n        }\n        return ans;\n    }\n}",
+      "codeJs": "/**\n * @param {number[]} nums\n * @return {number[]}\n */\nvar productExceptSelf = function (nums) {\n  const n = nums.length;\n  // ans 先充当「前缀乘积表」：ans[i] = nums[0..i-1] 的乘积（不含自身）\n  const ans = new Array(n).fill(1);\n  for (let i = 1; i < n; i++) {\n    ans[i] = ans[i - 1] * nums[i - 1]; // 递推：左侧全部元素的乘积\n  }\n  let right = 1; // right = i 右侧所有元素的后缀乘积，滚动维护\n  for (let i = n - 1; i >= 0; i--) {\n    ans[i] *= right; // 合成：左乘积 × 右乘积 = 除自身外的乘积\n    right *= nums[i]; // 易错点：先使用再自乘，保证 right 始终不含 nums[i]\n  }\n  return ans;\n};",
+      "codeGo": "func productExceptSelf(nums []int) int {\n\tn := len(nums)\n\t// ans 先充当「前缀乘积表」：ans[i] = nums[0..i-1] 的乘积（不含自身）\n\tans := make([]int, n)\n\tfor i := range ans {\n\t\tans[i] = 1\n\t}\n\tfor i := 1; i < n; i++ {\n\t\tans[i] = ans[i-1] * nums[i-1] // 递推：左侧全部元素的乘积\n\t}\n\tright := 1 // right = i 右侧所有元素的后缀乘积，滚动维护\n\tfor i := n - 1; i >= 0; i-- {\n\t\tans[i] *= right // 合成：左乘积 × 右乘积 = 除自身外的乘积\n\t\tright *= nums[i] // 易错点：先使用再自乘，保证 right 始终不含 nums[i]\n\t}\n\treturn ans\n}"
+    }
+  ]
+}

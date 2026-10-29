@@ -1,0 +1,535 @@
+{
+  "topic": "哈希表",
+  "problems": [
+    {
+      "id": 49,
+      "title": "Group Anagrams",
+      "titleCn": "字母异位词分组",
+      "difficulty": "medium",
+      "frequency": 5,
+      "companies": [
+        "字节跳动",
+        "腾讯",
+        "美团"
+      ],
+      "question": "给你一个字符串数组，请你将 字母异位词 组合在一起。字母异位词是由重新排列源单词的所有字母得到的一个新单词，字母的使用次数与源单词完全相同。\n\n示例 1：输入 strs = [\"eat\", \"tea\", \"tan\", \"ate\", \"nat\", \"bat\"]，输出 [[\"bat\"],[\"nat\",\"tan\"],[\"ate\",\"eat\",\"tea\"]]（输出顺序和每组内部顺序均不限）。\n示例 2：输入 strs = [\"\"], 输出 [[\"\"]]。\n示例 3：输入 strs = [\"a\"], 输出 [[\"a\"]]。\n\n提示：1 <= strs.length <= 10^4，0 <= strs[i].length <= 100，strs[i] 仅包含小写字母。",
+      "samples": [
+        {
+          "input": "strs = [\"eat\",\"tea\",\"tan\",\"ate\",\"nat\",\"bat\"]",
+          "output": "[[\"bat\"],[\"nat\",\"tan\"],[\"ate\",\"eat\",\"tea\"]]",
+          "explain": "同组词排序后签名相同：eat/tea/ate 都变成 aet，tan/nat 都变成 ant，bat 自成一组"
+        },
+        {
+          "input": "strs = [\"\"]",
+          "output": "[[\"\"]]",
+          "explain": "空串的签名是全 0 计数，空串们自然聚成一组"
+        },
+        {
+          "input": "strs = [\"a\"]",
+          "output": "[[\"a\"]]",
+          "explain": "只有一个词，自成一组"
+        }
+      ],
+      "hints": [
+        "审题诀窍：同一组的词『字母种类与个数完全相同、仅顺序不同』——需要一个与字母顺序无关的『签名』作为分组的 key，签名的字典序和出现位置都不重要。",
+        "审题诀窍：空串 \"\" 和单字符 \"a\" 也要能各自成组——签名方案必须对空串、单字符同样成立。",
+        "突破口：分组问题的通用套路是『同组元素算出相同 key，用哈希表按 key 聚合』。排序签名（eat→aet）直观但每个词要 O(klogk)；26 字母计数签名只要 O(k)。",
+        "追问预备：字符串含 Unicode 字符怎么办？（排序签名天然通用；计数签名把 26 数组换成 dict，字符为 key）；若面试官要求组内按字典序输出？（对每个组单独 sort 后再返回，总复杂度不变）"
+      ],
+      "keyPoints": [
+        "识别分组问题：组内元素共享某种不变量（本题是字母多重集合相同）",
+        "签名方案一：把每个字符串排序后作为 key，互为异位词的字符串排序结果必然相同",
+        "签名方案二：统计 26 个字母出现次数并转成 tuple 作为 key（list 不可哈希）",
+        "用 defaultdict(list) 聚合，最后返回 list(groups.values())"
+      ],
+      "structureTags": [
+        "hashmap"
+      ],
+      "approaches": [
+        {
+          "name": "暴力两两归组",
+          "idea": "维护已分好的组，每来一个新词就和每组的代表词比较字母计数是否相同，相同则归入该组，否则自开新组。两两比较导致平方级开销。",
+          "detail": "步骤拆解：\n1. groups 列表里每项存 (代表词的计数签名, 组内单词列表)，签名是 26 长度的计数 tuple。\n2. 对每个新词 s 算出计数签名 key，线性扫描 groups：某组代表词的签名与 key 相同就 append 进该组并 break。\n3. 所有组都对不上（for-else 的 else 分支）就自开新组。\n\n示例走查：strs = [\"eat\", \"tea\", \"tan\", \"ate\", \"nat\", \"bat\"]。\n- eat：无组可归，开组 A（签名 a:1,e:1,t:1）。\n- tea：与 A 代表比较，计数相同 → 并入 A。\n- tan：与 A 不同 → 开组 B。\n- ate：并入 A；nat：并入 B；bat：开组 C。\n最终 [A, B, C] 三组，与预期一致。\n\n为什么正确：互为异位词 ⇔ 26 字母计数完全相同；组内每个词都与代表词计数一致，由传递性同组词两两互为异位词，不会错归。\n\n易错点：\n- 每个词只需和每组代表词比一次，组内其他词不用比（同组计数必相同），逐组和所有词比会退化成 O(n²·k)。\n- 比较用计数 tuple 而不是 set：set 丢了重复次数，\"aab\" 和 \"abb\" 会被误判为异位词。\n- 空串 \"\" 的签名是全 0 tuple，同样能成组，无需特判。",
+          "complexity": "时间 O(n²·k)，空间 O(n·k)",
+          "code": "def count_key(s):\n    # 26 字母计数签名：互为异位词的字符串该签名必然相同\n    cnt = [0] * 26\n    for ch in s:\n        cnt[ord(ch) - ord('a')] += 1\n    return tuple(cnt)\n\n\ndef groupAnagrams_brute(strs):\n    # groups[i] = (代表词的签名, 组内单词列表)\n    groups = []\n    for s in strs:\n        key = count_key(s)\n        for g in groups:\n            if g[0] == key:        # 只需与每组代表词比较\n                g[1].append(s)\n                break\n        else:                      # 没有任何组能收下它，自开新组\n            groups.append((key, [s]))\n    return [g[1] for g in groups]"
+        },
+        {
+          "name": "排序签名 + 哈希分组",
+          "idea": "把每个字符串内部排序得到签名（如 eat、tea、ate 都变成 aet），签名相同的聚为一组。排序把『任意排列』规整成统一形态，是分组思路最直观的写法。",
+          "detail": "步骤拆解：\n1. 建 groups = {}：签名 → 组内单词列表。\n2. 对每个词 s 算签名 tuple(sorted(s))（如 eat → ('a','e','t')）。\n3. groups.setdefault(签名, []).append(s)，最后 return list(groups.values())。\n\n示例走查：eat→aet、tea→aet、tan→ant、ate→aet、nat→ant、bat→abt。aet 组收下 eat/tea/ate，ant 组收下 tan/nat，abt 组只有 bat，恰好三组。\n\n为什么正确：排序把『字母的任意排列』规整成唯一规范形态——两个词互为异位词 ⇔ 字符多重集合相同 ⇔ 排序结果逐位相同，所以签名相等与互为异位词等价。\n\n易错点：\n- sorted(s) 返回 list，list 不可哈希，必须包一层 tuple 才能当字典 key（否则 TypeError）。\n- 输出顺序和组内顺序题目都不限，别浪费时间纠结字典序。\n- 签名方案要对空串成立：sorted('') 是空 tuple，空串们自然聚成一组。",
+          "complexity": "时间 O(n·k·log k)，空间 O(n·k)",
+          "code": "def groupAnagrams_sort(strs):\n    groups = {}                     # 签名 -> 组内单词\n    for s in strs:\n        # 排序结果是唯一的规范形态：互为异位词的词排序后逐位相同\n        key = tuple(sorted(s))\n        groups.setdefault(key, []).append(s)\n    return list(groups.values())"
+        },
+        {
+          "name": "字母计数签名 + 哈希分组",
+          "idea": "省去排序，直接统计每个词的 26 字母计数，把计数数组转成 tuple 作为 key。计数相同 ⇔ 互为异位词，每个词只需 O(k) 生成签名，整体比排序签名更快。",
+          "detail": "步骤拆解：\n1. 建 groups = {}（签名 → 组内单词）。\n2. 对每个词开 cnt = [0] * 26，扫一遍字符做 cnt[ord(ch) - ord('a')] += 1。\n3. groups.setdefault(tuple(cnt), []).append(s)；扫完返回 list(groups.values())。\n\n示例走查：tea 计数得 a:1,e:1,t:1，与 eat 的计数完全一致，落进同一个 key；tan 是 a:1,n:1,t:1，key 不同自成一列；bat 是 a:1,b:1,t:1。三组输出正确。\n\n为什么正确：计数向量就是字符多重集合的编码，两个词计数向量相等 ⇔ 字母种类与个数完全相同 ⇔ 互为异位词；且生成签名只需 O(k)，比排序签名省掉 log k 因子。\n\n易错点：\n- tuple(cnt) 不能省——list 不可哈希，这是最常踩的运行时错误。\n- ord(ch) - ord('a') 的偏移别写错成 ord('A')；题目保证小写字母，若越界说明没看清约束。\n- 若字符集扩展到 Unicode，26 数组要换成 dict 计数（字符为 key），思路不变。",
+          "complexity": "时间 O(n·k)，空间 O(n·k)",
+          "optimal": true,
+          "code": "def groupAnagrams_count(strs):\n    groups = {}                     # 签名 -> 组内单词\n    for s in strs:\n        cnt = [0] * 26\n        for ch in s:\n            cnt[ord(ch) - ord('a')] += 1   # 只关心字母个数，不关心顺序\n        groups.setdefault(tuple(cnt), []).append(s)   # list 不可哈希，必须转 tuple\n    return list(groups.values())"
+        }
+      ],
+      "code": "class Solution:\n    def groupAnagrams(self, strs: List[str]) -> List[List[str]]:\n        # groups: 计数签名 -> 该签名下的所有单词（defaultdict 让新 key 自动获得空列表）\n        groups = defaultdict(list)\n        for s in strs:\n            # cnt[i] 表示字母 chr(i + ord('a')) 在 s 中出现的次数\n            cnt = [0] * 26\n            for ch in s:\n                cnt[ord(ch) - ord('a')] += 1\n            # list 不可哈希，必须转成 tuple 才能充当字典的 key\n            groups[tuple(cnt)].append(s)\n        # 字典的每个 value 就是一个异位词组\n        return list(groups.values())",
+      "acmCode": "# ACM 模式：完整可运行程序（stdin -> stdout）\n# 输入格式：\n#   第一行：n（单词个数）\n#   接下来 n 行：每行一个单词（仅小写字母，行内无空格）\n# 输出格式：\n#   每组一行，组内单词按输入顺序用空格分隔；组的先后按各组首词出现的顺序\nimport sys\n\n\ndef main():\n    lines = sys.stdin.read().split(\"\\n\")\n    n = int(lines[0].strip())\n    words = [lines[1 + i].strip() for i in range(n)]\n\n    groups = {}          # 签名 -> 组内单词\n    order = []           # 签名首次出现的顺序，保证输出稳定\n    for w in words:\n        cnt = [0] * 26\n        for ch in w:\n            cnt[ord(ch) - ord('a')] += 1\n        key = tuple(cnt)\n        if key not in groups:\n            groups[key] = []\n            order.append(key)\n        groups[key].append(w)\n\n    print(\"\\n\".join(\" \".join(groups[k]) for k in order))\n\n\nif __name__ == '__main__':\n    main()",
+      "templates": [
+        "分组模板：groups = defaultdict(list)，为每个元素算签名 key 并 groups[key].append(x)，最后 return list(groups.values())",
+        "签名设计原则：同组必同签名、异组必异签名；排序签名 O(klogk)，26 字母计数签名 O(k) 更快，key 必须可哈希"
+      ],
+      "codeCpp": "class Solution {\npublic:\n    vector<vector<string>> groupAnagrams(vector<string>& strs) {\n        // 计数签名：互为异位词的字符串 26 字母计数完全相同，计数即分组 key\n        unordered_map<string, vector<string>> groups;\n        for (const string& s : strs) {\n            int cnt[26] = {0};\n            for (char c : s) ++cnt[c - 'a'];     // 统计每个字母出现次数\n            string key;\n            for (int i = 0; i < 26; ++i) {\n                key += to_string(cnt[i]);        // 计数转十进制\n                key += '#';                      // 分隔符防『1,12』与『12,1』拼接歧义\n            }\n            groups[key].push_back(s);            // 同签名归同组\n        }\n        vector<vector<string>> ans;\n        ans.reserve(groups.size());\n        for (auto& [key, list] : groups) ans.push_back(move(list));\n        return ans;\n    }\n};",
+      "acmCodeCpp": "// ACM 模式：完整可运行程序（stdin -> stdout）\n// 输入格式：\n//   第一行：n（单词个数）\n//   接下来 n 行：每行一个单词（仅小写字母，行内无空格）\n// 输出格式：\n//   每组一行，组内单词按输入顺序用空格分隔；组的先后按各组首词出现的顺序\n#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);   // 关闭同步，读入更快\n    cin.tie(nullptr);\n\n    int n;\n    cin >> n;\n    cin.ignore();                            // 跳过 n 之后行内残留的换行\n    vector<string> words(n);\n    for (int i = 0; i < n; ++i) {\n        getline(cin, words[i]);              // 逐行读单词，天然支持空串\n        while (!words[i].empty() && (words[i].back() == '\\r' || words[i].back() == ' '))\n            words[i].pop_back();             // 去掉行尾残留\n    }\n\n    unordered_map<string, int> idx;          // 签名 -> 组编号\n    vector<vector<string>> groups;           // 用向量保持『首词出现顺序』\n    for (const string& w : words) {\n        int cnt[26] = {0};\n        for (char c : w) ++cnt[c - 'a'];     // 26 字母计数签名\n        string key;\n        for (int i = 0; i < 26; ++i) {\n            key += to_string(cnt[i]);\n            key += '#';                      // 分隔符防拼接歧义\n        }\n        auto it = idx.find(key);\n        if (it == idx.end()) {               // 新签名：开新组并登记顺序\n            idx[key] = (int)groups.size();\n            groups.push_back({w});\n        } else {\n            groups[it->second].push_back(w); // 旧签名：并入已有组\n        }\n    }\n\n    string out;\n    for (const auto& g : groups) {\n        for (size_t i = 0; i < g.size(); ++i) {\n            if (i) out += ' ';               // 组内单词空格分隔\n            out += g[i];\n        }\n        out += '\\n';                         // 每组一行\n    }\n    cout << out;\n    return 0;\n}",
+      "codeJava": "class Solution {\n    public List<List<String>> groupAnagrams(String[] strs) {\n        // 计数签名：互为异位词的字符串 26 字母计数完全相同，计数即分组 key\n        Map<String, List<String>> groups = new HashMap<>();\n        for (String s : strs) {\n            int[] cnt = new int[26];\n            for (char c : s.toCharArray()) cnt[c - 'a']++;   // 统计每个字母次数\n            // 计数数组转成带分隔符的字符串作 key（数组本身不是合法 key）\n            StringBuilder sb = new StringBuilder();\n            for (int x : cnt) sb.append(x).append('#');\n            groups.computeIfAbsent(sb.toString(), k -> new ArrayList<>()).add(s);\n        }\n        // 每个 value 就是一个异位词组\n        return new ArrayList<>(groups.values());\n    }\n}",
+      "codeJs": "/**\n * @param {string[]} strs\n * @return {string[][]}\n */\nvar groupAnagrams = function (strs) {\n  const groups = new Map();                // 计数签名 -> 组内单词\n  for (const s of strs) {\n    const cnt = new Array(26).fill(0);\n    for (const ch of s) cnt[ch.charCodeAt(0) - 97]++;  // 统计每个字母次数\n    // 数组不能直接当 Map 的 key，转成带分隔符的字符串\n    const key = cnt.join('#');\n    if (!groups.has(key)) groups.set(key, []);\n    groups.get(key).push(s);               // 同签名归同组\n  }\n  return [...groups.values()];             // 每个 value 就是一个异位词组\n};",
+      "codeGo": "func groupAnagrams(strs []string) [][]string {\n\tgroups := map[[26]int][]string{} // 计数数组是可比较类型，可直接作 map key\n\tfor _, s := range strs {\n\t\tvar cnt [26]int\n\t\tfor _, c := range s {\n\t\t\tcnt[c-'a']++ // 统计每个字母出现次数\n\t\t}\n\t\tgroups[cnt] = append(groups[cnt], s) // 同签名归同组\n\t}\n\tans := make([][]string, 0, len(groups))\n\tfor _, g := range groups {\n\t\tans = append(ans, g) // 每个 value 就是一个异位词组\n\t}\n\treturn ans\n}"
+    },
+    {
+      "id": 128,
+      "title": "Longest Consecutive Sequence",
+      "titleCn": "最长连续序列",
+      "difficulty": "medium",
+      "frequency": 5,
+      "companies": [
+        "字节跳动",
+        "腾讯",
+        "华为",
+        "美团"
+      ],
+      "question": "给定一个未排序的整数数组 nums，找出数字连续的最长序列（不要求序列元素在原数组中连续）的长度。请你设计并实现时间复杂度为 O(n) 的算法解决此问题。\n\n示例 1：输入 nums = [100,4,200,1,3,2]，输出 4（最长数字连续序列是 [1, 2, 3, 4]，长度为 4）。\n示例 2：输入 nums = [0,3,7,2,5,8,4,6,0,1]，输出 9（最长数字连续序列是 [0, 1, 2, 3, 4, 5, 6, 7, 8]，长度为 9）。",
+      "samples": [
+        {
+          "input": "nums = [100,4,200,1,3,2]",
+          "output": "4",
+          "explain": "最长数字连续序列是 [1,2,3,4]，长度为 4"
+        },
+        {
+          "input": "nums = [0,3,7,2,5,8,4,6,0,1]",
+          "output": "9",
+          "explain": "最长连续序列是 [0,1,2,3,4,5,6,7,8]，重复的 0 只算一次"
+        },
+        {
+          "input": "nums = []",
+          "output": "0",
+          "explain": "空数组没有连续序列"
+        }
+      ],
+      "hints": [
+        "审题诀窍：进阶要求 O(n)——排序是 O(nlogn) 不达标；『连续』与元素出现顺序、重复无关，先去重放进集合再考虑。",
+        "审题诀窍：一个数 x 是某段连续序列的起点，当且仅当 x-1 不在数组中。只从起点向右扩展计数，才不会对同一段重复统计。",
+        "突破口：看似双重循环，但每个数只在『起点判定』和『被扩展扫到』各消耗一次操作，而每个数只属于一段，总操作次数仍是 O(n)（摊还分析）。",
+        "追问预备：进阶的 O(nlogn) 解法是什么？（排序 + 线性扫描，注意跳过重复值）；为什么内层 while 不会把复杂度拖成 O(n²)？（只有段头会进内层，每个数至多被内层扫到一次，摊还后整体仍是 O(n)）"
+      ],
+      "keyPoints": [
+        "set(nums) 一步完成去重 + O(1) 存在性查询",
+        "起点判定：x-1 not in seen 时 x 才是段头，从段头向右数 x+1, x+2, ...",
+        "内层 while 的总代价摊还后是 O(n)，这是本题最关键的复杂度论证",
+        "排序解法 O(nlogn) 更简单但不满足进阶要求，可作为面试备选答案提出"
+      ],
+      "structureTags": [
+        "hashmap",
+        "dedup"
+      ],
+      "approaches": [
+        {
+          "name": "排序后线性扫描",
+          "idea": "排序后一次扫描：相邻相等跳过重复值，相邻差 1 就延长当前连续段，断开则重新开段，记录最长段长。思路简单但排序超出了进阶要求。",
+          "detail": "步骤拆解：\n1. 排序（用 sorted 拷贝，不修改原数组），特判空数组返回 0。\n2. cur 维护『以当前元素结尾的连续段长』，初始 1；best 维护全局最长。\n3. 从下标 1 起扫描：与前一个相等 → continue 跳过；等于前一个 +1 → cur += 1；否则断档 → cur 重置为 1。每步用 cur 刷新 best。\n\n示例走查：nums = [100,4,200,1,3,2] 排序后 [1,2,3,4,100,200]。\n- 2 == 1+1 → cur=2；3 == 2+1 → cur=3；4 == 3+1 → cur=4，best=4。\n- 100 ≠ 4+1 → 断档，cur=1，best 仍 4；200 同理。\n返回 4，正确。\n\n为什么正确：排序后同一段连续数字必然相邻出现，一次线性扫描加上『跳过重复值』就能把每一段完整数出来，最长段即为答案。\n\n易错点：\n- 重复值必须 continue 跳过：[0,0,1] 里第二个 0 若参与判断会错误地把段长清零。\n- 断档时 cur 重置为 1 而不是 0——当前元素自己就是新段的开头。\n- 用 sorted(nums) 避免原地修改入参，面试中改动输入是减分项。",
+          "complexity": "时间 O(n log n)，空间 O(log n)",
+          "code": "def longestConsecutive_sort(nums):\n    if not nums:\n        return 0\n    nums = sorted(nums)          # 用 sorted 拷贝，不修改调用方的数组\n    best, cur = 1, 1             # cur: 以当前元素结尾的连续段长\n    for i in range(1, len(nums)):\n        if nums[i] == nums[i - 1]:\n            continue             # 跳过重复值，不能计入段长\n        if nums[i] == nums[i - 1] + 1:\n            cur += 1             # 与前一个衔接，段延长\n        else:\n            cur = 1              # 断档，当前元素成为新段的起点\n        best = max(best, cur)\n    return best"
+        },
+        {
+          "name": "哈希集合 + 只从起点扩展",
+          "idea": "全部数字放入哈希集合完成去重；遍历每个数 x，若 x-1 不在集合中说明 x 是某段连续序列的起点，从 x 不断 +1 探测能延伸多长并更新答案。非起点的数直接跳过，避免同一段被重复统计。",
+          "detail": "步骤拆解：\n1. seen = set(nums)：一步完成去重 + O(1) 存在性查询。\n2. 遍历 seen 中每个数 x：若 x-1 in seen，说明 x 不是段头，直接 continue（它所属的段会由真正的段头统计到）。\n3. x 是段头时，内层 while 从 x 起向右探测 x+1, x+2, ... 直到断档，得到段长 length，刷新 best。\n\n示例走查：nums = [100,4,200,1,3,2]，seen = {1,2,3,4,100,200}。\n- x=1：0 不在集合 → 1 是段头，沿 2,3,4 数到断档，length=4，best=4。\n- x=2/3/4：x-1 都在集合 → 跳过。\n- x=100：99 不在 → 段长 1；x=200：段长 1。\n返回 4，每个数只被访问常数次。\n\n为什么正确：每个连续段恰有一个段头（它的 x-1 不在集合里），段长只在段头处统计一次，既不重复也不遗漏；『只从起点扩展』使每个元素至多被外层访问一次、内层扫到一次，总代价 O(n)。\n\n易错点：\n- 忘记 x-1 not in seen 的起点判定，退化成对每个数都向右数一遍，最坏 O(n²)。\n- 空 nums 返回 0（best 初始值 0 天然覆盖，无需特判）。\n- 遍历 seen 而不是原数组，重复值自动消失。",
+          "complexity": "时间 O(n)，空间 O(n)",
+          "optimal": true,
+          "code": "def longestConsecutive_set(nums):\n    seen = set(nums)             # 去重 + O(1) 存在性查询一步到位\n    best = 0\n    for x in seen:\n        if x - 1 in seen:        # 不是段头，所属段会由段头统计，跳过防重复计数\n            continue\n        length = 1               # x 自己算段长 1，向右扩展\n        while x + length in seen:\n            length += 1\n        best = max(best, length)\n    return best"
+        }
+      ],
+      "code": "class Solution:\n    def longestConsecutive(self, nums: List[int]) -> int:\n        # 去重 + O(1) 存在性查询：集合是哈希表 {} 的简化形态（只存 key 不存 value）\n        seen = set(nums)\n        best = 0\n        for x in seen:\n            if x - 1 in seen:      # x 不是某段连续序列的起点，跳过防止重复统计\n                continue\n            # 走到这里说明 x-1 不在集合中，x 是段头，向右扩展数出段长\n            length = 1             # 段长至少为 1（x 自己）\n            while x + length in seen:\n                length += 1\n            best = max(best, length)\n        return best",
+      "acmCode": "# ACM 模式：完整可运行程序（stdin -> stdout）\n# 输入格式：\n#   第一行：n（数组长度，n 可以为 0）\n#   第二行：n 个整数（n = 0 时此行可为空）\n# 输出格式：一个整数，最长连续序列的长度\nimport sys\n\n\ndef main():\n    data = sys.stdin.read().split()\n    n = int(data[0]) if data else 0\n    nums = [int(x) for x in data[1:1 + n]]\n\n    seen = set(nums)          # 去重 + O(1) 存在性查询\n    best = 0\n    for x in seen:\n        if x - 1 in seen:     # 不是段头，所属段会由段头统计，跳过防重复计数\n            continue\n        length = 1            # x 自己算段长 1，向右扩展\n        while x + length in seen:\n            length += 1\n        best = max(best, length)\n    print(best)\n\n\nif __name__ == '__main__':\n    main()",
+      "templates": [
+        "连续段模板：seen = set(nums)；对每个 x 若 x-1 not in seen 则从 x 起向右数到断档，更新最长段长",
+        "摊还分析：『只从每个段的起点扩展』保证每个元素最多被访问两次，双层循环整体仍是 O(n)"
+      ],
+      "codeCpp": "class Solution {\npublic:\n    int longestConsecutive(vector<int>& nums) {\n        unordered_set<int> seen(nums.begin(), nums.end());  // 去重 + O(1) 存在性查询\n        int best = 0;\n        for (int x : seen) {\n            if (seen.count(x - 1)) continue;   // 不是段头，所属段会由段头统计，防重复计数\n            int length = 1;                    // x 自己算段长 1\n            while (seen.count(x + length)) ++length;   // 从段头向右扩展到断档\n            best = max(best, length);\n        }\n        return best;\n    }\n};",
+      "acmCodeCpp": "// ACM 模式：完整可运行程序（stdin -> stdout）\n// 输入格式：\n//   第一行：n（数组长度，n 可以为 0）\n//   第二行：n 个整数（n = 0 时此行可为空）\n// 输出格式：一个整数，最长连续序列的长度\n#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);\n    cin.tie(nullptr);\n\n    int n;\n    cin >> n;\n    vector<int> nums(n);\n    for (auto& x : nums) cin >> x;\n\n    unordered_set<int> seen(nums.begin(), nums.end());  // 去重 + O(1) 存在性查询\n    int best = 0;\n    for (int x : seen) {\n        if (seen.count(x - 1)) continue;   // 不是段头，所属段会由段头统计，防重复计数\n        int length = 1;                    // x 自己算段长 1，向右扩展\n        while (seen.count(x + length)) ++length;\n        best = max(best, length);\n    }\n    cout << best << endl;\n    return 0;\n}",
+      "codeJava": "class Solution {\n    public int longestConsecutive(int[] nums) {\n        Set<Integer> seen = new HashSet<>();    // 去重 + O(1) 存在性查询\n        for (int x : nums) seen.add(x);\n        int best = 0;\n        for (int x : seen) {\n            if (seen.contains(x - 1)) continue; // 不是段头，跳过防重复统计\n            int length = 1;                     // x 自己算段长 1\n            while (seen.contains(x + length)) length++;  // 从段头向右扩展到断档\n            best = Math.max(best, length);\n        }\n        return best;\n    }\n}",
+      "codeJs": "/**\n * @param {number[]} nums\n * @return {number}\n */\nvar longestConsecutive = function (nums) {\n  const seen = new Set(nums);              // 去重 + O(1) 存在性查询一步到位\n  let best = 0;\n  for (const x of seen) {\n    if (seen.has(x - 1)) continue;         // 不是段头，所属段会由段头统计，防重复计数\n    let length = 1;                        // x 自己算段长 1\n    while (seen.has(x + length)) length++; // 从段头向右扩展到断档\n    best = Math.max(best, length);\n  }\n  return best;\n};",
+      "codeGo": "func longestConsecutive(nums []int) int {\n\tseen := map[int]bool{}\n\tfor _, x := range nums {\n\t\tseen[x] = true // 去重 + O(1) 存在性查询\n\t}\n\tbest := 0\n\tfor x := range seen {\n\t\tif seen[x-1] { // 不是段头，所属段会由段头统计，跳过防重复计数\n\t\t\tcontinue\n\t\t}\n\t\tlength := 1 // x 自己算段长 1，向右扩展到断档\n\t\tfor seen[x+length] {\n\t\t\tlength++\n\t\t}\n\t\tif length > best {\n\t\t\tbest = length\n\t\t}\n\t}\n\treturn best\n}"
+    },
+    {
+      "id": 41,
+      "title": "First Missing Positive",
+      "titleCn": "缺失的第一个正数",
+      "difficulty": "hard",
+      "frequency": 4,
+      "companies": [
+        "字节跳动",
+        "腾讯",
+        "华为"
+      ],
+      "question": "给你一个未排序的整数数组 nums，请你找出其中没有出现的最小的正整数。请你实现时间复杂度为 O(n) 并且只使用常数级别额外空间的解决方案。\n\n示例 1：输入 nums = [1,2,0]，输出 3（1 和 2 都出现过，最小的缺失正数是 3）。\n示例 2：输入 nums = [3,4,-1,1]，输出 2。\n示例 3：输入 nums = [7,8,9,11,12]，输出 1。",
+      "samples": [
+        {
+          "input": "nums = [1,2,0]",
+          "output": "3",
+          "explain": "1 和 2 都出现过，最小的缺失正数是 3"
+        },
+        {
+          "input": "nums = [3,4,-1,1]",
+          "output": "2",
+          "explain": "1 出现了，2 没出现"
+        },
+        {
+          "input": "nums = [7,8,9,11,12]",
+          "output": "1",
+          "explain": "最小的正数 1 根本不在数组里"
+        }
+      ],
+      "hints": [
+        "审题诀窍：先用鸽笼原理定范围——长度为 n 的数组，答案必在 [1, n+1] 内：n 个位置最多装下 1..n，缺谁答案就是谁；1..n 全都在则答案是 n+1。这一步把搜索空间钉死在 O(n) 级。",
+        "审题诀窍：负数、0、大于 n 的值对答案毫无影响，归位时直接跳过即可。",
+        "突破口：要求 O(1) 空间 ⇒ 不能另开哈希表 ⇒ 把数组本身当哈希表：让值 v 落到下标 v-1 上（原地哈希/置换归位），归位后第一个 nums[i] != i+1 的位置就暴露了答案。",
+        "追问预备：能否在不修改原数组的前提下同时做到 O(n) 时间 + O(1) 空间？（不能——要么原地哈希改数组，要么付出 O(n) 空间用哈希集合，面试要主动说清取舍）；为什么答案必在 [1, n+1]？（鸽笼原理：n 个位置最多容纳 1..n，缺谁答案就是谁，全在则 n+1）"
+      ],
+      "keyPoints": [
+        "鸽笼原理：答案一定在 [1, n+1] 范围内，超出范围的值可以忽略",
+        "原地哈希：用 swap 把值 v 送到下标 v-1 的位置上",
+        "swap 终止条件 nums[nums[i]-1] == nums[i]（目标位置已是该放的值）防止重复值导致死循环",
+        "归位后扫描：第一个 nums[i] != i+1 的下标 i 给出答案 i+1；全部归位则答案是 n+1"
+      ],
+      "structureTags": [
+        "hashmap"
+      ],
+      "approaches": [
+        {
+          "name": "排序后线性扫描",
+          "idea": "排序后从 1 开始核对：跳过非正数与重复值，依次检查期望值 1, 2, 3...，第一个对不上的就是答案。思路直白，但排序不满足 O(n) 时间要求。",
+          "detail": "步骤拆解：\n1. sorted 排序（拷贝，不改原数组）。\n2. expect 从 1 开始，表示『下一个待确认的正数』。\n3. 扫描：x < expect（负数、0、重复值）→ 跳过；x == expect → expect += 1；x > expect → 期望值缺失，break。\n4. 返回 expect。\n\n示例走查：nums = [3,4,-1,1] 排序后 [-1,1,3,4]。\n- -1 < 1 跳过；1 == 1 → expect=2；3 > 2 → break，返回 2 ✓。\n再走 [1,2,0]：排序 [0,1,2]，0 跳过、1→expect=2、2→expect=3，扫完返回 3 ✓。\n\n为什么正确：排序后数组非降，expect 单调推进；若当前 x 已越过 expect，说明 expect 在数组中缺席——由于 1..expect-1 都已确认出现过，它就是缺失的最小正数。\n\n易错点：\n- 跳过条件是 x < expect 而不是 x <= 0——重复值（已被计入过的）同样要跳过，如 [1,1] 返回 2。\n- break 后返回的是 expect 而不是 x，别混淆。\n- 排序解不满足本题 O(n) 时间要求，面试中应主动指出并升级到原地哈希。",
+          "complexity": "时间 O(n log n)，空间 O(log n)",
+          "code": "def firstMissingPositive_sort(nums):\n    nums = sorted(nums)          # 拷贝排序，不修改原数组\n    expect = 1                   # 下一个待确认的正数\n    for x in nums:\n        if x < expect:           # 负数、0、重复值统统跳过\n            continue\n        if x == expect:          # 期望值出现，推进到下一个\n            expect += 1\n        else:                    # x > expect：期望值缺失，答案就是它\n            break\n    return expect"
+        },
+        {
+          "name": "哈希集合",
+          "idea": "把所有数放入集合，从 1 开始逐个询问『i 在不在集合里』，第一个不在的就是答案。查询 O(1)，但需要 O(n) 额外空间，不满足常数空间要求。",
+          "detail": "步骤拆解：\n1. seen = set(nums)。\n2. i 从 1 开始，只要 i in seen 就 i += 1，直到 i 不在集合。\n3. 返回 i。\n\n示例走查：nums = [1,2,0]，seen = {0,1,2}：1 在 → 2 在 → 3 不在，返回 3 ✓。nums = [7,8,9,11,12]：1 不在集合，直接返回 1 ✓。\n\n为什么正确：答案一定是从 1 开始数过去遇到的第一个空缺——从 1 逐个询问存在性，第一个缺席的就是答案；由鸽笼原理答案 ≤ n+1，循环至多 n+1 次，整体 O(n)。\n\n易错点：\n- 循环不需要额外上界判断：while i in seen 自会在第一个空缺处停下。\n- 这是 O(n) 时间但 O(n) 空间的解，不满足本题『常数空间』的进阶要求，面试要说清取舍。\n- 集合里混着负数和超范围大数也没关系，查询只会问 1,2,3,...。",
+          "complexity": "时间 O(n)，空间 O(n)",
+          "code": "def firstMissingPositive_set(nums):\n    seen = set(nums)             # O(1) 存在性查询\n    i = 1\n    while i in seen:             # 从 1 逐个询问，第一个缺席的就是答案\n        i += 1\n    return i"
+        },
+        {
+          "name": "原地哈希（置换归位）",
+          "idea": "把数组本身当哈希表：遍历中不断把 nums[i]=v 与下标 v-1 处的元素交换，直到当前位置放对值或是不需要管的值。全部归位后，nums[i] == i+1 说明 i+1 出现过，第一个不满足的位置即答案；全归位则答案为 n+1。时间 O(n) 且零额外空间，同时满足两个进阶要求。",
+          "detail": "步骤拆解：\n1. 第一阶段归位：对每个下标 i，只要 nums[i] 是 [1,n] 内的值且 nums[nums[i]-1] != nums[i]，就把 nums[i] 交换到它该在的下标 nums[i]-1 处，反复直到当前位置的值无法再归位。\n2. 第二阶段扫描：找第一个 nums[i] != i+1 的下标 i，答案就是 i+1。\n3. 全部归位说明 1..n 都在，返回 n+1。\n\n示例走查：nums = [3,4,-1,1]，n=4。\n- i=0：值 3 → 与下标 2 交换 → [-1,4,3,1]；值 -1 出界停。\n- i=1：值 4 → 与下标 3 交换 → [-1,1,3,4]；值 1 → 与下标 0 交换 → [1,-1,3,4]；值 -1 出界停。\n- i=2：值 3 已在位；i=3：值 4 已在位。\n- 扫描：nums[0]=1 ✓，nums[1]=-1 ≠ 2 → 返回 2 ✓。\n\n为什么正确：数组本身被当作哈希表（值 v → 下标 v-1）；归位后『i+1 出现过 ⇔ nums[i] == i+1』，第一个不满足的位置自然暴露缺失的最小正数。每个元素至多被换到位一次，交换总数 ≤ n，时间 O(n) 且零额外空间。\n\n易错点：\n- while 条件必须有 nums[nums[i]-1] != nums[i]：遇到重复值（目标位置已是该值）若继续交换会死循环，如 [1,1]。\n- 交换后 nums[i] 变了，判断条件每轮要用新值重算——这也是用 while 而不是 if 的原因。\n- 归位只处理 [1,n] 内的值，0、负数、大于 n 的值留在原地对结果无影响（鸽笼原理）。",
+          "complexity": "时间 O(n)，空间 O(1)",
+          "optimal": true,
+          "code": "def firstMissingPositive_inplace(nums):\n    n = len(nums)\n    # 原地哈希：数组本身当哈希表，值 v 的家在下标 v-1\n    for i in range(n):\n        while 1 <= nums[i] <= n and nums[nums[i] - 1] != nums[i]:\n            j = nums[i] - 1              # 值 nums[i] 应该待的位置\n            nums[i], nums[j] = nums[j], nums[i]\n    for i in range(n):\n        if nums[i] != i + 1:             # 第一个不在位的下标暴露答案\n            return i + 1\n    return n + 1                         # 1..n 全部在位，答案为 n+1"
+        }
+      ],
+      "code": "class Solution:\n    def firstMissingPositive(self, nums: List[int]) -> int:\n        n = len(nums)\n        # 原地哈希：数组本身充当哈希表（相当于一张 {} 映射：值 v -> 下标 v-1），不花额外空间\n        for i in range(n):\n            # 只要 nums[i] 是 [1, n] 内的值且还没归位，就把它换到下标 nums[i]-1 处\n            while 1 <= nums[i] <= n and nums[nums[i] - 1] != nums[i]:\n                j = nums[i] - 1            # 值 nums[i] 应该待的位置\n                nums[i], nums[j] = nums[j], nums[i]\n        # 归位完成后，第一个不满足 nums[i] == i+1 的位置就是缺失的最小正数\n        for i in range(n):\n            if nums[i] != i + 1:\n                return i + 1\n        # 1..n 全部出现在数组中，答案是 n+1\n        return n + 1",
+      "acmCode": "# ACM 模式：完整可运行程序（stdin -> stdout）\n# 输入格式：\n#   第一行：n（数组长度）\n#   第二行：n 个整数（可含负数、0）\n# 输出格式：一个整数，未出现的最小正数\nimport sys\n\n\ndef main():\n    data = sys.stdin.read().split()\n    n = int(data[0])\n    nums = [int(x) for x in data[1:1 + n]]\n\n    # 原地哈希：数组本身当哈希表，值 v 的家在下标 v-1\n    for i in range(n):\n        while 1 <= nums[i] <= n and nums[nums[i] - 1] != nums[i]:\n            j = nums[i] - 1              # 值 nums[i] 应该待的位置\n            nums[i], nums[j] = nums[j], nums[i]\n    ans = n + 1                          # 默认 1..n 全部出现\n    for i in range(n):\n        if nums[i] != i + 1:             # 第一个不在位的下标暴露答案\n            ans = i + 1\n            break\n    print(ans)\n\n\nif __name__ == '__main__':\n    main()",
+      "templates": [
+        "原地哈希模板：for i: while 1 <= a[i] <= n and a[a[i]-1] != a[i]: swap(a[i], a[a[i]-1])；随后扫第一个 a[i] != i+1 的位置",
+        "定界思想：在长度 n 的数组中找『最小缺失正数』，答案必在 [1, n+1]，超范围的值直接忽略"
+      ],
+      "codeCpp": "class Solution {\npublic:\n    int firstMissingPositive(vector<int>& nums) {\n        int n = (int)nums.size();\n        // 原地哈希：数组本身当哈希表，值 v 的家在下标 v-1，零额外空间\n        for (int i = 0; i < n; ++i) {\n            // 值在 [1,n] 内且目标位置未归位才交换；目标位置已是该值时停，防重复值死循环\n            while (nums[i] >= 1 && nums[i] <= n && nums[nums[i] - 1] != nums[i]) {\n                swap(nums[i], nums[nums[i] - 1]);   // 把 nums[i] 换回自己的家\n            }\n        }\n        // 归位完成后，第一个 nums[i] != i+1 的位置暴露缺失的最小正数\n        for (int i = 0; i < n; ++i) {\n            if (nums[i] != i + 1) return i + 1;\n        }\n        return n + 1;   // 1..n 全部在位\n    }\n};",
+      "acmCodeCpp": "// ACM 模式：完整可运行程序（stdin -> stdout）\n// 输入格式：\n//   第一行：n（数组长度）\n//   第二行：n 个整数（可含负数、0）\n// 输出格式：一个整数，未出现的最小正数\n#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);\n    cin.tie(nullptr);\n\n    int n;\n    cin >> n;\n    vector<int> nums(n);\n    for (auto& x : nums) cin >> x;\n\n    // 原地哈希：数组本身当哈希表，值 v 的家在下标 v-1\n    for (int i = 0; i < n; ++i) {\n        while (nums[i] >= 1 && nums[i] <= n && nums[nums[i] - 1] != nums[i]) {\n            swap(nums[i], nums[nums[i] - 1]);   // 把 nums[i] 换回自己的家\n        }\n    }\n    int ans = n + 1;                            // 默认 1..n 全部出现\n    for (int i = 0; i < n; ++i) {\n        if (nums[i] != i + 1) { ans = i + 1; break; }   // 第一个不在位处即答案\n    }\n    cout << ans << endl;\n    return 0;\n}",
+      "codeJava": "class Solution {\n    public int firstMissingPositive(int[] nums) {\n        int n = nums.length;\n        // 原地哈希：数组本身当哈希表，值 v 的家在下标 v-1，零额外空间\n        for (int i = 0; i < n; i++) {\n            // 值在 [1,n] 内且目标位置未归位才交换，防重复值死循环\n            while (nums[i] >= 1 && nums[i] <= n && nums[nums[i] - 1] != nums[i]) {\n                int j = nums[i] - 1;       // 值 nums[i] 应该待的位置\n                int tmp = nums[i];\n                nums[i] = nums[j];\n                nums[j] = tmp;\n            }\n        }\n        // 归位完成后，第一个 nums[i] != i+1 的位置暴露缺失的最小正数\n        for (int i = 0; i < n; i++) {\n            if (nums[i] != i + 1) return i + 1;\n        }\n        return n + 1;   // 1..n 全部在位\n    }\n}",
+      "codeJs": "/**\n * @param {number[]} nums\n * @return {number}\n */\nvar firstMissingPositive = function (nums) {\n  const n = nums.length;\n  // 原地哈希：数组本身当哈希表，值 v 的家在下标 v-1，零额外空间\n  for (let i = 0; i < n; i++) {\n    // 值在 [1,n] 内且目标位置未归位才交换，防重复值死循环\n    while (nums[i] >= 1 && nums[i] <= n && nums[nums[i] - 1] !== nums[i]) {\n      const j = nums[i] - 1;                // 值 nums[i] 应该待的位置\n      [nums[i], nums[j]] = [nums[j], nums[i]];\n    }\n  }\n  // 归位完成后，第一个 nums[i] !== i+1 的位置暴露缺失的最小正数\n  for (let i = 0; i < n; i++) {\n    if (nums[i] !== i + 1) return i + 1;\n  }\n  return n + 1;   // 1..n 全部在位\n};",
+      "codeGo": "func firstMissingPositive(nums []int) int {\n\tn := len(nums)\n\t// 原地哈希：数组本身当哈希表，值 v 的家在下标 v-1，零额外空间\n\tfor i := 0; i < n; i++ {\n\t\t// 值在 [1,n] 内且目标位置未归位才交换，防重复值死循环\n\t\tfor nums[i] >= 1 && nums[i] <= n && nums[nums[i]-1] != nums[i] {\n\t\t\tj := nums[i] - 1 // 值 nums[i] 应该待的位置\n\t\t\tnums[i], nums[j] = nums[j], nums[i]\n\t\t}\n\t}\n\t// 归位完成后，第一个 nums[i] != i+1 的位置暴露缺失的最小正数\n\tfor i := 0; i < n; i++ {\n\t\tif nums[i] != i+1 {\n\t\t\treturn i + 1\n\t\t}\n\t}\n\treturn n + 1 // 1..n 全部在位\n}"
+    },
+    {
+      "id": 205,
+      "title": "Isomorphic Strings",
+      "titleCn": "同构字符串",
+      "difficulty": "easy",
+      "frequency": 3,
+      "companies": [
+        "腾讯",
+        "字节跳动",
+        "阿里巴巴"
+      ],
+      "question": "给定两个字符串 s 和 t，判断它们是否是同构的。如果 s 中的字符可以按某种映射关系替换得到 t，那么这两个字符串是同构的。每个出现的字符都应当映射到另一个字符，且映射必须是一对一的（s 与 t 中字符的对应关系是双射）。可以假定 s 和 t 长度相同。\n\n示例 1：输入 s = \"egg\", t = \"add\"，输出 true（e -> a，g -> d）。\n示例 2：输入 s = \"foo\", t = \"bar\"，输出 false（o 需要同时映射到 a 和 r，不合法）。\n示例 3：输入 s = \"paper\", t = \"title\"，输出 true（p->t、a->i、e->l、r->e 是一致的双射）。",
+      "samples": [
+        {
+          "input": "s = \"egg\", t = \"add\"",
+          "output": "true",
+          "explain": "e -> a，g -> d，是一致的双射"
+        },
+        {
+          "input": "s = \"foo\", t = \"bar\"",
+          "output": "false",
+          "explain": "o 需要同时映射到 a 和 r，正向映射冲突"
+        },
+        {
+          "input": "s = \"badc\", t = \"baba\"",
+          "output": "false",
+          "explain": "b、d 都想映射到 b，反向检查（多对一）拦截"
+        }
+      ],
+      "hints": [
+        "审题诀窍：映射必须是一对一（双射）——不仅要保证 s 的每个字符映射唯一，还要保证两个不同的字符不映射到同一个字符（反例 badc/baba：b、d 都想映射到 b）。",
+        "审题诀窍：同构 ⇔ 两个字符串的『位置模式』完全相同，例如 egg 和 add 都是 A B B，paper 和 title 都是 A B A C D。模式等价性能引出第二种解法。",
+        "突破口：双向核对，或者给每个字符打上『首次出现位置』的编号，两串的编号序列完全一致才同构。",
+        "追问预备：为什么一张 s->t 表不够？（单射只拦住『一个 s 字符映射多个 t 字符』，拦不住 badc→baba 这类多对一；必须补 t->s 反向表，或改成『首次出现下标』规范化）；能否用 O(字符集) 定长空间？（双向映射用两个长度 128/256 的数组代替 dict）"
+      ],
+      "keyPoints": [
+        "单张 s->t 映射表不够：必须同时检查 t->s 方向，防止多对一映射（foo->bar、badc->baba 类反例）",
+        "一遍扫描，每次同时核对 s2t[ch1] 与 t2s[ch2] 两个方向",
+        "规范化解法：字符映射为『首次出现的下标』，两个字符串的编号序列相同则同构",
+        "长度不同直接返回 false（本题保证等长，但通用写法更稳）"
+      ],
+      "structureTags": [
+        "hashmap"
+      ],
+      "approaches": [
+        {
+          "name": "双哈希表双向映射",
+          "idea": "维护 s->t 和 t->s 两张映射表。扫描时若 s 的字符已登记但指向的不是 t 的当前字符，或 t 的字符已被别的 s 字符占用，则不同构；否则同时登记两个方向的映射。一遍扫描同时保证双射。",
+          "detail": "步骤拆解：\n1. 建 s2t、t2s 两张空表，zip(s, t) 逐位配对 (ch1, ch2)。\n2. 若 ch1 已登记但 s2t[ch1] != ch2 → 一对多，返回 false。\n3. 若 ch2 已被别的字符登记（t2s[ch2] 存在且 != ch1）→ 多对一，返回 false。\n4. 两表同时登记后继续，扫完返回 true。\n\n示例走查：s = \"egg\", t = \"add\"。(e,a)：登记 e→a、a→e。(g,d)：登记 g→d、d→g。返回 true ✓。\ns = \"foo\", t = \"bar\"：(f,b) 登记；(o,a) 登记；下一对 (o,r)：s2t[o]=a ≠ r → false ✓。\ns = \"badc\", t = \"baba\"：(b,b) 登记；(a,a) 登记；(d,b)：s2t[d] 未登记，但 t2s[b]=b ≠ d → false ✓。\n\n为什么正确：同构要求映射是双射。s2t 拦住『一个 s 字符映射到多个 t 字符』，t2s 拦住『多个 s 字符映射到同一个 t 字符』（经典反例 badc→baba），两个方向都干净才存在合法替换。\n\n易错点：\n- 只建一张表必错：badc/baba 在只查 s2t 时全程不冲突，会误判 true。\n- 先查后存，登记动作放在两个 if 之后，否则当前配对会和自己刚存的值比较。\n- 长度不等直接 false（本题保证等长，写上更稳）。",
+          "complexity": "时间 O(n)，空间 O(|Σ|)（字符集大小，常数级）",
+          "optimal": true,
+          "code": "def isIsomorphic_two_map(s, t):\n    # 两张表缺一不可：s2t 保证 s 侧映射唯一，t2s 保证 t 侧字符不被占用\n    s2t, t2s = {}, {}\n    for ch1, ch2 in zip(s, t):\n        if ch1 in s2t and s2t[ch1] != ch2:   # 正向冲突：一对多\n            return False\n        if ch2 in t2s and t2s[ch2] != ch1:   # 反向冲突：多对一\n            return False\n        s2t[ch1] = ch2           # 登记正向映射\n        t2s[ch2] = ch1           # 登记反向映射\n    return True"
+        },
+        {
+          "name": "首次出现位置规范化",
+          "idea": "把每个字符替换成它首次出现的下标：egg 与 add 都变成 0 1 1，paper 与 title 都变成 0 1 0 3 4。两个字符串的『模式序列』完全相同即同构，无需显式维护映射冲突判断。",
+          "detail": "步骤拆解：\n1. 写 normalize(s)：遍历字符，字符首次出现时登记它的下标，把『该字符首次出现的下标』追加到结果列表；重复出现的字符直接查表追加。\n2. 对 s、t 分别 normalize，比较两个列表是否完全相等。\n\n示例走查：egg → e 首现记 0，g 首现记 1，再遇 g 追加 1 → [0,1,1]；add → [0,1,1]，相等 → true ✓。\nbadc → [0,1,2,3]；baba → [0,1,0,1]，不等 → false ✓。\nfoo → [0,1,1]；bar → [0,1,2]，不等 → false ✓。\n\n为什么正确：『位置模式』是字符串在同构意义下的不变量——把字符替换成它首次出现的位置后，两串同构 ⇔ 模式序列逐位相同。它把『映射合法性』的讨论简化成了『序列相等』的比较，不需要维护冲突检查。\n\n易错点：\n- 编号要取『首次出现的下标』且全局唯一，不能按字符值直接映射。\n- 比较的是完整序列，不是集合——位置信息不可丢。\n- 需要两次遍历与 O(n) 记录，空间比双表法略大，但代码更短、更不易写错。",
+          "complexity": "时间 O(n)，空间 O(n)",
+          "code": "def normalize(s):\n    idx, seq = {}, []            # idx: 字符 -> 首次出现的下标\n    for i, ch in enumerate(s):\n        if ch not in idx:\n            idx[ch] = i          # 只在首次出现时登记下标\n        seq.append(idx[ch])      # 重复字符复用首次下标\n    return seq\n\n\ndef isIsomorphic_pattern(s, t):\n    # 同构 ⇔ 两个字符串的『首次出现下标序列』完全相同\n    return normalize(s) == normalize(t)"
+        }
+      ],
+      "code": "class Solution:\n    def isIsomorphic(self, s: str, t: str) -> bool:\n        # 两张表缺一不可：s2t 保证 s 侧映射唯一，t2s 保证 t 侧字符不被两个 s 字符占用\n        s2t, t2s = {}, {}\n        for ch1, ch2 in zip(s, t):\n            # s 的字符已登记过：必须仍指向同一个 t 字符，否则冲突\n            if ch1 in s2t and s2t[ch1] != ch2:\n                return False\n            # t 的字符已被其他 s 字符登记：出现多对一，违反双射\n            if ch2 in t2s and t2s[ch2] != ch1:\n                return False\n            s2t[ch1] = ch2           # 登记正向映射\n            t2s[ch2] = ch1           # 登记反向映射\n        return True",
+      "acmCode": "# ACM 模式：完整可运行程序（stdin -> stdout）\n# 输入格式：\n#   第一行：字符串 s\n#   第二行：字符串 t\n# 输出格式：true 或 false\nimport sys\n\n\ndef main():\n    lines = sys.stdin.read().split(\"\\n\")\n    s = lines[0].strip()\n    t = lines[1].strip() if len(lines) > 1 else \"\"\n\n    s2t, t2s = {}, {}    # 双向映射表，缺一不可\n    ans = True\n    for ch1, ch2 in zip(s, t):\n        if ch1 in s2t and s2t[ch1] != ch2:   # 正向冲突：一对多\n            ans = False\n            break\n        if ch2 in t2s and t2s[ch2] != ch1:   # 反向冲突：多对一\n            ans = False\n            break\n        s2t[ch1] = ch2\n        t2s[ch2] = ch1\n    print(\"true\" if ans and len(s) == len(t) else \"false\")\n\n\nif __name__ == '__main__':\n    main()",
+      "templates": [
+        "双射检查模板：s2t/t2s 两张表同时登记核对，任一方向冲突立刻返回 false（205 同构、290 单词规律通用）",
+        "模式序列法：把字符换成首次出现下标，两串规范化结果相同即同构"
+      ],
+      "codeCpp": "class Solution {\npublic:\n    bool isIsomorphic(string s, string t) {\n        // 两张表缺一不可：s2t 防一对多，t2s 防多对一（badc/baba 类反例）\n        vector<int> s2t(128, -1), t2s(128, -1);\n        for (int i = 0; i < (int)s.size(); ++i) {\n            int a = s[i], b = t[i];\n            if (s2t[a] != -1 && s2t[a] != b) return false;  // 正向冲突：一对多\n            if (t2s[b] != -1 && t2s[b] != a) return false;  // 反向冲突：多对一\n            s2t[a] = b;   // 登记正向映射\n            t2s[b] = a;   // 登记反向映射\n        }\n        return true;\n    }\n};",
+      "acmCodeCpp": "// ACM 模式：完整可运行程序（stdin -> stdout）\n// 输入格式：\n//   第一行：字符串 s\n//   第二行：字符串 t\n// 输出格式：true 或 false\n#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    string s, t;\n    getline(cin, s);                      // 整行读取，避免按空白切断\n    getline(cin, t);\n    if (!s.empty() && s.back() == '\\r') s.pop_back();   // 兼容 Windows 换行\n    if (!t.empty() && t.back() == '\\r') t.pop_back();\n\n    bool ans = s.size() == t.size();      // 长度不等直接 false\n    if (ans) {\n        vector<int> s2t(128, -1), t2s(128, -1);   // 双向映射表，缺一不可\n        for (int i = 0; i < (int)s.size(); ++i) {\n            int a = s[i], b = t[i];\n            if (s2t[a] != -1 && s2t[a] != b) { ans = false; break; }  // 一对多\n            if (t2s[b] != -1 && t2s[b] != a) { ans = false; break; }  // 多对一\n            s2t[a] = b;\n            t2s[b] = a;\n        }\n    }\n    cout << (ans ? \"true\" : \"false\") << endl;\n    return 0;\n}",
+      "codeJava": "class Solution {\n    public boolean isIsomorphic(String s, String t) {\n        // 两张表缺一不可：s2t 防一对多，t2s 防多对一（badc/baba 类反例）\n        int[] s2t = new int[128];\n        int[] t2s = new int[128];\n        Arrays.fill(s2t, -1);\n        Arrays.fill(t2s, -1);\n        for (int i = 0; i < s.length(); i++) {\n            int a = s.charAt(i), b = t.charAt(i);\n            if (s2t[a] != -1 && s2t[a] != b) return false;  // 正向冲突：一对多\n            if (t2s[b] != -1 && t2s[b] != a) return false;  // 反向冲突：多对一\n            s2t[a] = b;   // 登记正向映射\n            t2s[b] = a;   // 登记反向映射\n        }\n        return true;\n    }\n}",
+      "codeJs": "/**\n * @param {string} s\n * @param {string} t\n * @return {boolean}\n */\nvar isIsomorphic = function (s, t) {\n  // 两张表缺一不可：s2t 防一对多，t2s 防多对一（badc/baba 类反例）\n  const s2t = new Map();\n  const t2s = new Map();\n  for (let i = 0; i < s.length; i++) {\n    const a = s[i], b = t[i];\n    if (s2t.has(a) && s2t.get(a) !== b) return false; // 正向冲突：一对多\n    if (t2s.has(b) && t2s.get(b) !== a) return false; // 反向冲突：多对一\n    s2t.set(a, b);  // 登记正向映射\n    t2s.set(b, a);  // 登记反向映射\n  }\n  return true;\n};",
+      "codeGo": "func isIsomorphic(s string, t string) bool {\n\t// 两张表缺一不可：s2t 防一对多，t2s 防多对一（badc/baba 类反例）\n\ts2t := map[byte]byte{}\n\tt2s := map[byte]byte{}\n\tfor i := 0; i < len(s); i++ {\n\t\ta, b := s[i], t[i]\n\t\tif v, ok := s2t[a]; ok && v != b { // 正向冲突：一对多\n\t\t\treturn false\n\t\t}\n\t\tif v, ok := t2s[b]; ok && v != a { // 反向冲突：多对一\n\t\t\treturn false\n\t\t}\n\t\ts2t[a] = b // 登记正向映射\n\t\tt2s[b] = a // 登记反向映射\n\t}\n\treturn true\n}"
+    },
+    {
+      "id": 242,
+      "title": "Valid Anagram",
+      "titleCn": "有效的字母异位词",
+      "difficulty": "easy",
+      "frequency": 5,
+      "companies": [
+        "字节跳动",
+        "腾讯",
+        "美团"
+      ],
+      "question": "给定两个字符串 s 和 t，编写一个函数来判断 t 是否是 s 的字母异位词。字母异位词是通过重新排列源单词的所有字母得到的一个新单词。\n\n示例 1：输入 s = \"anagram\", t = \"nagaram\"，输出 true。\n示例 2：输入 s = \"rat\", t = \"car\"，输出 false。\n\n进阶：如果输入字符串包含 Unicode 字符呢？你需要用哈希表代替长度 26 的计数数组，以处理更通用的字符集。",
+      "samples": [
+        {
+          "input": "s = \"anagram\", t = \"nagaram\"",
+          "output": "true",
+          "explain": "两串每个字母的出现次数完全相同"
+        },
+        {
+          "input": "s = \"rat\", t = \"car\"",
+          "output": "false",
+          "explain": "s 有 r 无 c，t 有 c 无 r"
+        },
+        {
+          "input": "s = \"aacc\", t = \"ccac\"",
+          "output": "false",
+          "explain": "等长但计数不同：s 是 a:2,c:2，t 是 a:1,c:3——只比长度会误判"
+        }
+      ],
+      "hints": [
+        "审题诀窍：异位词 = 字母出现次数完全相同，与顺序无关——本质是『多重集合相等』判断。",
+        "审题诀窍：长度不等直接 false，先做这个 O(1) 剪枝再进入计数。",
+        "突破口：计数。只含小写字母时用长度 26 的计数数组；通用字符集用哈希表。对 s 加一遍、对 t 减一遍，最后看计数是否全部归零。",
+        "追问预备：Unicode 字符集怎么办？（把 26 数组换成 dict/Counter，思路不变，这正是题目进阶问的）；求『删除最少字符使两串成为异位词』？（对每个字符求 |cnt_s[c] - cnt_t[c]| 求和）；一行写法？（Counter(s) == Counter(t)）"
+      ],
+      "keyPoints": [
+        "长度不同立刻返回 false",
+        "小写字母场景用 26 长度计数数组即可；Unicode 进阶场景换 dict/Counter，思路不变",
+        "先统计 s 再消耗 t，一遍加减即可完成，无需两张计数表",
+        "异位词与顺序无关，任何排序类解法都是 O(nlogn) 的退化解"
+      ],
+      "structureTags": [
+        "hashmap"
+      ],
+      "approaches": [
+        {
+          "name": "排序后比较",
+          "idea": "把 s 和 t 分别排序后直接比较：互为异位词的字符串排序结果必然相同。代码最短，但没利用『只关心次数』这一性质。",
+          "detail": "步骤拆解：\n1. 直接 sorted(s) == sorted(t)。\n2. 或写开：先把两串各排成升序序列，再逐位比较。\n\n示例走查：s = \"anagram\" 排序后 ['a','a','a','g','m','n','r']；t = \"nagaram\" 排序后得到相同序列 → 相等返回 true ✓。\ns = \"rat\" → ['a','r','t']，t = \"car\" → ['a','c','r']，第二位就不等 → false ✓。\n\n为什么正确：异位词 = 字母多重集合相同；排序把多重集合规整成唯一的规范序列，两个序列相等 ⇔ 多重集合相等。\n\n易错点：\n- 这是不利用题意（只比次数不比顺序）的退化解，O(nlogn)；面试可先给出再优化到计数。\n- sorted 返回 list 可直接比较，无需 join 回字符串。\n- 长度不等时 sorted 结果必然不等，但提前 return False 是 O(1) 剪枝。",
+          "complexity": "时间 O(n log n)，空间 O(n)",
+          "code": "def isAnagram_sort(s, t):\n    # 异位词排序结果必然相同；sorted 返回 list 可直接比较\n    return sorted(s) == sorted(t)"
+        },
+        {
+          "name": "哈希表计数",
+          "idea": "用哈希表统计 s 中每个字符次数（+1），再扫 t 把对应字符 -1；出现未知字符或计数减成负数立即 false，最后表为空（所有计数归零）则 true。只比次数不比顺序，正中题意。",
+          "detail": "步骤拆解：\n1. len(s) != len(t) 直接 false。\n2. cnt = {}，扫 s 做加法：cnt[ch] = cnt.get(ch, 0) + 1。\n3. 扫 t 做减法：字符不存在或减成负数立即 false；减到 0 顺手 del，保持表内只留『还有余额』的字符。\n4. 扫完表为空 → true。\n\n示例走查：s = \"anagram\" 计数 {a:3,n:1,g:1,m:1,r:1}。扫 t = \"nagaram\"：n→0 删、a→2、g→0 删、a→1、r→0 删、a→0 删、m→0 删。表空返回 true ✓。\ns = \"aacc\" 得 {a:2,c:2}；t = \"ccac\"：c→1、c→0 删、a→1、c 不在表 → false ✓。\n\n为什么正确：每扫一个 t 的字符就消耗一个对应库存，出现未知字符或超量消耗都意味着 t 无法由 s 重排得到；结束时表空 ⇔ 所有计数恰好归零 ⇔ 两串字母计数完全相同。\n\n易错点：\n- 扫 t 时『先判存在再减』：ch not in cnt 直接 false，避免 KeyError。\n- 只比长度不比计数是常见错误：\"aacc\" 和 \"ccac\" 等长却不同构。\n- 只含小写字母时可用长度 26 的数组；含 Unicode 时必须 dict/Counter，这是题目的进阶追问。",
+          "complexity": "时间 O(n)，空间 O(|Σ|)（字符集大小，常数级）",
+          "optimal": true,
+          "code": "def isAnagram_count(s, t):\n    if len(s) != len(t):         # 长度不同，字母总量必然对不上\n        return False\n    cnt = {}                     # 字符 -> 出现次数\n    for ch in s:\n        cnt[ch] = cnt.get(ch, 0) + 1     # s 侧计数 +1\n    for ch in t:\n        if ch not in cnt:        # t 出现了 s 中不存在的字符\n            return False\n        cnt[ch] -= 1             # t 侧消耗对应计数\n        if cnt[ch] == 0:\n            del cnt[ch]          # 归零即删，最后表空说明完全匹配\n    return not cnt"
+        }
+      ],
+      "code": "class Solution:\n    def isAnagram(self, s: str, t: str) -> bool:\n        # 长度不同，字母总量必然对不上，直接判负\n        if len(s) != len(t):\n            return False\n        # cnt: 字符 -> 出现次数（用 {} 而不是 26 数组，可直接推广到 Unicode 字符集）\n        cnt = {}\n        for ch in s:\n            cnt[ch] = cnt.get(ch, 0) + 1    # s 侧计数 +1\n        for ch in t:\n            if ch not in cnt:               # t 出现了 s 中不存在的字符\n                return False\n            cnt[ch] -= 1                    # t 侧消耗对应计数\n            if cnt[ch] == 0:\n                del cnt[ch]                 # 归零即删，最后表空说明完全匹配\n        return not cnt",
+      "acmCode": "# ACM 模式：完整可运行程序（stdin -> stdout）\n# 输入格式：\n#   第一行：字符串 s\n#   第二行：字符串 t（均仅小写字母，可为空行）\n# 输出格式：true 或 false\nimport sys\n\n\ndef main():\n    lines = sys.stdin.read().split(\"\\n\")\n    s = lines[0].strip() if lines else \"\"\n    t = lines[1].strip() if len(lines) > 1 else \"\"\n\n    ans = False\n    if len(s) == len(t):\n        cnt = {}\n        for ch in s:                     # 先统计 s 的字母库存\n            cnt[ch] = cnt.get(ch, 0) + 1\n        for ch in t:                     # 再逐字符消耗\n            if ch not in cnt:\n                ans = False\n                break\n            cnt[ch] -= 1\n            if cnt[ch] == 0:\n                del cnt[ch]              # 归零即删，最后表空说明完全匹配\n        else:\n            ans = not cnt                # for 未 break 才走 else\n    print(\"true\" if ans else \"false\")\n\n\nif __name__ == '__main__':\n    main()",
+      "templates": [
+        "异位词模板：长度剪枝 -> 计数加/减 -> 判空；等价一行写法 Counter(s) == Counter(t)",
+        "多重集合相等：比较元素计数而非元素顺序；排序比较 O(nlogn) 是备选思路"
+      ],
+      "codeCpp": "class Solution {\npublic:\n    bool isAnagram(string s, string t) {\n        if (s.size() != t.size()) return false;  // 长度不同，字母总量必然对不上\n        array<int, 26> cnt{};                    // 26 字母计数表\n        for (char c : s) ++cnt[c - 'a'];         // s 侧计数 +1\n        for (char c : t) {\n            if (--cnt[c - 'a'] < 0) return false;  // t 侧消耗，扣成负数即失败\n        }\n        return true;   // 长度相等且无负数 => 每项恰好归零\n    }\n};",
+      "acmCodeCpp": "// ACM 模式：完整可运行程序（stdin -> stdout）\n// 输入格式：\n//   第一行：字符串 s（仅小写字母，可为空行）\n//   第二行：字符串 t（仅小写字母，可为空行）\n// 输出格式：true 或 false\n#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    string s, t;\n    getline(cin, s);\n    getline(cin, t);\n    if (!s.empty() && s.back() == '\\r') s.pop_back();   // 兼容 Windows 换行\n    if (!t.empty() && t.back() == '\\r') t.pop_back();\n\n    bool ans = s.size() == t.size();      // 长度不同，字母总量必然对不上\n    if (ans) {\n        array<int, 26> cnt{};             // 26 字母计数表\n        for (char c : s) ++cnt[c - 'a'];  // s 侧计数 +1\n        for (char c : t) {\n            if (--cnt[c - 'a'] < 0) { ans = false; break; }  // 扣成负数即失败\n        }\n    }\n    cout << (ans ? \"true\" : \"false\") << endl;\n    return 0;\n}",
+      "codeJava": "class Solution {\n    public boolean isAnagram(String s, String t) {\n        // 长度不同，字母总量必然对不上，直接判负\n        if (s.length() != t.length()) return false;\n        int[] cnt = new int[26];               // 26 字母计数表\n        for (char c : s.toCharArray()) cnt[c - 'a']++;   // s 侧计数 +1\n        for (char c : t.toCharArray()) {\n            if (--cnt[c - 'a'] < 0) return false;  // t 侧消耗，扣成负数即失败\n        }\n        return true;   // 长度相等且无负数 => 每项恰好归零\n    }\n}",
+      "codeJs": "/**\n * @param {string} s\n * @param {string} t\n * @return {boolean}\n */\nvar isAnagram = function (s, t) {\n  if (s.length !== t.length) return false; // 长度不同，字母总量必然对不上\n  const cnt = new Array(26).fill(0);       // 26 字母计数表\n  for (const ch of s) cnt[ch.charCodeAt(0) - 97]++;  // s 侧计数 +1\n  for (const ch of t) {\n    const i = ch.charCodeAt(0) - 97;\n    if (--cnt[i] < 0) return false;        // t 侧消耗，扣成负数即失败\n  }\n  return true;   // 长度相等且无负数 => 每项恰好归零\n};",
+      "codeGo": "func isAnagram(s string, t string) bool {\n\tif len(s) != len(t) { // 长度不同，字母总量必然对不上\n\t\treturn false\n\t}\n\tvar cnt [26]int // 26 字母计数表\n\tfor _, c := range s {\n\t\tcnt[c-'a']++ // s 侧计数 +1\n\t}\n\tfor _, c := range t {\n\t\tcnt[c-'a']--\n\t\tif cnt[c-'a'] < 0 { // t 侧消耗，扣成负数即失败\n\t\t\treturn false\n\t\t}\n\t}\n\treturn true // 长度相等且无负数 => 每项恰好归零\n}"
+    },
+    {
+      "id": 290,
+      "title": "Word Pattern",
+      "titleCn": "单词规律",
+      "difficulty": "easy",
+      "frequency": 3,
+      "companies": [
+        "腾讯",
+        "字节跳动"
+      ],
+      "question": "给定一种规律 pattern 和一个字符串 s，判断 s 是否遵循同样的规律。这里的『遵循』指完全匹配，例如 pattern 里的每个字母和字符串 s 中的每个非空单词之间存在着双向连接的对应规律（双射）。\n\n示例 1：输入 pattern = \"abba\", s = \"dog cat cat dog\"，输出 true（a <-> dog，b <-> cat）。\n示例 2：输入 pattern = \"abba\", s = \"dog cat fish dog\"，输出 false（b 需要同时对应 cat 和 fish）。\n示例 3：输入 pattern = \"aaaa\", s = \"dog cat cat dog\"，输出 false（a 需要同时对应 dog 和 cat）。",
+      "samples": [
+        {
+          "input": "pattern = \"abba\", s = \"dog cat cat dog\"",
+          "output": "true",
+          "explain": "a <-> dog，b <-> cat，双向一致"
+        },
+        {
+          "input": "pattern = \"abba\", s = \"dog cat fish dog\"",
+          "output": "false",
+          "explain": "b 需要同时对应 cat 和 fish，正向映射冲突"
+        },
+        {
+          "input": "pattern = \"abba\", s = \"dog dog dog dog\"",
+          "output": "false",
+          "explain": "a、b 都想映射到 dog，反向检查（多对一）拦截"
+        },
+        {
+          "input": "pattern = \"aaaa\", s = \"dog cat cat dog\"",
+          "output": "false",
+          "explain": "a 需要同时对应 dog 和 cat"
+        }
+      ],
+      "hints": [
+        "审题诀窍：先按空格切分 s，单词个数必须等于 len(pattern)——个数对不上直接 false，漏判这个会栽在诸如 pattern=\"aaa\", s=\"aa aa aa aa\" 的用例上。",
+        "审题诀窍：本题与 205 同构字符串完全同构，只是『字符』换成了『字母 vs 单词』，且必须双向检查：不同字母不能对应同一个单词（经典反例 abba + dog dog dog dog）。",
+        "突破口：pattern 与单词列表逐位 zip 配对，用两张哈希表登记并核对双向映射，任一方向冲突即 false。",
+        "追问预备：为什么 pattern=\"aaa\"、s=\"aa aa aa aa\" 是 false？（4 个单词对 3 个字母，zip 会静默截断后映射看似合法，必须显式比 len(words) 与 len(pattern)）；若单词间是任意空白？（s.split() 无参调用天然按连续空白切分并忽略空串）"
+      ],
+      "keyPoints": [
+        "s.split() 切词后先检查 len(words) == len(pattern)",
+        "双向映射：char->word 与 word->char 同时登记核对，缺一不可",
+        "经典陷阱 abba + dog dog dog dog：a、b 都想映射到 dog，反向表能拦住",
+        "zip 长度不齐会静默截断，所以个数必须先显式判断"
+      ],
+      "structureTags": [
+        "hashmap"
+      ],
+      "approaches": [
+        {
+          "name": "双哈希表双向映射",
+          "idea": "切词后逐位配对（字母, 单词）：字母已登记则必须指向当前单词，单词已被其他字母登记则返回 false，否则双向登记。一遍扫描完成双射校验，与 205 的模板完全一致。",
+          "detail": "步骤拆解：\n1. words = s.split() 切词，len(words) != len(pattern) 直接 false（防 zip 静默截断）。\n2. c2w、w2c 两张表，zip(pattern, words) 逐位配对 (ch, w)。\n3. 任一方向冲突（c2w[ch] 已存在且 != w，或 w2c[w] 已存在且 != ch）→ false；否则双向登记。\n\n示例走查：pattern = \"abba\", s = \"dog cat fish dog\"。(a,dog) 登记；(b,cat) 登记；(b,fish)：c2w[b]=cat ≠ fish → false ✓。\npattern = \"abba\", s = \"dog dog dog dog\"：(a,dog) 登记；(b,dog)：c2w[b] 未登记，但 w2c[dog]=a ≠ b → false ✓。\n\n为什么正确：题意要求字母与单词之间『双向连接』即双射。c2w 保证一个字母只对应一个单词，w2c 保证一个单词只被一个字母对应；两个反例（b 对 cat/fish、a b 都对 dog）分别被两张表拦下。\n\n易错点：\n- 忘记先比 len(words) 与 len(pattern)：zip 会把多余的截掉，pattern=\"aaa\"、s=\"aa aa aa aa\" 会被误判 true。\n- 经典陷阱 abba + dog dog dog dog：正向表完全合法，只有反向表能拦截。\n- 与 205 同构字符串完全同模板，务必一起记。",
+          "complexity": "时间 O(n)，空间 O(n)",
+          "optimal": true,
+          "code": "def wordPattern_two_map(pattern, s):\n    words = s.split()\n    # 个数不匹配时 zip 会静默截断，必须先显式判长度\n    if len(words) != len(pattern):\n        return False\n    c2w, w2c = {}, {}        # c2w 防一个字母映射多个单词，w2c 防多字母映射同一单词\n    for ch, w in zip(pattern, words):\n        if ch in c2w and c2w[ch] != w:   # 正向冲突\n            return False\n        if w in w2c and w2c[w] != ch:    # 反向冲突（多对一）\n            return False\n        c2w[ch] = w              # 登记字母 -> 单词\n        w2c[w] = ch              # 登记单词 -> 字母\n    return True"
+        },
+        {
+          "name": "模式序列规范化",
+          "idea": "把 pattern 与单词列表分别转成『首次出现下标序列』，两个序列完全相同则遵循同一规律。免写映射冲突判断，但仍需先判长度相等，且要为每个元素做查找。",
+          "detail": "步骤拆解：\n1. words = s.split()，先判 len 相等。\n2. normalize(seq)：按出现顺序给每个新元素递增编号（0,1,2,...），重复元素复用编号，返回编号序列。\n3. normalize(pattern) == normalize(words) 即为遵循同一规律。\n\n示例走查：pattern \"abba\" → [0,1,1,0]；words [dog,cat,cat,dog] → [0,1,1,0]，相等 → true ✓。\npattern \"aaaa\" → [0,0,0,0]；words [dog,cat,cat,dog] → [0,1,1,0]，不等 → false ✓。\npattern \"abba\"、words [dog,dog,dog,dog] → [0,1,1,0] vs [0,0,0,0]，不等 → false ✓。\n\n为什么正确：递增编号序列就是『模式骨架』，遵循同一规律的两个序列骨架必然相同；相比双表法省去了冲突判断的细节，代价是要构造两个中间列表。\n\n易错点：\n- 编号必须按首次出现顺序递增（不能按字符值排序），否则不同字母的先后会干扰结果。\n- len 判断依然不能省，zip 截断陷阱与双表法相同。\n- pattern 是字符串，normalize 迭代出的元素是单字符，与 words 的单词元素天然可区分。",
+          "complexity": "时间 O(n)，空间 O(n)",
+          "code": "def normalize(seq):\n    idx, res = {}, []            # idx: 元素 -> 按出现顺序分配的编号\n    for x in seq:\n        if x not in idx:\n            idx[x] = len(idx)    # 新元素编号 = 当前已登记个数，天然递增\n        res.append(idx[x])\n    return res\n\n\ndef wordPattern_norm(pattern, s):\n    words = s.split()\n    if len(words) != len(pattern):\n        return False\n    # 遵循同一规律 ⇔ 两序列的『模式骨架』完全相同\n    return normalize(pattern) == normalize(words)"
+        }
+      ],
+      "code": "class Solution:\n    def wordPattern(self, pattern: str, s: str) -> bool:\n        words = s.split()\n        # 个数不匹配时 zip 会静默截断，必须先显式判长度\n        if len(words) != len(pattern):\n            return False\n        # 双射检查：c2w 防一个字母映射多个单词，w2c 防多个字母映射同一个单词\n        c2w, w2c = {}, {}\n        for ch, w in zip(pattern, words):\n            # get 未命中时用当前配对值兜底，等价于『未登记则登记、已登记则必须一致』\n            if c2w.get(ch, w) != w or w2c.get(w, ch) != ch:\n                return False               # 任一方向冲突即不匹配\n            c2w[ch] = w                    # 登记字母 -> 单词\n            w2c[w] = ch                    # 登记单词 -> 字母\n        return True",
+      "acmCode": "# ACM 模式：完整可运行程序（stdin -> stdout）\n# 输入格式：\n#   第一行：规律串 pattern（仅小写字母）\n#   第二行：字符串 s（若干单词，单空格分隔）\n# 输出格式：true 或 false\nimport sys\n\n\ndef main():\n    lines = sys.stdin.read().split(\"\\n\")\n    pattern = lines[0].strip()\n    s = lines[1].strip() if len(lines) > 1 else \"\"\n\n    words = s.split()\n    ans = len(words) == len(pattern)     # 个数不匹配直接 false，防 zip 静默截断\n    if ans:\n        c2w, w2c = {}, {}                # 双向映射表\n        for ch, w in zip(pattern, words):\n            if ch in c2w and c2w[ch] != w:\n                ans = False\n                break\n            if w in w2c and w2c[w] != ch:\n                ans = False\n                break\n            c2w[ch] = w\n            w2c[w] = ch\n    print(\"true\" if ans else \"false\")\n\n\nif __name__ == '__main__':\n    main()",
+      "templates": [
+        "映射类题统一模板（205/290）：先判长度/个数，再 zip 配对双向登记 c2w/w2c，冲突即 false",
+        "双射 = 单射 + 满射：一张表只能保证单射，反向表才能拦住多对一"
+      ],
+      "codeCpp": "class Solution {\npublic:\n    bool wordPattern(string pattern, string s) {\n        // 手动按空格切分出所有单词（不依赖 sstream）\n        vector<string> words;\n        for (int i = 0; i < (int)s.size(); ++i) {\n            if (s[i] == ' ') continue;                   // 跳过空格\n            int j = i;\n            while (j < (int)s.size() && s[j] != ' ') ++j;\n            words.push_back(s.substr(i, j - i));         // 截取一个单词\n            i = j;\n        }\n        // 个数不匹配直接 false（防配对时静默截断）\n        if (words.size() != pattern.size()) return false;\n        // 双射检查：c2w 防一个字母映射多个单词，w2c 防多字母映射同一单词\n        unordered_map<char, string> c2w;\n        unordered_map<string, char> w2c;\n        for (int i = 0; i < (int)pattern.size(); ++i) {\n            char ch = pattern[i];\n            const string& word = words[i];\n            auto it1 = c2w.find(ch);\n            if (it1 != c2w.end() && it1->second != word) return false;  // 正向冲突\n            auto it2 = w2c.find(word);\n            if (it2 != w2c.end() && it2->second != ch) return false;    // 反向冲突\n            c2w[ch] = word;\n            w2c[word] = ch;\n        }\n        return true;\n    }\n};",
+      "acmCodeCpp": "// ACM 模式：完整可运行程序（stdin -> stdout）\n// 输入格式：\n//   第一行：规律串 pattern（仅小写字母）\n//   第二行：字符串 s（若干单词，单空格分隔）\n// 输出格式：true 或 false\n#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    string pattern, s;\n    getline(cin, pattern);\n    getline(cin, s);\n    if (!pattern.empty() && pattern.back() == '\\r') pattern.pop_back();   // 兼容 Windows 换行\n    if (!s.empty() && s.back() == '\\r') s.pop_back();\n\n    // 手动按空格切分单词\n    vector<string> words;\n    for (int i = 0; i < (int)s.size(); ++i) {\n        if (s[i] == ' ') continue;\n        int j = i;\n        while (j < (int)s.size() && s[j] != ' ') ++j;\n        words.push_back(s.substr(i, j - i));\n        i = j;\n    }\n\n    bool ans = words.size() == pattern.size();   // 个数不匹配直接 false\n    if (ans) {\n        unordered_map<char, string> c2w;         // 字母 -> 单词\n        unordered_map<string, char> w2c;         // 单词 -> 字母\n        for (int i = 0; i < (int)pattern.size(); ++i) {\n            char ch = pattern[i];\n            const string& word = words[i];\n            auto it1 = c2w.find(ch);\n            if (it1 != c2w.end() && it1->second != word) { ans = false; break; }\n            auto it2 = w2c.find(word);\n            if (it2 != w2c.end() && it2->second != ch) { ans = false; break; }\n            c2w[ch] = word;\n            w2c[word] = ch;\n        }\n    }\n    cout << (ans ? \"true\" : \"false\") << endl;\n    return 0;\n}",
+      "codeJava": "class Solution {\n    public boolean wordPattern(String pattern, String s) {\n        // 按空格切分单词，个数不匹配直接 false（防配对时静默截断）\n        String[] words = s.split(\" \");\n        if (words.length != pattern.length()) return false;\n        // 双射检查：c2w 防一个字母映射多个单词，w2c 防多字母映射同一单词\n        Map<Character, String> c2w = new HashMap<>();\n        Map<String, Character> w2c = new HashMap<>();\n        for (int i = 0; i < pattern.length(); i++) {\n            char ch = pattern.charAt(i);\n            String word = words[i];\n            if (c2w.containsKey(ch) && !c2w.get(ch).equals(word)) return false;  // 正向冲突\n            if (w2c.containsKey(word) && !w2c.get(word).equals(ch)) return false; // 反向冲突\n            c2w.put(ch, word);   // 登记字母 -> 单词\n            w2c.put(word, ch);   // 登记单词 -> 字母\n        }\n        return true;\n    }\n}",
+      "codeJs": "/**\n * @param {string} pattern\n * @param {string} s\n * @return {boolean}\n */\nvar wordPattern = function (pattern, s) {\n  const words = s.split(' ');              // 按空格切分单词\n  // 个数不匹配直接 false（配对时静默截断，必须先判长度）\n  if (words.length !== pattern.length) return false;\n  const c2w = new Map();                   // 字母 -> 单词\n  const w2c = new Map();                   // 单词 -> 字母\n  for (let i = 0; i < pattern.length; i++) {\n    const ch = pattern[i], w = words[i];\n    if (c2w.has(ch) && c2w.get(ch) !== w) return false; // 正向冲突\n    if (w2c.has(w) && w2c.get(w) !== ch) return false; // 反向冲突（多对一）\n    c2w.set(ch, w);  // 登记字母 -> 单词\n    w2c.set(w, ch);  // 登记单词 -> 字母\n  }\n  return true;\n};",
+      "codeGo": "func wordPattern(pattern string, s string) bool {\n\t// 按空白切分单词（strings.Fields 的语义，等价 Python 的 s.split()）\n\twords := []string{}\n\tw := \"\"\n\tfor i := 0; i < len(s); i++ {\n\t\tif s[i] == ' ' {\n\t\t\tif w != \"\" {\n\t\t\t\twords = append(words, w)\n\t\t\t\tw = \"\"\n\t\t\t}\n\t\t} else {\n\t\t\tw += string(s[i])\n\t\t}\n\t}\n\tif w != \"\" {\n\t\twords = append(words, w)\n\t}\n\t// 个数不匹配直接 false（防配对时静默截断）\n\tif len(words) != len(pattern) {\n\t\treturn false\n\t}\n\t// 双射检查：c2w 防一个字母映射多个单词，w2c 防多字母映射同一单词\n\tc2w := map[byte]string{}\n\tw2c := map[string]byte{}\n\tfor i := 0; i < len(pattern); i++ {\n\t\tch, word := pattern[i], words[i]\n\t\tif v, ok := c2w[ch]; ok && v != word { // 正向冲突\n\t\t\treturn false\n\t\t}\n\t\tif v, ok := w2c[word]; ok && v != ch { // 反向冲突（多对一）\n\t\t\treturn false\n\t\t}\n\t\tc2w[ch] = word // 登记字母 -> 单词\n\t\tw2c[word] = ch // 登记单词 -> 字母\n\t}\n\treturn true\n}"
+    },
+    {
+      "id": 383,
+      "title": "Ransom Note",
+      "titleCn": "赎金信",
+      "difficulty": "easy",
+      "frequency": 3,
+      "companies": [
+        "美团",
+        "字节跳动"
+      ],
+      "question": "给你两个字符串：ransomNote 和 magazine，判断 ransomNote 能不能由 magazine 里面的字符构成。如果可以，返回 true；否则返回 false。magazine 中的每个字符只能在 ransomNote 中使用一次。\n\n示例 1：输入 ransomNote = \"a\", magazine = \"b\"，输出 false。\n示例 2：输入 ransomNote = \"aa\", magazine = \"ab\"，输出 false（magazine 中只有一个 a）。\n示例 3：输入 ransomNote = \"aa\", magazine = \"aab\"，输出 true。",
+      "samples": [
+        {
+          "input": "ransomNote = \"a\", magazine = \"b\"",
+          "output": "false",
+          "explain": "ransomNote 需要 a，magazine 里没有"
+        },
+        {
+          "input": "ransomNote = \"aa\", magazine = \"ab\"",
+          "output": "false",
+          "explain": "magazine 中只有一个 a，不够用"
+        },
+        {
+          "input": "ransomNote = \"aa\", magazine = \"aab\"",
+          "output": "true",
+          "explain": "两个 a 都能从 magazine 取到"
+        }
+      ],
+      "hints": [
+        "审题诀窍：『每个字符只能用一次』⇒ 这是多重集合包含关系：ransomNote 每个字符的计数 ≤ magazine 的计数，与子串、子序列都无关。",
+        "审题诀窍：先剪枝——len(ransomNote) > len(magazine) 直接 false。",
+        "突破口：magazine 是『库存』，ransomNote 是『提货单』——先统计库存，再逐项扣减，扣成负数即失败。",
+        "追问预备：若 magazine 每个字符能用两次怎么办？（统计时把计数 ×2，或扣减阈值放宽到 -2）；若问 ransomNote 能否由 magazine 的某个子串构成？（那是滑动窗口题 567 的变体，与本题的计数包含无关）"
+      ],
+      "keyPoints": [
+        "本质是字符计数的逐项比较，与出现顺序完全无关",
+        "长度剪枝：提货量大于库存总量直接 false",
+        "Counter 或手写 dict 均可，核心是比较每个字符的计数",
+        "逐字符扣减法一遍循环即可，扣成负数立即返回 false"
+      ],
+      "structureTags": [
+        "hashmap"
+      ],
+      "approaches": [
+        {
+          "name": "逐字符删除模拟",
+          "idea": "把 magazine 转成列表，对 ransomNote 的每个字符在列表中查找并删除一个匹配项，找不到则 false。直观模拟『取字』过程，但每次查找删除都是线性开销。",
+          "detail": "步骤拆解：\n1. pool = list(magazine)，把库存摊开成可变列表。\n2. 对 ransomNote 的每个字符 ch：ch in pool 线性查找，找到就用 pool.remove(ch) 摘掉一个；找不到立即 false。\n3. 全部字符都摘到 → true。\n\n示例走查：ransomNote = \"aa\", magazine = \"aab\"。pool = ['a','a','b']：第一个 a 摘掉 → ['a','b']；第二个 a 再摘 → ['b']；返回 true ✓。\nransomNote = \"aa\", magazine = \"ab\"：第一个 a 摘掉 → ['b']；第二个 a 找不到 → false ✓。\n\n为什么正确：直接模拟『每个字符只能用一次』的取字过程——每摘掉一个字符库存就少一个，ransomNote 的每个字符都能摘到 ⇔ ransomNote 的字符多重集合 ⊆ magazine 的。\n\n易错点：\n- 用字符串的 replace 会把所有匹配都删掉，违反『每个字符只能用一次』；list.remove 只删第一个，语义正确。\n- in + remove 是两次线性扫描，整体 O(n·m)，大数据会超时——它是引入计数法的引子。\n- 长度剪枝 len(ransomNote) > len(magazine) 可先做，提前拦截明显不够的情况。",
+          "complexity": "时间 O(n·m)，空间 O(m)",
+          "code": "def canConstruct_delete(ransomNote, magazine):\n    if len(ransomNote) > len(magazine):   # 库存总量不够，提前剪枝\n        return False\n    pool = list(magazine)                 # 库存列表，逐字符摘除\n    for ch in ransomNote:\n        if ch in pool:                    # 线性查找库存中的一个匹配字符\n            pool.remove(ch)               # remove 只删第一个匹配，等价\"用掉一次\"\n        else:\n            return False\n    return True"
+        },
+        {
+          "name": "计数表扣减",
+          "idea": "统计 magazine 每个字符的库存次数，再扫 ransomNote 逐字符扣减，任一字符库存不足（不存在或减成负数）即 false；全部够用则 true。与顺序无关，一次计数一次扣减解决。",
+          "detail": "步骤拆解：\n1. len(ransomNote) > len(magazine) 直接 false。\n2. stock = {} 统计 magazine 每个字符的次数（库存）。\n3. 扫 ransomNote 逐字符扣减 stock[ch] -= 1，扣成负数 → 库存不足，false。\n4. 全部扣完不出现负数 → true。\n\n示例走查：magazine = \"aab\" → stock {a:2, b:1}。ransomNote = \"aa\"：a→1、a→0，无负数 → true ✓。\nmagazine = \"ab\" → {a:1,b:1}；ransomNote = \"aa\"：a→0、a→-1 → false ✓。\n\n为什么正确：『每个字符只能用一次』把问题变成多重集合包含：对每个字符 c 需满足 need[c] ≤ supply[c]；扣减过程中第一次出现负数就说明某字符用量超出库存，全程无负数即包含成立。\n\n易错点：\n- 扣减法对『字符不存在』同样正确：stock.get(ch, 0) - 1 = -1 直接 false，不需要单独判存在。\n- 方向别反：是统计 magazine、扣减 ransomNote，反过来会算成『magazine 能否由 ransomNote 构成』。\n- 只含小写字母时可用长度 26 的数组把 dict 换成数组，常数更小。",
+          "complexity": "时间 O(n + m)，空间 O(|Σ|)（字符集大小，常数级）",
+          "optimal": true,
+          "code": "def canConstruct_count(ransomNote, magazine):\n    if len(ransomNote) > len(magazine):   # 剪枝：库存总量不够\n        return False\n    stock = {}                            # 字符 -> magazine 中的可用次数\n    for ch in magazine:\n        stock[ch] = stock.get(ch, 0) + 1\n    for ch in ransomNote:                 # 逐字符从库存扣减\n        stock[ch] = stock.get(ch, 0) - 1\n        if stock[ch] < 0:                 # 扣成负数说明该字符库存不足\n            return False\n    return True                           # 所有字符都足量"
+        }
+      ],
+      "code": "class Solution:\n    def canConstruct(self, ransomNote: str, magazine: str) -> bool:\n        # 剪枝：库存总量不够，必然构不成赎金信\n        if len(ransomNote) > len(magazine):\n            return False\n        # stock: 字符 -> magazine 中的可用次数（{} 计数，天然支持任意字符集）\n        stock = {}\n        for ch in magazine:\n            stock[ch] = stock.get(ch, 0) + 1\n        # 逐个字符从库存中扣减，扣成负数说明该字符库存不足\n        for ch in ransomNote:\n            stock[ch] = stock.get(ch, 0) - 1\n            if stock[ch] < 0:\n                return False\n        return True                   # 所有字符都足量",
+      "acmCode": "# ACM 模式：完整可运行程序（stdin -> stdout）\n# 输入格式：\n#   第一行：ransomNote（仅小写字母，可为空行）\n#   第二行：magazine（仅小写字母，可为空行）\n# 输出格式：true 或 false\nimport sys\n\n\ndef main():\n    lines = sys.stdin.read().split(\"\\n\")\n    ransom = lines[0].strip() if lines else \"\"\n    magazine = lines[1].strip() if len(lines) > 1 else \"\"\n\n    ans = len(ransom) <= len(magazine)   # 库存总量不够直接 false\n    if ans:\n        stock = {}                       # 字符 -> 可用次数\n        for ch in magazine:\n            stock[ch] = stock.get(ch, 0) + 1\n        for ch in ransom:                # 逐字符扣减库存\n            stock[ch] = stock.get(ch, 0) - 1\n            if stock[ch] < 0:\n                ans = False\n                break\n    print(\"true\" if ans else \"false\")\n\n\nif __name__ == '__main__':\n    main()",
+      "templates": [
+        "库存扣减模板：统计 magazine 计数，逐字符扣减 ransomNote，负数即 false（242 异位词的近亲题）",
+        "多重集合包含：need 是 supply 的子集 ⇔ 每个字符满足 need[c] <= supply[c]"
+      ],
+      "codeCpp": "class Solution {\npublic:\n    bool canConstruct(string ransomNote, string magazine) {\n        // 剪枝：库存总量不够，必然构不成赎金信\n        if (ransomNote.size() > magazine.size()) return false;\n        array<int, 26> stock{};                    // 字符 -> magazine 中的可用次数\n        for (char c : magazine) ++stock[c - 'a'];  // 统计库存\n        for (char c : ransomNote) {\n            if (--stock[c - 'a'] < 0) return false;  // 扣成负数说明该字符库存不足\n        }\n        return true;   // 所有字符都足量\n    }\n};",
+      "acmCodeCpp": "// ACM 模式：完整可运行程序（stdin -> stdout）\n// 输入格式：\n//   第一行：ransomNote（仅小写字母，可为空行）\n//   第二行：magazine（仅小写字母，可为空行）\n// 输出格式：true 或 false\n#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    string ransom, magazine;\n    getline(cin, ransom);\n    getline(cin, magazine);\n    if (!ransom.empty() && ransom.back() == '\\r') ransom.pop_back();       // 兼容 Windows 换行\n    if (!magazine.empty() && magazine.back() == '\\r') magazine.pop_back();\n\n    bool ans = ransom.size() <= magazine.size();   // 库存总量不够直接 false\n    if (ans) {\n        array<int, 26> stock{};                    // 字符 -> 可用次数\n        for (char c : magazine) ++stock[c - 'a'];  // 统计库存\n        for (char c : ransom) {\n            if (--stock[c - 'a'] < 0) { ans = false; break; }  // 库存不足\n        }\n    }\n    cout << (ans ? \"true\" : \"false\") << endl;\n    return 0;\n}",
+      "codeJava": "class Solution {\n    public boolean canConstruct(String ransomNote, String magazine) {\n        // 剪枝：库存总量不够，必然构不成赎金信\n        if (ransomNote.length() > magazine.length()) return false;\n        int[] stock = new int[26];   // 字符 -> magazine 中的可用次数\n        for (char c : magazine.toCharArray()) stock[c - 'a']++;   // 统计库存\n        // 逐个字符从库存中扣减，扣成负数说明该字符库存不足\n        for (char c : ransomNote.toCharArray()) {\n            if (--stock[c - 'a'] < 0) return false;\n        }\n        return true;   // 所有字符都足量\n    }\n}",
+      "codeJs": "/**\n * @param {string} ransomNote\n * @param {string} magazine\n * @return {boolean}\n */\nvar canConstruct = function (ransomNote, magazine) {\n  if (ransomNote.length > magazine.length) return false; // 剪枝：库存总量不够\n  const stock = new Array(26).fill(0);     // 字符 -> magazine 中的可用次数\n  for (const ch of magazine) stock[ch.charCodeAt(0) - 97]++;  // 统计库存\n  // 逐个字符从库存中扣减，扣成负数说明该字符库存不足\n  for (const ch of ransomNote) {\n    const i = ch.charCodeAt(0) - 97;\n    if (--stock[i] < 0) return false;\n  }\n  return true;   // 所有字符都足量\n};",
+      "codeGo": "func canConstruct(ransomNote string, magazine string) bool {\n\tif len(ransomNote) > len(magazine) { // 剪枝：库存总量不够\n\t\treturn false\n\t}\n\tvar stock [26]int // 字符 -> 可用次数\n\tfor _, c := range magazine {\n\t\tstock[c-'a']++ // 统计库存\n\t}\n\t// 逐个字符从库存中扣减，扣成负数说明该字符库存不足\n\tfor _, c := range ransomNote {\n\t\tstock[c-'a']--\n\t\tif stock[c-'a'] < 0 {\n\t\t\treturn false\n\t\t}\n\t}\n\treturn true // 所有字符都足量\n}"
+    }
+  ]
+}

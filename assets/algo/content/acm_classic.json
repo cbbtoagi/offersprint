@@ -1,0 +1,813 @@
+{
+  "topic": "ACM 机考模式",
+  "problems": [
+    {
+      "id": 1001,
+      "title": "Sort an Array (Quick Sort)",
+      "titleCn": "ACM 手写快速排序",
+      "difficulty": "medium",
+      "frequency": 5,
+      "companies": [
+        "字节跳动",
+        "美团",
+        "京东",
+        "Momenta"
+      ],
+      "question": "【ACM 模式】给定一个长度为 n 的整数数组，将其升序排序后输出。\n\n输入描述：第一行一个整数 n（1 ≤ n ≤ 1e5）；第二行 n 个整数。\n输出描述：一行 n 个整数，空格分隔，升序。\n\n这是各大厂笔试/机考的基操题：不允许直接调 sort，要求手写快速排序并处理边界（重复元素、近乎有序数组）。",
+      "samples": [
+        {
+          "input": "5\n5 2 3 1 4",
+          "output": "1 2 3 4 5"
+        },
+        {
+          "input": "6\n3 3 1 2 3 2",
+          "output": "1 2 2 3 3 3",
+          "explain": "大量重复元素，考察三路划分或随机基准"
+        }
+      ],
+      "hints": [
+        "审题诀窍：n=1e5，O(n²) 的朴素快排在『已有序』数据上会退化超时——必须随机选基准或三路划分。",
+        "审题诀窍：Python 递归深度默认 1000，1e5 数据递归会爆栈，要么改成『尾递归优化式迭代+栈』，要么保证递归深度 O(log n)（小区间用插入排序/先递归小区间）。",
+        "机考诀窍：输出用 ' '.join(map(str, ans)) 一次性打印，比循环 print 快一个数量级。"
+      ],
+      "keyPoints": [
+        "partition：选基准，把小于基准的放左、大于的放右，返回基准最终位置",
+        "随机基准避免有序数组退化成 O(n²)",
+        "递归区间 [lo, p-1] 与 [p+1, hi]，基准已就位不再参与",
+        "Python 注意递归深度与输出效率"
+      ],
+      "structureTags": [
+        "sort",
+        "recursion",
+        "two_pointer"
+      ],
+      "approaches": [
+        {
+          "name": "快速排序（随机基准 + 双向划分）",
+          "idea": "选随机基准，partition 后分治左右两段。",
+          "detail": "步骤拆解：\n1. quick(lo, hi)：区间长度 ≤1 直接返回。\n2. 随机取 pivotIdx = random.randint(lo, hi)，与 nums[lo] 交换（把基准放到头部方便划分）。\n3. 双向划分：i=lo, j=hi，基准 val=nums[lo]。while i<j：j 先从右往左找第一个 <val 的位置填到 i；i 再从左往右找第一个 >val 的位置填到 j。循环结束时 i==j 即基准坑位，填回 val。\n4. 对 [lo, i-1] 和 [i+1, hi] 递归。\n\n示例走查：[5,2,3,1,4]，取 val=5：j 找到 4(<5)填到头，i 找到无(>5)，最终 5 归位末尾区间……每轮基准归位一个位置，递归两侧。\n\n为什么正确：每轮 partition 后基准左侧全 ≤val、右侧全 ≥val，基准必然在最终位置；子问题规模严格缩小。\n\n易错点：\n- 固定取第一个元素做基准时，有序输入直接 O(n²)——笔试数据常卡这点。\n- 挖坑法中必须『j 先动 i 后动』，顺序错了会覆盖基准值。\n- Python 默认递归上限 1000：用 sys.setrecursionlimit(300000) 或改为显式栈。",
+          "complexity": "时间 O(n log n) 平均，空间 O(log n) 递归栈",
+          "optimal": true,
+          "code": "import random\n\ndef quick_sort(nums, lo, hi):\n    if lo >= hi:\n        return\n    # 随机基准：与头部交换，防止有序输入退化\n    p = random.randint(lo, hi)\n    nums[lo], nums[p] = nums[p], nums[lo]\n    val, i, j = nums[lo], lo, hi     # 挖坑法：val 是坑\n    while i < j:\n        while i < j and nums[j] >= val:\n            j -= 1                    # j 从右往左找第一个 <val 的数\n        nums[i] = nums[j]             # 填左坑\n        while i < j and nums[i] <= val:\n            i += 1                    # i 从左往右找第一个 >val 的数\n        nums[j] = nums[i]             # 填右坑\n    nums[i] = val                     # 基准归位\n    quick_sort(nums, lo, i - 1)\n    quick_sort(nums, i + 1, hi)"
+        },
+        {
+          "name": "三路划分（大量重复元素优化）",
+          "idea": "划分成 <val / ==val / >val 三段，等于段直接不参与递归。",
+          "detail": "针对样例 2 这种重复元素爆多的情况：普通划分后相等的元素散落两侧仍会被反复递归；三路划分把 ==val 的全部聚到中间一次排除。\n\n步骤拆解：\n1. 维护 lt（<val 区右边界）、gt（>val 区左边界）、i（当前扫描位）。初始 lt=lo-1, gt=hi+1, i=lo。\n2. nums[i] < val：与 nums[lt+1] 交换，lt+=1, i+=1。\n3. nums[i] > val：与 nums[gt-1] 交换，gt-=1（i 不动，换来的数还没看过）。\n4. nums[i] == val：i+=1。\n5. 结束后递归 [lo, lt] 和 [gt, hi]，中间 [lt+1, gt-1] 全是 val。\n\n易错点：nums[i]>val 交换后 i 不能前进，因为换过来的是未检查的尾部元素。",
+          "complexity": "时间 O(n log n)，重复元素多时接近 O(n)",
+          "code": "import random\n\ndef quick_sort_3way(nums, lo, hi):\n    if lo >= hi:\n        return\n    pivot = nums[random.randint(lo, hi)]\n    lt, i, gt = lo - 1, lo, hi + 1   # <pivot 区 | 未定区 | >pivot 区\n    while i < gt:\n        if nums[i] < pivot:\n            nums[lt + 1], nums[i] = nums[i], nums[lt + 1]\n            lt += 1\n            i += 1\n        elif nums[i] > pivot:\n            nums[gt - 1], nums[i] = nums[i], nums[gt - 1]\n            gt -= 1                   # i 不动：换来的数未检查\n        else:\n            i += 1\n    quick_sort_3way(nums, lo, lt)\n    quick_sort_3way(nums, gt, hi)"
+        }
+      ],
+      "code": "import random\n\ndef quick_sort(nums, lo, hi):\n    if lo >= hi:\n        return\n    p = random.randint(lo, hi)\n    nums[lo], nums[p] = nums[p], nums[lo]\n    val, i, j = nums[lo], lo, hi\n    while i < j:\n        while i < j and nums[j] >= val:\n            j -= 1\n        nums[i] = nums[j]\n        while i < j and nums[i] <= val:\n            i += 1\n        nums[j] = nums[i]\n    nums[i] = val\n    quick_sort(nums, lo, i - 1)\n    quick_sort(nums, i + 1, hi)",
+      "acmCode": "# ACM 模式完整程序\n# 输入：第一行 n；第二行 n 个整数\n# 输出：升序一行，空格分隔\nimport sys\nimport random\n\ndef quick_sort(nums, lo, hi):\n    if lo >= hi:\n        return\n    p = random.randint(lo, hi)\n    nums[lo], nums[p] = nums[p], nums[lo]\n    val, i, j = nums[lo], lo, hi\n    while i < j:\n        while i < j and nums[j] >= val:\n            j -= 1\n        nums[i] = nums[j]\n        while i < j and nums[i] <= val:\n            i += 1\n        nums[j] = nums[i]\n    nums[i] = val\n    quick_sort(nums, lo, i - 1)\n    quick_sort(nums, i + 1, hi)\n\ndef main():\n    sys.setrecursionlimit(300000)          # 防递归爆栈\n    data = sys.stdin.read().split()\n    n = int(data[0])\n    nums = [int(x) for x in data[1:1 + n]]\n    random.shuffle(nums)                   # 先打乱再排序，进一步防退化\n    quick_sort(nums, 0, n - 1)\n    print(' '.join(map(str, nums)))\n\nif __name__ == '__main__':\n    main()",
+      "templates": [
+        "手写快排三板斧：随机基准 → 挖坑划分 → 分治两侧；Python 机考务必 setrecursionlimit + 打乱输入",
+        "机考输出模板：print(' '.join(map(str, arr)))"
+      ],
+      "codeCpp": "#include <random>\n\n// 手写快速排序（随机基准 + 挖坑划分）：平均 O(n log n)，随机化避免有序数据退化\nclass Solution {\n    mt19937 rng{random_device{}()};\n\n    void quick_sort(vector<int>& nums, int lo, int hi) {\n        if (lo >= hi) return;                                 // 区间长度 <= 1 直接返回\n        int p = uniform_int_distribution<int>(lo, hi)(rng);   // 随机选基准下标\n        swap(nums[lo], nums[p]);                              // 基准移到头部，防有序输入退化\n        int val = nums[lo], i = lo, j = hi;                   // 挖坑法：val 即基准值\n        while (i < j) {\n            while (i < j && nums[j] >= val) --j;              // j 从右往左找第一个 < val\n            nums[i] = nums[j];                                // 填左坑\n            while (i < j && nums[i] <= val) ++i;              // i 从左往右找第一个 > val\n            nums[j] = nums[i];                                // 填右坑\n        }\n        nums[i] = val;                                        // 基准归位\n        quick_sort(nums, lo, i - 1);                          // 分治左半段\n        quick_sort(nums, i + 1, hi);                          // 分治右半段\n    }\n\npublic:\n    vector<int> sortArray(vector<int>& nums) {\n        shuffle(nums.begin(), nums.end(), rng);   // 先打乱再排序，进一步防退化\n        quick_sort(nums, 0, (int)nums.size() - 1);\n        return nums;\n    }\n};",
+      "acmCodeCpp": "// ACM 模式：完整可运行程序（stdin -> stdout）\n// 输入格式：\n//   第一行：n（数组长度）\n//   第二行：n 个整数\n// 输出格式：一行 n 个整数，升序排列，空格分隔\n#include <algorithm>\n#include <iostream>\n#include <random>\n#include <vector>\nusing namespace std;\n\n// 随机选基准的挖坑划分：把 <val 放左、>val 放右，返回基准归位下标\nint partition_qs(vector<int>& nums, int lo, int hi, mt19937& rng) {\n    int p = uniform_int_distribution<int>(lo, hi)(rng);   // 随机基准下标\n    swap(nums[lo], nums[p]);                              // 基准移到头部\n    int val = nums[lo], i = lo, j = hi;\n    while (i < j) {\n        while (i < j && nums[j] >= val) --j;              // j 从右往左找第一个 < val\n        nums[i] = nums[j];                                // 填左坑\n        while (i < j && nums[i] <= val) ++i;              // i 从左往右找第一个 > val\n        nums[j] = nums[i];                                // 填右坑\n    }\n    nums[i] = val;                                        // 基准归位\n    return i;\n}\n\nvoid quick_sort(vector<int>& nums, int lo, int hi, mt19937& rng) {\n    if (lo >= hi) return;                                 // 区间长度 <= 1 直接返回\n    int p = partition_qs(nums, lo, hi, rng);\n    quick_sort(nums, lo, p - 1, rng);                     // 分治左半段\n    quick_sort(nums, p + 1, hi, rng);                     // 分治右半段\n}\n\nint main() {\n    ios::sync_with_stdio(false);                          // 关闭同步加速 IO\n    cin.tie(nullptr);\n    int n;\n    cin >> n;\n    vector<int> nums(n);\n    for (int i = 0; i < n; ++i) cin >> nums[i];\n    mt19937 rng{random_device{}()};\n    shuffle(nums.begin(), nums.end(), rng);               // 先打乱再排序，进一步防退化\n    quick_sort(nums, 0, n - 1, rng);\n    for (int i = 0; i < n; ++i) {                         // 一行空格分隔输出\n        if (i) cout << ' ';\n        cout << nums[i];\n    }\n    cout << '\\n';\n    return 0;\n}",
+      "codeJava": "class Solution {\n    // 手写快速排序：随机基准 + 挖坑划分，平均 O(n log n)\n    public int[] sortArray(int[] nums) {\n        Random rnd = new Random();\n        quickSort(nums, 0, nums.length - 1, rnd);\n        return nums;\n    }\n\n    private void quickSort(int[] nums, int lo, int hi, Random rnd) {\n        if (lo >= hi) return;                          // 区间长度 <= 1 直接返回\n        int p = lo + rnd.nextInt(hi - lo + 1);         // 随机选基准，防有序输入退化\n        swap(nums, lo, p);                             // 基准移到头部\n        int val = nums[lo], i = lo, j = hi;            // 挖坑法：val 即基准值\n        while (i < j) {\n            while (i < j && nums[j] >= val) j--;       // j 从右往左找第一个 < val\n            nums[i] = nums[j];                         // 填左坑\n            while (i < j && nums[i] <= val) i++;       // i 从左往右找第一个 > val\n            nums[j] = nums[i];                         // 填右坑\n        }\n        nums[i] = val;                                 // 基准归位\n        quickSort(nums, lo, i - 1, rnd);               // 分治左半段\n        quickSort(nums, i + 1, hi, rnd);               // 分治右半段\n    }\n\n    private void swap(int[] nums, int a, int b) {\n        int tmp = nums[a];\n        nums[a] = nums[b];\n        nums[b] = tmp;\n    }\n}",
+      "codeJs": "/**\n * 手写快速排序（随机基准 + 挖坑划分），原地排序 nums[lo..hi] 区间\n * @param {number[]} nums 待排序数组（原地修改）\n * @param {number} lo 区间左端点（含）\n * @param {number} hi 区间右端点（含）\n * @return {void}\n */\nfunction quickSort(nums, lo, hi) {\n  if (lo >= hi) return;                                    // 区间长度 <= 1 直接返回\n  const p = lo + Math.floor(Math.random() * (hi - lo + 1)); // 随机选基准下标\n  [nums[lo], nums[p]] = [nums[p], nums[lo]];               // 基准移到头部防退化\n  const val = nums[lo];\n  let i = lo, j = hi;                                      // 挖坑法：val 即基准值\n  while (i < j) {\n    while (i < j && nums[j] >= val) j--;                   // j 从右往左找第一个 < val\n    nums[i] = nums[j];                                     // 填左坑\n    while (i < j && nums[i] <= val) i++;                   // i 从左往右找第一个 > val\n    nums[j] = nums[i];                                     // 填右坑\n  }\n  nums[i] = val;                                           // 基准归位\n  quickSort(nums, lo, i - 1);                              // 分治左半段\n  quickSort(nums, i + 1, hi);                              // 分治右半段\n}",
+      "codeGo": "func quickSort(nums []int, lo, hi int) {\n\tif lo >= hi {\n\t\treturn // 区间长度 <= 1 直接返回\n\t}\n\tp := lo + rand.Intn(hi-lo+1)          // 随机选基准下标\n\tnums[lo], nums[p] = nums[p], nums[lo] // 基准移到头部，防有序输入退化\n\tval, i, j := nums[lo], lo, hi         // 挖坑法：val 即基准值\n\tfor i < j {\n\t\tfor i < j && nums[j] >= val { // j 从右往左找第一个 < val\n\t\t\tj--\n\t\t}\n\t\tnums[i] = nums[j] // 填左坑\n\t\tfor i < j && nums[i] <= val { // i 从左往右找第一个 > val\n\t\t\ti++\n\t\t}\n\t\tnums[j] = nums[i] // 填右坑\n\t}\n\tnums[i] = val            // 基准归位\n\tquickSort(nums, lo, i-1) // 分治左半段\n\tquickSort(nums, i+1, hi) // 分治右半段\n}"
+    },
+    {
+      "id": 1002,
+      "title": "Sort an Array (Merge Sort)",
+      "titleCn": "ACM 手写归并排序",
+      "difficulty": "medium",
+      "frequency": 4,
+      "companies": [
+        "字节跳动",
+        "美团",
+        "华为"
+      ],
+      "question": "【ACM 模式】给定长度为 n 的整数数组，升序排序输出。要求手写归并排序（稳定 O(n log n)，常作为链表排序/逆序对的前置知识考察）。\n\n输入描述：第一行 n；第二行 n 个整数。\n输出描述：升序一行，空格分隔。",
+      "samples": [
+        {
+          "input": "5\n5 2 3 1 4",
+          "output": "1 2 3 4 5"
+        },
+        {
+          "input": "4\n2 2 1 1",
+          "output": "1 1 2 2",
+          "explain": "归并排序是稳定排序，相等元素相对次序不变"
+        }
+      ],
+      "hints": [
+        "审题诀窍：归并是『分治 + 合并两个有序数组』，合并写法与 LC88 完全一致。",
+        "机考诀窍：归并需要 O(n) 辅助数组，Python 里切片+递归即可，无需原地。",
+        "追问预备：归并还能求逆序对（合并时统计右侧跳到前面的个数）——字节常追问。"
+      ],
+      "keyPoints": [
+        "递归二分到长度 1，merge 合并两个有序段",
+        "merge 用双指针比较两段头部，小者出队",
+        "稳定排序：相等时先取左段",
+        "逆序对在合并时顺手统计"
+      ],
+      "structureTags": [
+        "sort",
+        "recursion",
+        "two_pointer"
+      ],
+      "approaches": [
+        {
+          "name": "标准归并（自顶向下）",
+          "idea": "递归二分，逐层合并有序段。",
+          "detail": "步骤拆解：\n1. sort(lo, hi)：mid=(lo+hi)//2，递归排 [lo,mid] 与 [mid+1,hi]。\n2. merge：双指针 i,j 分别指向两段头部，比较后小者放入临时数组；一边耗尽则把另一段整体接上。\n3. 写回原数组。\n\n示例走查：[5,2,3,1,4] → [5,2] [3,1,4] → …… → 合并 [2,5] 与 [1,3,4]：比较 2>1 取1；2<3 取2；5>3 取3；5>4 取4；剩 5 → [1,2,3,4,5]。\n\n为什么面试爱考：它是『分治+双指针合并』的范式， LC23 合并K个链表、链表排序、逆序对、计算数组小和都是它的变体。\n\n易错点：\n- merge 时一边耗尽要 extend 另一侧的剩余。\n- 递归终止条件是 lo>=hi（长度 ≤1），写成 lo==hi 会漏掉空区间。\n- 稳定性靠『相等时优先取左段』保证。",
+          "complexity": "时间 O(n log n)，空间 O(n)",
+          "optimal": true,
+          "code": "def merge_sort(nums, lo, hi):\n    if lo >= hi:\n        return\n    mid = (lo + hi) // 2\n    merge_sort(nums, lo, mid)\n    merge_sort(nums, mid + 1, hi)\n    # 合并两个有序段 [lo,mid] 与 [mid+1,hi]\n    tmp = []\n    i, j = lo, mid + 1\n    while i <= mid and j <= hi:\n        if nums[i] <= nums[j]:      # 相等先取左段 → 稳定\n            tmp.append(nums[i])\n            i += 1\n        else:\n            tmp.append(nums[j])\n            j += 1\n    if i <= mid:\n        tmp.extend(nums[i:mid + 1])\n    if j <= hi:\n        tmp.extend(nums[j:hi + 1])\n    nums[lo:hi + 1] = tmp"
+        },
+        {
+          "name": "自底向上归并（迭代，免递归爆栈）",
+          "idea": "宽度 1,2,4,8… 两两合并，无递归。",
+          "detail": "从宽度 width=1 开始，每轮把相邻两段 [i, i+width) 与 [i+width, i+2*width) 合并，width 翻倍直到 ≥n。\n\n适用场景：Python 递归深度受限的语言里更稳；也是外排序/链表归并（LC148 要求 O(1) 空间时用自底向上）的思路来源。\n\n易错点：右边界 hi=min(i+2*width, n)，第二段可能不满宽。",
+          "complexity": "时间 O(n log n)，空间 O(n)",
+          "code": "def merge_sort_bottom_up(nums):\n    n = len(nums)\n    width = 1\n    while width < n:\n        for lo in range(0, n, 2 * width):\n            mid = min(lo + width, n)\n            hi = min(lo + 2 * width, n)\n            # 合并 [lo,mid) 与 [mid,hi)\n            tmp = []\n            i, j = lo, mid\n            while i < mid and j < hi:\n                if nums[i] <= nums[j]:\n                    tmp.append(nums[i]); i += 1\n                else:\n                    tmp.append(nums[j]); j += 1\n            tmp.extend(nums[i:mid]); tmp.extend(nums[j:hi])\n            nums[lo:hi] = tmp\n        width *= 2"
+        }
+      ],
+      "code": "def merge_sort(nums, lo, hi):\n    if lo >= hi:\n        return\n    mid = (lo + hi) // 2\n    merge_sort(nums, lo, mid)\n    merge_sort(nums, mid + 1, hi)\n    tmp = []\n    i, j = lo, mid + 1\n    while i <= mid and j <= hi:\n        if nums[i] <= nums[j]:\n            tmp.append(nums[i])\n            i += 1\n        else:\n            tmp.append(nums[j])\n            j += 1\n    if i <= mid:\n        tmp.extend(nums[i:mid + 1])\n    if j <= hi:\n        tmp.extend(nums[j:hi + 1])\n    nums[lo:hi + 1] = tmp",
+      "acmCode": "# ACM 模式完整程序\n# 输入：第一行 n；第二行 n 个整数\n# 输出：升序一行，空格分隔\nimport sys\n\ndef merge_sort(nums, lo, hi):\n    if lo >= hi:\n        return\n    mid = (lo + hi) // 2\n    merge_sort(nums, lo, mid)\n    merge_sort(nums, mid + 1, hi)\n    tmp = []\n    i, j = lo, mid + 1\n    while i <= mid and j <= hi:\n        if nums[i] <= nums[j]:\n            tmp.append(nums[i]); i += 1\n        else:\n            tmp.append(nums[j]); j += 1\n    if i <= mid:\n        tmp.extend(nums[i:mid + 1])\n    if j <= hi:\n        tmp.extend(nums[j:hi + 1])\n    nums[lo:hi + 1] = tmp\n\ndef main():\n    sys.setrecursionlimit(300000)\n    data = sys.stdin.read().split()\n    n = int(data[0])\n    nums = [int(x) for x in data[1:1 + n]]\n    merge_sort(nums, 0, n - 1)\n    print(' '.join(map(str, nums)))\n\nif __name__ == '__main__':\n    main()",
+      "templates": [
+        "归并三件套：二分 → 递归 → 双指针 merge；逆序对/数组小和都在 merge 里顺手统计",
+        "迭代归并：width 从 1 翻倍，适合递归受限场景"
+      ],
+      "codeCpp": "// 手写归并排序：递归二分 + 双指针合并两个有序段（稳定，O(n log n)）\nclass Solution {\n    void merge_sort(vector<int>& nums, vector<int>& tmp, int lo, int hi) {\n        if (lo >= hi) return;                          // 区间长度 <= 1 无需排序\n        int mid = lo + (hi - lo) / 2;\n        merge_sort(nums, tmp, lo, mid);                // 递归排左半段\n        merge_sort(nums, tmp, mid + 1, hi);            // 递归排右半段\n        int i = lo, j = mid + 1, k = lo;               // 双指针合并两个有序段\n        while (i <= mid && j <= hi) {\n            if (nums[i] <= nums[j])                    // 相等先取左段 → 稳定\n                tmp[k++] = nums[i++];\n            else\n                tmp[k++] = nums[j++];\n        }\n        while (i <= mid) tmp[k++] = nums[i++];         // 左段剩余接上\n        while (j <= hi) tmp[k++] = nums[j++];          // 右段剩余接上\n        for (k = lo; k <= hi; ++k) nums[k] = tmp[k];   // 写回原数组\n    }\n\npublic:\n    vector<int> sortArray(vector<int>& nums) {\n        vector<int> tmp(nums.size());                  // O(n) 辅助数组\n        merge_sort(nums, tmp, 0, (int)nums.size() - 1);\n        return nums;\n    }\n};",
+      "acmCodeCpp": "// ACM 模式：完整可运行程序（stdin -> stdout）\n// 输入格式：\n//   第一行：n（数组长度）\n//   第二行：n 个整数\n// 输出格式：一行 n 个整数，升序排列，空格分隔\n#include <iostream>\n#include <vector>\nusing namespace std;\n\n// 合并两个有序段 [lo,mid] 与 [mid+1,hi] 到临时数组后写回\nvoid merge_part(vector<int>& nums, vector<int>& tmp, int lo, int mid, int hi) {\n    int i = lo, j = mid + 1, k = lo;                   // 双指针：i 扫左段，j 扫右段\n    while (i <= mid && j <= hi) {\n        if (nums[i] <= nums[j]) tmp[k++] = nums[i++];  // 相等先取左段 → 稳定\n        else tmp[k++] = nums[j++];\n    }\n    while (i <= mid) tmp[k++] = nums[i++];             // 左段剩余接上\n    while (j <= hi) tmp[k++] = nums[j++];              // 右段剩余接上\n    for (k = lo; k <= hi; ++k) nums[k] = tmp[k];       // 写回原数组\n}\n\nvoid merge_sort(vector<int>& nums, vector<int>& tmp, int lo, int hi) {\n    if (lo >= hi) return;                              // 区间长度 <= 1 无需排序\n    int mid = lo + (hi - lo) / 2;\n    merge_sort(nums, tmp, lo, mid);                    // 递归排左半段\n    merge_sort(nums, tmp, mid + 1, hi);                // 递归排右半段\n    merge_part(nums, tmp, lo, mid, hi);\n}\n\nint main() {\n    ios::sync_with_stdio(false);\n    cin.tie(nullptr);\n    int n;\n    cin >> n;\n    vector<int> nums(n);\n    for (int i = 0; i < n; ++i) cin >> nums[i];\n    vector<int> tmp(n);                                // O(n) 辅助数组\n    merge_sort(nums, tmp, 0, n - 1);\n    for (int i = 0; i < n; ++i) {\n        if (i) cout << ' ';\n        cout << nums[i];\n    }\n    cout << '\\n';\n    return 0;\n}",
+      "codeJava": "class Solution {\n    // 手写归并排序：递归二分 + 双指针合并（稳定排序，O(n log n)）\n    public int[] sortArray(int[] nums) {\n        mergeSort(nums, new int[nums.length], 0, nums.length - 1);\n        return nums;\n    }\n\n    private void mergeSort(int[] nums, int[] tmp, int lo, int hi) {\n        if (lo >= hi) return;                          // 区间长度 <= 1 无需排序\n        int mid = lo + (hi - lo) / 2;\n        mergeSort(nums, tmp, lo, mid);                 // 递归排左半段\n        mergeSort(nums, tmp, mid + 1, hi);             // 递归排右半段\n        int i = lo, j = mid + 1, k = lo;               // 双指针合并两个有序段\n        while (i <= mid && j <= hi) {\n            if (nums[i] <= nums[j])                    // 相等先取左段 → 稳定\n                tmp[k++] = nums[i++];\n            else\n                tmp[k++] = nums[j++];\n        }\n        while (i <= mid) tmp[k++] = nums[i++];         // 左段剩余接上\n        while (j <= hi) tmp[k++] = nums[j++];          // 右段剩余接上\n        for (k = lo; k <= hi; k++) nums[k] = tmp[k];   // 写回原数组\n    }\n}",
+      "codeJs": "/**\n * 手写归并排序（自顶向下）：递归二分 + 双指针合并，稳定 O(n log n)\n * @param {number[]} nums 待排序数组（原地修改）\n * @param {number} lo 区间左端点（含）\n * @param {number} hi 区间右端点（含）\n * @return {void}\n */\nfunction mergeSort(nums, lo, hi) {\n  if (lo >= hi) return;                              // 区间长度 <= 1 无需排序\n  const mid = (lo + hi) >> 1;\n  mergeSort(nums, lo, mid);                          // 递归排左半段\n  mergeSort(nums, mid + 1, hi);                      // 递归排右半段\n  const tmp = [];                                    // 合并缓冲区\n  let i = lo, j = mid + 1;\n  while (i <= mid && j <= hi) {\n    tmp.push(nums[i] <= nums[j] ? nums[i++] : nums[j++]); // 相等先取左段 → 稳定\n  }\n  while (i <= mid) tmp.push(nums[i++]);              // 左段剩余接上\n  while (j <= hi) tmp.push(nums[j++]);               // 右段剩余接上\n  for (let k = 0; k < tmp.length; k++) nums[lo + k] = tmp[k]; // 写回原数组\n}",
+      "codeGo": "func mergeSort(nums []int, lo, hi int) {\n\tif lo >= hi {\n\t\treturn // 区间长度 <= 1 无需排序\n\t}\n\tmid := lo + (hi-lo)/2\n\tmergeSort(nums, lo, mid)       // 递归排左半段\n\tmergeSort(nums, mid+1, hi)     // 递归排右半段\n\ttmp := make([]int, 0, hi-lo+1) // 合并缓冲区\n\ti, j := lo, mid+1\n\tfor i <= mid && j <= hi {\n\t\tif nums[i] <= nums[j] { // 相等先取左段 → 稳定\n\t\t\ttmp = append(tmp, nums[i])\n\t\t\ti++\n\t\t} else {\n\t\t\ttmp = append(tmp, nums[j])\n\t\t\tj++\n\t\t}\n\t}\n\tfor i <= mid { // 左段剩余接上\n\t\ttmp = append(tmp, nums[i])\n\t\ti++\n\t}\n\tfor j <= hi { // 右段剩余接上\n\t\ttmp = append(tmp, nums[j])\n\t\tj++\n\t}\n\tfor k, v := range tmp { // 写回原数组\n\t\tnums[lo+k] = v\n\t}\n}"
+    },
+    {
+      "id": 1003,
+      "title": "Kth Largest in Stream (Hand-written Heap)",
+      "titleCn": "ACM 手写堆",
+      "difficulty": "hard",
+      "frequency": 4,
+      "companies": [
+        "字节跳动",
+        "Momenta",
+        "拼多多"
+      ],
+      "question": "【ACM 模式】实现一个小顶堆：支持 push（插入）和 pop（弹出最小值）。给定 n 个操作，依次执行并输出每次 pop 的结果。\n\n输入描述：第一行 n；接下来 n 行，每行形如 \"1 x\"（把 x 入堆）或 \"2\"（弹出堆顶并输出，保证堆非空）。\n输出描述：对每个操作 2，输出一行弹出的值。",
+      "samples": [
+        {
+          "input": "5\n1 3\n1 1\n2\n1 2\n2",
+          "output": "1\n2"
+        },
+        {
+          "input": "3\n1 5\n1 5\n2",
+          "output": "5"
+        }
+      ],
+      "hints": [
+        "审题诀窍：机考禁用 heapq 时必须会手写；核心是 up（上浮）和 down（下沉）两个操作。",
+        "审题诀窍：用数组存完全二叉树，下标 i 的孩子是 2i+1、2i+2，父是 (i-1)//2。",
+        "追问预备：手写堆有什么用？——Top-K、堆排序、合并K路、定时器；字节/Momenta 笔试爱考堆排序变体。"
+      ],
+      "keyPoints": [
+        "数组表示完全二叉树：parent=(i-1)//2, children=2i+1/2i+2",
+        "push 尾插后上浮；pop 取头、尾补头后下沉",
+        "下沉时选较小的孩子交换",
+        "push/pop 均为 O(log n)"
+      ],
+      "structureTags": [
+        "heap",
+        "recursion"
+      ],
+      "approaches": [
+        {
+          "name": "数组手写小顶堆",
+          "idea": "数组存完全二叉树，上浮/下沉维护堆序。",
+          "detail": "步骤拆解：\n1. push(x)：append 到尾部，_up(len-1)：与父 (i-1)//2 比较，比父小则交换并继续上浮，到根或 ≥父停止。\n2. pop()：堆顶 a[0] 即最小值；把尾元素移到头，尾删，_down(0)：与较小的孩子（2i+1 / 2i+2）比较，大于孩子则交换下沉。\n\n示例走查：push 3 → [3]；push 1 → [3,1] 上浮：1<3 交换 → [1,3]；pop → 输出 1，尾 3 补头 [3]。\n\n为什么正确：完全二叉树保证数组下标无空洞；上浮/下沉只动一条根到叶路径，O(log n)。\n\n易错点：\n- 下沉要选『较小』的孩子交换（选错方向破坏堆序）。\n- 两个孩子可能只有一个（右孩子越界），要判断 2i+2 < n。\n- pop 前必须判空，机考常卡空堆 pop。",
+          "complexity": "push/pop 均时间 O(log n)，空间 O(n)",
+          "optimal": true,
+          "code": "class MinHeap:\n    def __init__(self):\n        self.a = []\n\n    def push(self, x):\n        self.a.append(x)\n        i = len(self.a) - 1\n        while i > 0:                     # 上浮\n            p = (i - 1) // 2\n            if self.a[i] < self.a[p]:\n                self.a[i], self.a[p] = self.a[p], self.a[i]\n                i = p\n            else:\n                break\n\n    def pop(self):\n        top = self.a[0]\n        last = self.a.pop()\n        if self.a:                       # 尾补头后下沉\n            self.a[0] = last\n            self._down(0)\n        return top\n\n    def _down(self, i):\n        n = len(self.a)\n        while True:\n            l, r = 2 * i + 1, 2 * i + 2\n            m = i\n            if l < n and self.a[l] < self.a[m]:\n                m = l\n            if r < n and self.a[r] < self.a[m]:\n                m = r\n            if m == i:\n                break\n            self.a[i], self.a[m] = self.a[m], self.a[i]\n            i = m"
+        },
+        {
+          "name": "heapq 直接调用（机考允许时）",
+          "idea": "标准库小顶堆，heappush/heappop。",
+          "detail": "机考若不限制库，直接用 heapq 最稳。要点：Python 只有最小堆，要大顶堆就把值取负。常用变体：heapify(list) O(n) 建堆；heappushpop / nlargest / nsmallest。",
+          "complexity": "同手写，O(log n) 每操作",
+          "code": "import heapq\n\nh = []\nheapq.heappush(h, 3)\nheapq.heappush(h, 1)\nsmallest = heapq.heappop(h)   # 1\n# 大顶堆技巧：取负\nbig = []\nheapq.heappush(big, -5)\nmx = -heapq.heappop(big)      # 5"
+        }
+      ],
+      "code": "class MinHeap:\n    def __init__(self):\n        self.a = []\n\n    def push(self, x):\n        self.a.append(x)\n        i = len(self.a) - 1\n        while i > 0:                     # 上浮\n            p = (i - 1) // 2\n            if self.a[i] < self.a[p]:\n                self.a[i], self.a[p] = self.a[p], self.a[i]\n                i = p\n            else:\n                break\n\n    def pop(self):\n        top = self.a[0]\n        last = self.a.pop()\n        if self.a:                       # 尾补头后下沉\n            self.a[0] = last\n            self._down(0)\n        return top\n\n    def _down(self, i):\n        n = len(self.a)\n        while True:\n            l, r = 2 * i + 1, 2 * i + 2\n            m = i\n            if l < n and self.a[l] < self.a[m]:\n                m = l\n            if r < n and self.a[r] < self.a[m]:\n                m = r\n            if m == i:\n                break\n            self.a[i], self.a[m] = self.a[m], self.a[i]\n            i = m",
+      "acmCode": "# ACM 模式完整程序\n# 输入：第一行 n；接下来 n 行，\"1 x\" 表示插入 x，\"2\" 表示弹出堆顶并输出\n# 输出：每个弹出操作输出一行\nimport sys\n\nclass MinHeap:\n    def __init__(self):\n        self.a = []\n\n    def push(self, x):\n        self.a.append(x)\n        i = len(self.a) - 1\n        while i > 0:\n            p = (i - 1) // 2\n            if self.a[i] < self.a[p]:\n                self.a[i], self.a[p] = self.a[p], self.a[i]\n                i = p\n            else:\n                break\n\n    def pop(self):\n        top = self.a[0]\n        last = self.a.pop()\n        if self.a:\n            self.a[0] = last\n            self._down(0)\n        return top\n\n    def _down(self, i):\n        n = len(self.a)\n        while True:\n            l, r = 2 * i + 1, 2 * i + 2\n            m = i\n            if l < n and self.a[l] < self.a[m]:\n                m = l\n            if r < n and self.a[r] < self.a[m]:\n                m = r\n            if m == i:\n                break\n            self.a[i], self.a[m] = self.a[m], self.a[i]\n            i = m\n\ndef main():\n    data = sys.stdin.read().split()\n    idx = 0\n    n = int(data[idx]); idx += 1\n    heap = MinHeap()\n    out = []\n    for _ in range(n):\n        op = data[idx]; idx += 1\n        if op == '1':\n            heap.push(int(data[idx])); idx += 1\n        else:\n            out.append(str(heap.pop()))\n    print('\\n'.join(out))\n\nif __name__ == '__main__':\n    main()",
+      "templates": [
+        "手写堆口诀：push 尾插上浮比父小；pop 头出尾补下沉选小孩",
+        "机考大顶堆 = 值取负的 heapq 或手写比较符反转"
+      ],
+      "codeCpp": "// 数组实现的小顶堆：下标 i 的父为 (i-1)/2、孩子为 2i+1/2i+2；push/pop 均 O(log n)\nclass MinHeap {\n    vector<int> a;                       // 数组存完全二叉树\n\n    void down(int i) {                   // 下沉：与较小的孩子交换\n        int n = (int)a.size();\n        while (true) {\n            int l = 2 * i + 1, r = 2 * i + 2, m = i;\n            if (l < n && a[l] < a[m]) m = l;      // 选较小的孩子\n            if (r < n && a[r] < a[m]) m = r;\n            if (m == i) break;                    // 已满足堆序\n            swap(a[i], a[m]);\n            i = m;\n        }\n    }\n\npublic:\n    void push(int x) {\n        a.push_back(x);                  // 尾插后上浮\n        int i = (int)a.size() - 1;\n        while (i > 0) {\n            int p = (i - 1) / 2;         // 父节点下标\n            if (a[i] < a[p]) {           // 比父小则交换\n                swap(a[i], a[p]);\n                i = p;\n            } else break;\n        }\n    }\n\n    int pop() {\n        int top = a[0];                  // 堆顶即最小值\n        int last = a.back();\n        a.pop_back();\n        if (!a.empty()) {                // 尾补头后下沉\n            a[0] = last;\n            down(0);\n        }\n        return top;\n    }\n};",
+      "acmCodeCpp": "// ACM 模式：完整可运行程序（stdin -> stdout）\n// 输入格式：\n//   第一行：n（操作数）\n//   接下来 n 行：每行 \"1 x\" 表示把 x 入堆，\"2\" 表示弹出堆顶并输出\n// 输出格式：每个 \"2\" 操作输出一行弹出的值\n#include <algorithm>\n#include <iostream>\n#include <string>\n#include <vector>\nusing namespace std;\n\nclass MinHeap {\n    vector<int> a;                       // 数组存完全二叉树\n\n    void down(int i) {                   // 下沉：与较小的孩子交换\n        int n = (int)a.size();\n        while (true) {\n            int l = 2 * i + 1, r = 2 * i + 2, m = i;\n            if (l < n && a[l] < a[m]) m = l;      // 选较小的孩子\n            if (r < n && a[r] < a[m]) m = r;\n            if (m == i) break;                    // 已满足堆序\n            swap(a[i], a[m]);\n            i = m;\n        }\n    }\n\npublic:\n    void push(int x) {                   // 尾插后上浮\n        a.push_back(x);\n        int i = (int)a.size() - 1;\n        while (i > 0) {\n            int p = (i - 1) / 2;         // 父节点下标\n            if (a[i] < a[p]) {           // 比父小则交换\n                swap(a[i], a[p]);\n                i = p;\n            } else break;\n        }\n    }\n\n    int pop() {                          // 弹出堆顶：尾补头后下沉\n        int top = a[0];\n        int last = a.back();\n        a.pop_back();\n        if (!a.empty()) { a[0] = last; down(0); }\n        return top;\n    }\n};\n\nint main() {\n    ios::sync_with_stdio(false);\n    cin.tie(nullptr);\n    int n;\n    cin >> n;\n    MinHeap heap;\n    for (int k = 0; k < n; ++k) {\n        string op;\n        cin >> op;\n        if (op == \"1\") {                 // 插入操作\n            int x;\n            cin >> x;\n            heap.push(x);\n        } else {                         // 弹出操作\n            cout << heap.pop() << '\\n';\n        }\n    }\n    return 0;\n}",
+      "codeJava": "class MinHeap {\n    // 数组存完全二叉树：下标 i 的父为 (i-1)/2，孩子为 2i+1、2i+2\n    private final List<Integer> a = new ArrayList<>();\n\n    public void push(int x) {                // 尾插后上浮\n        a.add(x);\n        int i = a.size() - 1;\n        while (i > 0) {\n            int p = (i - 1) / 2;             // 父节点下标\n            if (a.get(i) < a.get(p)) {       // 比父小则交换\n                Collections.swap(a, i, p);\n                i = p;\n            } else break;\n        }\n    }\n\n    public int pop() {                       // 弹出堆顶：尾补头后下沉\n        int top = a.get(0);                  // 堆顶即最小值\n        int last = a.remove(a.size() - 1);\n        if (!a.isEmpty()) {\n            a.set(0, last);\n            down(0);\n        }\n        return top;\n    }\n\n    private void down(int i) {               // 下沉：与较小的孩子交换\n        int n = a.size();\n        while (true) {\n            int l = 2 * i + 1, r = 2 * i + 2, m = i;\n            if (l < n && a.get(l) < a.get(m)) m = l;   // 选较小的孩子\n            if (r < n && a.get(r) < a.get(m)) m = r;\n            if (m == i) break;\n            Collections.swap(a, i, m);\n            i = m;\n        }\n    }\n}",
+      "codeJs": "/**\n * 数组实现的小顶堆：下标 i 的父为 (i-1)/2，孩子为 2i+1、2i+2\n * push 尾插后上浮，pop 尾补头后下沉，均 O(log n)\n */\nclass MinHeap {\n  constructor() {\n    this.a = [];                        // 数组存完全二叉树\n  }\n\n  /** 插入元素：尾插后与父节点比较上浮\n   * @param {number} x\n   */\n  push(x) {\n    this.a.push(x);\n    let i = this.a.length - 1;\n    while (i > 0) {\n      const p = (i - 1) >> 1;           // 父节点下标\n      if (this.a[i] < this.a[p]) {      // 比父小则交换\n        [this.a[i], this.a[p]] = [this.a[p], this.a[i]];\n        i = p;\n      } else break;\n    }\n  }\n\n  /** 弹出最小值：堆顶出、尾补头后下沉\n   * @return {number}\n   */\n  pop() {\n    const top = this.a[0];              // 堆顶即最小值\n    const last = this.a.pop();\n    if (this.a.length > 0) {\n      this.a[0] = last;\n      this.down(0);\n    }\n    return top;\n  }\n\n  /** 下沉：与较小的孩子交换，维护堆序 */\n  down(i) {\n    const n = this.a.length;\n    while (true) {\n      const l = 2 * i + 1, r = 2 * i + 2;\n      let m = i;\n      if (l < n && this.a[l] < this.a[m]) m = l;  // 选较小的孩子\n      if (r < n && this.a[r] < this.a[m]) m = r;\n      if (m === i) break;\n      [this.a[i], this.a[m]] = [this.a[m], this.a[i]];\n      i = m;\n    }\n  }\n}",
+      "codeGo": "// MinHeap 数组实现的小顶堆：下标 i 的父为 (i-1)/2，孩子为 2i+1、2i+2\ntype MinHeap struct {\n\ta []int // 数组存完全二叉树\n}\n\n// Push 插入元素：尾插后与父节点比较上浮\nfunc (h *MinHeap) Push(x int) {\n\th.a = append(h.a, x)\n\ti := len(h.a) - 1\n\tfor i > 0 {\n\t\tp := (i - 1) / 2 // 父节点下标\n\t\tif h.a[i] < h.a[p] { // 比父小则交换\n\t\t\th.a[i], h.a[p] = h.a[p], h.a[i]\n\t\t\ti = p\n\t\t} else {\n\t\t\tbreak\n\t\t}\n\t}\n}\n\n// Pop 弹出最小值：堆顶出、尾补头后下沉\nfunc (h *MinHeap) Pop() int {\n\ttop := h.a[0] // 堆顶即最小值\n\tlast := h.a[len(h.a)-1]\n\th.a = h.a[:len(h.a)-1]\n\tif len(h.a) > 0 {\n\t\th.a[0] = last\n\t\th.down(0)\n\t}\n\treturn top\n}\n\n// down 下沉：与较小的孩子交换，维护堆序\nfunc (h *MinHeap) down(i int) {\n\tn := len(h.a)\n\tfor {\n\t\tl, r, m := 2*i+1, 2*i+2, i\n\t\tif l < n && h.a[l] < h.a[m] { // 选较小的孩子\n\t\t\tm = l\n\t\t}\n\t\tif r < n && h.a[r] < h.a[m] {\n\t\t\tm = r\n\t\t}\n\t\tif m == i {\n\t\t\tbreak\n\t\t}\n\t\th.a[i], h.a[m] = h.a[m], h.a[i]\n\t\ti = m\n\t}\n}"
+    },
+    {
+      "id": 1004,
+      "title": "Add Strings (Big Number)",
+      "titleCn": "ACM 大数加法",
+      "difficulty": "medium",
+      "frequency": 5,
+      "companies": [
+        "字节跳动",
+        "腾讯",
+        "Momenta",
+        "百度"
+      ],
+      "question": "【ACM 模式】给定两个可能非常大的非负整数（长度可达 1e4 位，超出所有整型范围），以字符串形式读入，输出它们的和。\n\n输入描述：两行，每行一个非负整数字符串。\n输出描述：一行，两数之和。",
+      "samples": [
+        {
+          "input": "123\n987",
+          "output": "1110"
+        },
+        {
+          "input": "99999999999999999999\n1",
+          "output": "100000000000000000000",
+          "explain": "超出 int64，必须逐位模拟"
+        }
+      ],
+      "hints": [
+        "审题诀窍：数太大不能用 int —— 一切大数题（加减乘、取模比较）都靠『字符串/数组逐位处理』。",
+        "审题诀窍：从低位（字符串末尾）开始加，进位 carry 传给下一位。",
+        "追问预备：大数减法（先比大小再逐位减借位）、大数乘法（逐位乘累加到结果数组）是同族高频追问。"
+      ],
+      "keyPoints": [
+        "双指针从两串末尾同时向前逐位相加",
+        "carry 进位：当前位 = (a+b+carry) % 10，carry = (a+b+carry) // 10",
+        "循环结束后 carry 还有值要补 1",
+        "结果是从低位到高位生成的，最后反转"
+      ],
+      "structureTags": [
+        "two_pointer",
+        "math",
+        "single_pass"
+      ],
+      "approaches": [
+        {
+          "name": "逐位模拟（双指针 + 进位）",
+          "idea": "从末尾对齐逐位加，维护进位。",
+          "detail": "步骤拆解：\n1. i, j 分别指向两串末尾，carry=0，res=[]。\n2. 循环条件 i>=0 or j>=0 or carry：取 digit_a = int(a[i])（越界取 0），同 b；s = digit_a + digit_b + carry；append(s % 10)；carry = s // 10；i--, j--。\n3. res 反转后拼接输出。\n\n示例走查：\"999…9\" + \"1\"：最低位 9+1=10 → 本位 0 进 1；后续每轮 9+0+1=10 持续进位；最后 carry=1 补一个 1 → 100…0。✓\n\n为什么正确：完全复刻竖式加法，逐位处理互不影响（进位单向传递）。\n\n易错点：\n- 循环条件漏掉 carry（如 5+5=10 最高位的 1 丢失）。\n- 两串长度不同时，越界一侧补 0。\n- 结果反转别忘（append 顺序是低位在前）。",
+          "complexity": "时间 O(max(m,n))，空间 O(max(m,n))",
+          "optimal": true,
+          "code": "def big_add(a: str, b: str) -> str:\n    i, j = len(a) - 1, len(b) - 1\n    carry = 0\n    res = []\n    while i >= 0 or j >= 0 or carry:\n        da = int(a[i]) if i >= 0 else 0   # 短的一侧补 0\n        db = int(b[j]) if j >= 0 else 0\n        s = da + db + carry\n        res.append(str(s % 10))           # 本位\n        carry = s // 10                   # 进位\n        i -= 1\n        j -= 1\n    return ''.join(reversed(res))"
+        },
+        {
+          "name": "Python 大整数直转（机考放行时）",
+          "idea": "Python int 无上限，直接转 int 相加。",
+          "detail": "Python 的 int 是任意精度，机考中（尤其 Python 赛道）直接 int(a)+int(b) 即可。但要注意：\n1. 面试官明确说『模拟加法』时此解是反例，会挂。\n2. 该解法是完美的对拍基准（brute reference），写完模拟解后可用它对拍验证。\n3. C++/Java 赛道无此福利，必须逐位模拟。",
+          "complexity": "时间 O(n·m)（大数乘法的内部代价），对本题数据可过",
+          "code": "def big_add_cheat(a: str, b: str) -> str:\n    return str(int(a) + int(b))    # Python 任意精度，机考放行时可用；面试禁用"
+        }
+      ],
+      "code": "def big_add(a: str, b: str) -> str:\n    i, j = len(a) - 1, len(b) - 1\n    carry = 0\n    res = []\n    while i >= 0 or j >= 0 or carry:\n        da = int(a[i]) if i >= 0 else 0\n        db = int(b[j]) if j >= 0 else 0\n        s = da + db + carry\n        res.append(str(s % 10))\n        carry = s // 10\n        i -= 1\n        j -= 1\n    return ''.join(reversed(res))",
+      "acmCode": "# ACM 模式完整程序\n# 输入：两行，各一个非负整数字符串\n# 输出：一行，两数之和\nimport sys\n\ndef big_add(a: str, b: str) -> str:\n    i, j = len(a) - 1, len(b) - 1\n    carry = 0\n    res = []\n    while i >= 0 or j >= 0 or carry:\n        da = int(a[i]) if i >= 0 else 0\n        db = int(b[j]) if j >= 0 else 0\n        s = da + db + carry\n        res.append(str(s % 10))\n        carry = s // 10\n        i -= 1\n        j -= 1\n    return ''.join(reversed(res))\n\ndef main():\n    lines = sys.stdin.read().split()\n    print(big_add(lines[0], lines[1]))\n\nif __name__ == '__main__':\n    main()",
+      "templates": [
+        "大数四则通用骨架：从末尾双指针逐位 + carry/borrow，最后反转；乘法用结果数组按下标累加"
+      ],
+      "codeCpp": "// 大数加法：双指针从两串末尾逐位相加 + 进位（模拟竖式），最后反转\nclass Solution {\npublic:\n    string addStrings(string a, string b) {\n        int i = (int)a.size() - 1, j = (int)b.size() - 1;\n        int carry = 0;\n        string res;\n        while (i >= 0 || j >= 0 || carry) {\n            int da = i >= 0 ? a[i] - '0' : 0;   // 短的一侧补 0\n            int db = j >= 0 ? b[j] - '0' : 0;\n            int s = da + db + carry;\n            res.push_back(char('0' + s % 10));  // 当前位（低位在前）\n            carry = s / 10;                     // 进位传给下一位\n            --i; --j;\n        }\n        reverse(res.begin(), res.end());        // 反转为正常高位在前\n        return res;\n    }\n};",
+      "acmCodeCpp": "// ACM 模式：完整可运行程序（stdin -> stdout）\n// 输入格式：\n//   第一行：非负整数字符串 a\n//   第二行：非负整数字符串 b\n// 输出格式：一行，a + b 的结果\n#include <algorithm>\n#include <iostream>\n#include <string>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);\n    cin.tie(nullptr);\n    string a, b;\n    cin >> a >> b;                             // 两个可能极长的整数字符串\n    int i = (int)a.size() - 1, j = (int)b.size() - 1;\n    int carry = 0;\n    string res;\n    while (i >= 0 || j >= 0 || carry) {        // 双指针从低位逐位相加\n        int da = i >= 0 ? a[i] - '0' : 0;      // 短的一侧补 0\n        int db = j >= 0 ? b[j] - '0' : 0;\n        int s = da + db + carry;\n        res.push_back(char('0' + s % 10));     // 当前位（低位在前）\n        carry = s / 10;                        // 进位传给下一位\n        --i; --j;\n    }\n    reverse(res.begin(), res.end());           // 反转成正常顺序\n    cout << res << '\\n';\n    return 0;\n}",
+      "codeJava": "class Solution {\n    // 大数加法：双指针从两串末尾逐位相加 + 进位（模拟竖式），最后反转\n    public String addStrings(String a, String b) {\n        int i = a.length() - 1, j = b.length() - 1;\n        int carry = 0;\n        StringBuilder res = new StringBuilder();\n        while (i >= 0 || j >= 0 || carry != 0) {\n            int da = i >= 0 ? a.charAt(i) - '0' : 0;  // 短的一侧补 0\n            int db = j >= 0 ? b.charAt(j) - '0' : 0;\n            int s = da + db + carry;\n            res.append(s % 10);                       // 当前位（低位在前）\n            carry = s / 10;                           // 进位传给下一位\n            i--; j--;\n        }\n        return res.reverse().toString();              // 反转成正常顺序\n    }\n}",
+      "codeJs": "/**\n * 大数加法：双指针从两串末尾逐位相加 + 进位（模拟竖式），最后反转\n * @param {string} a 非负整数字符串\n * @param {string} b 非负整数字符串\n * @return {string} a + b 的结果\n */\nfunction bigAdd(a, b) {\n  let i = a.length - 1, j = b.length - 1;\n  let carry = 0;\n  const res = [];\n  while (i >= 0 || j >= 0 || carry) {\n    const da = i >= 0 ? a.charCodeAt(i) - 48 : 0; // 短的一侧补 0\n    const db = j >= 0 ? b.charCodeAt(j) - 48 : 0;\n    const s = da + db + carry;\n    res.push(s % 10);                             // 当前位（低位在前）\n    carry = Math.floor(s / 10);                   // 进位传给下一位\n    i--; j--;\n  }\n  return res.reverse().join('');                  // 反转成正常顺序\n}",
+      "codeGo": "// bigAdd 大数加法：双指针从两串末尾逐位相加 + 进位（模拟竖式），最后反转\nfunc bigAdd(a, b string) string {\n\ti, j := len(a)-1, len(b)-1\n\tcarry := 0\n\tres := []byte{}\n\tfor i >= 0 || j >= 0 || carry > 0 {\n\t\tda, db := 0, 0\n\t\tif i >= 0 { // 短的一侧补 0\n\t\t\tda = int(a[i] - '0')\n\t\t}\n\t\tif j >= 0 {\n\t\t\tdb = int(b[j] - '0')\n\t\t}\n\t\ts := da + db + carry\n\t\tres = append(res, byte('0'+s%10)) // 当前位（低位在前）\n\t\tcarry = s / 10                    // 进位传给下一位\n\t\ti--\n\t\tj--\n\t}\n\tfor l, r := 0, len(res)-1; l < r; l, r = l+1, r-1 { // 反转成正常顺序\n\t\tres[l], res[r] = res[r], res[l]\n\t}\n\treturn string(res)\n}"
+    },
+    {
+      "id": 1005,
+      "title": "Valid Parentheses Sequence (ACM)",
+      "titleCn": "ACM 括号匹配（多组输入）",
+      "difficulty": "easy",
+      "frequency": 4,
+      "companies": [
+        "腾讯",
+        "美团",
+        "拼多多",
+        "网易"
+      ],
+      "question": "【ACM 模式】给定 T 组数据，每组一个仅含 ( ) [ ] { } 的字符串，判断括号是否全部匹配。匹配输出 YES，否则输出 NO。\n\n输入描述：第一行 T；接下来 T 行每行一个字符串（长度 ≤ 1e4）。\n输出描述：每组一行 YES / NO。",
+      "samples": [
+        {
+          "input": "3\n()[]{}\n([)]\n{[]}",
+          "output": "YES\nNO\nYES"
+        },
+        {
+          "input": "2\n(\n)",
+          "output": "NO\nNO",
+          "explain": "左括号多余与右括号多余都不匹配"
+        }
+      ],
+      "hints": [
+        "审题诀窍：ACM 多组输入要循环 T 次，别只读一组——这是机考最冤的超时/答案错误来源。",
+        "审题诀窍：右括号出现时栈顶必须是对应左括号；结束后栈必须为空（左括号多余也是 NO）。",
+        "机考诀窍：读行用 input()，但字符串可能为空行时注意 sys.stdin 更稳。"
+      ],
+      "keyPoints": [
+        "左括号入栈；右括号弹栈并检查配对",
+        "三种失败：右括号时栈空 / 栈顶不配对 / 结束后栈非空",
+        "用字典映射右→左括号",
+        "多组输入循环处理"
+      ],
+      "structureTags": [
+        "stack",
+        "single_pass"
+      ],
+      "approaches": [
+        {
+          "name": "栈匹配",
+          "idea": "左括号入栈，右括号弹栈配对。",
+          "detail": "步骤拆解：\n1. 配对表 pair = {')':'(', ']':'[', '}':'{'}。\n2. 遍历字符 c：c 是左括号则入栈；c 是右括号则检查栈非空且栈顶 == pair[c]，是则弹栈，否则直接失败。\n3. 遍历结束后栈空 → YES。\n\n示例走查：\"([)]\"：'(' 入栈，'[' 入栈，')' 来时栈顶 '[' ≠ '(' → NO。✓\n\n为什么正确：合法括号序列的本质是『后开的括号先关』——与栈 LIFO 完全同构。\n\n易错点：\n- 只判『栈顶弹掉』不判最终栈空：\"((\" 会误判 YES。\n- 右括号时栈空会 pop 报错，要先判空。\n- 多组数据之间栈要新建，别复用。",
+          "complexity": "每组时间 O(n)，空间 O(n)",
+          "optimal": true,
+          "code": "def is_valid(s: str) -> bool:\n    pair = {')': '(', ']': '[', '}': '{'}\n    stack = []\n    for c in s:\n        if c in '([{':\n            stack.append(c)             # 左括号入栈\n        else:\n            if not stack or stack[-1] != pair[c]:\n                return False            # 右括号无配对\n            stack.pop()\n    return not stack                    # 左括号多余也判 NO"
+        },
+        {
+          "name": "反复替换消去（暴力基线）",
+          "idea": "不断把成对的 () [] {} 替换为空串，直到无法再替换，看是否变空串。",
+          "detail": "步骤拆解：\n1. while True：把字符串中的 \"()\"、\"[]\"、\"{}\" 全部替换为空。\n2. 若本轮长度不再变化则停止。\n3. 结果为空串 → YES，否则 NO。\n\n示例走查：\"([{}])\" → 消去 \"{}\" → \"([])\" → 消去 \"[]\" → \"()\" → 消去 → \"\" → YES。✓\n\n为什么能当基线：正确性与栈匹配等价（每次消去的是最内层配对），但每轮全串扫描、最多 O(n) 轮。\n\n易错点：\n- 长度不变时要退出循环，否则死循环。\n- 性能 O(n²)，1e4 长度在 Python 下勉强能过，更大必超时——这就是引出栈解的理由。",
+          "complexity": "时间 O(n²)，空间 O(n)",
+          "code": "def is_valid_brute(s: str) -> bool:\n    prev = None\n    while prev != s:\n        prev = s\n        for pair in (\"()\", \"[]\", \"{}\"):\n            s = s.replace(pair, \"\")   # 消去最内层配对\n    return s == \"\""
+        }
+      ],
+      "code": "def is_valid(s: str) -> bool:\n    pair = {')': '(', ']': '[', '}': '{'}\n    stack = []\n    for c in s:\n        if c in '([{':\n            stack.append(c)\n        else:\n            if not stack or stack[-1] != pair[c]:\n                return False\n            stack.pop()\n    return not stack",
+      "acmCode": "# ACM 模式完整程序\n# 输入：第一行 T；接下来 T 行每行一个括号串\n# 输出：每组一行 YES / NO\nimport sys\n\ndef is_valid(s: str) -> bool:\n    pair = {')': '(', ']': '[', '}': '{'}\n    stack = []\n    for c in s:\n        if c in '([{':\n            stack.append(c)\n        else:\n            if not stack or stack[-1] != pair[c]:\n                return False\n            stack.pop()\n    return not stack\n\ndef main():\n    data = sys.stdin.read().split()\n    t = int(data[0])\n    out = []\n    for i in range(1, t + 1):\n        out.append('YES' if is_valid(data[i]) else 'NO')\n    print('\\n'.join(out))\n\nif __name__ == '__main__':\n    main()",
+      "templates": [
+        "机考多组输入模板：先读 T，for _ in range(T) 循环处理，结果攒到列表最后 '\\n'.join 一次性输出"
+      ],
+      "codeCpp": "// 栈匹配括号：左括号入栈，右括号弹栈配对；栈空才返回 true（左括号多余也判失败）\nclass Solution {\npublic:\n    bool isValid(string s) {\n        unordered_map<char, char> pair{{')', '('}, {']', '['}, {'}', '{'}};\n        stack<char> st;\n        for (char c : s) {\n            if (c == '(' || c == '[' || c == '{') {\n                st.push(c);                    // 左括号入栈\n            } else {\n                if (st.empty() || st.top() != pair[c])\n                    return false;              // 右括号时栈空或栈顶不配对\n                st.pop();\n            }\n        }\n        return st.empty();                     // 结束后栈非空说明左括号多余\n    }\n};",
+      "acmCodeCpp": "// ACM 模式：完整可运行程序（stdin -> stdout）\n// 输入格式：\n//   第一行：T（数据组数）\n//   接下来 T 行：每行一个只含 () [] {} 的字符串\n// 输出格式：每组一行 YES（匹配）或 NO（不匹配）\n#include <iostream>\n#include <stack>\n#include <string>\n#include <unordered_map>\nusing namespace std;\n\nbool is_valid(const string& s) {\n    unordered_map<char, char> pair{{')', '('}, {']', '['}, {'}', '{'}};\n    stack<char> st;\n    for (char c : s) {\n        if (c == '(' || c == '[' || c == '{') {\n            st.push(c);                        // 左括号入栈\n        } else {\n            if (st.empty() || st.top() != pair[c])\n                return false;                  // 右括号无配对或栈顶不匹配\n            st.pop();\n        }\n    }\n    return st.empty();                         // 左括号多余也判 NO\n}\n\nint main() {\n    ios::sync_with_stdio(false);\n    cin.tie(nullptr);\n    int T;\n    cin >> T;\n    while (T--) {\n        string s;\n        cin >> s;\n        cout << (is_valid(s) ? \"YES\" : \"NO\") << '\\n';\n    }\n    return 0;\n}",
+      "codeJava": "class Solution {\n    // 栈匹配括号：左括号入栈，右括号弹栈配对\n    public boolean isValid(String s) {\n        Map<Character, Character> pair = Map.of(')', '(', ']', '[', '}', '{');\n        Deque<Character> stack = new ArrayDeque<>();\n        for (char c : s.toCharArray()) {\n            if (c == '(' || c == '[' || c == '{') {\n                stack.push(c);                 // 左括号入栈\n            } else {\n                if (stack.isEmpty() || stack.peek() != pair.get(c))\n                    return false;              // 右括号无配对或栈顶不匹配\n                stack.pop();\n            }\n        }\n        return stack.isEmpty();                // 左括号多余也判失败\n    }\n}",
+      "codeJs": "/**\n * 栈匹配括号：左括号入栈，右括号弹栈配对；栈空才返回 true\n * @param {string} s 只含 () [] {} 的字符串\n * @return {boolean} 是否全部匹配\n */\nfunction isValid(s) {\n  const pair = { ')': '(', ']': '[', '}': '{' }; // 右括号 -> 对应左括号\n  const stack = [];\n  for (const c of s) {\n    if (c === '(' || c === '[' || c === '{') {\n      stack.push(c);                            // 左括号入栈\n    } else {\n      if (!stack.length || stack[stack.length - 1] !== pair[c]) {\n        return false;                           // 右括号无配对或栈顶不匹配\n      }\n      stack.pop();\n    }\n  }\n  return stack.length === 0;                    // 左括号多余也判失败\n}",
+      "codeGo": "// isValid 栈匹配括号：左括号入栈，右括号弹栈配对；栈空才返回 true\nfunc isValid(s string) bool {\n\tpair := map[byte]byte{')': '(', ']': '[', '}': '{'} // 右括号 -> 对应左括号\n\tvar stack []byte\n\tfor i := 0; i < len(s); i++ {\n\t\tc := s[i]\n\t\tif c == '(' || c == '[' || c == '{' {\n\t\t\tstack = append(stack, c) // 左括号入栈\n\t\t} else {\n\t\t\tif len(stack) == 0 || stack[len(stack)-1] != pair[c] {\n\t\t\t\treturn false // 右括号无配对或栈顶不匹配\n\t\t\t}\n\t\t\tstack = stack[:len(stack)-1]\n\t\t}\n\t}\n\treturn len(stack) == 0 // 左括号多余也判失败\n}"
+    },
+    {
+      "id": 1006,
+      "title": "Binary Search (ACM)",
+      "titleCn": "ACM 二分查找",
+      "difficulty": "easy",
+      "frequency": 5,
+      "companies": [
+        "字节跳动",
+        "华为",
+        "Momenta"
+      ],
+      "question": "【ACM 模式】给定升序数组（可能有重复），n 次查询：每次给一个数 x，输出它在数组中第一次出现的下标（0 起）；不存在输出 -1。\n\n输入描述：第一行 n, q（数组长度与查询数）；第二行 n 个升序整数；接下来 q 行每行一个整数 x。\n输出描述：每个查询输出一行。",
+      "samples": [
+        {
+          "input": "6 3\n1 2 2 2 5 7\n2\n3\n7",
+          "output": "1\n-1\n5"
+        },
+        {
+          "input": "1 2\n9\n9\n8",
+          "output": "0\n-1"
+        }
+      ],
+      "hints": [
+        "审题诀窍：要求『第一次出现』= 左边界二分（lower_bound），不是随便找到一个。",
+        "审题诀窍：while left < right 收敛到边界，比 while left<=right 的三段式更不易错。",
+        "追问预备：查『最后一个 ≤x 的位置』= 右边界；q 很大时一次性 batch 处理；浮点二分控制迭代 100 次。"
+      ],
+      "keyPoints": [
+        "lower_bound：找第一个 >= x 的位置",
+        "while left < right，mid = (left+right)//2，nums[mid] < x 则 left = mid+1 否则 right = mid",
+        "结束后检查 nums[left] == x，否则 -1",
+        "q 次查询每次 O(log n)"
+      ],
+      "structureTags": [
+        "binary_search",
+        "single_pass"
+      ],
+      "approaches": [
+        {
+          "name": "左边界二分（lower_bound）",
+          "idea": "收缩 [left, right) 到第一个 >= x 的位置。",
+          "detail": "步骤拆解：\n1. 区间不变式：[0, left) 全部 < x，[right, n) 全部 >= x。\n2. mid=(left+right)//2：nums[mid] < x → left = mid+1（mid 不可能是答案）；否则 right = mid（mid 可能是答案，不能丢）。\n3. left==right 收敛到第一个 >=x 的位置 p。\n4. p<n 且 nums[p]==x → 输出 p，否则 -1。\n\n示例走查：[1,2,2,2,5,7] 查 2：mid=2 → nums[2]=2>=2 right=2；mid=1 → nums[1]=2>=2 right=1；mid=0 → 1<2 left=1；left==right==1，nums[1]==2 → 输出 1。✓\n\n为什么不易错：区间不变式清晰，mid 永远不丢答案；对比『left<=right + 三分支 + 最后 return left』的传统写法，边界脑内负担小得多。\n\n易错点：\n- mid 用 (left+right)//2，right 是开区间所以不会溢出问题在 Python 不存在，但要写对。\n- 判相等要在收敛后做，二分过程中 nums[left] 未定。\n- 输出要求 0 起下标，题目若要求 1 起要 +1（审题！）。",
+          "complexity": "预处理 O(1)，每查询 O(log n)",
+          "optimal": true,
+          "code": "def lower_bound(nums, x):\n    left, right = 0, len(nums)      # [0,left)<x, [right,n)>=x\n    while left < right:\n        mid = (left + right) // 2\n        if nums[mid] < x:\n            left = mid + 1          # mid 不可能是答案\n        else:\n            right = mid             # mid 可能是答案，保留\n    return left                     # 第一个 >=x 的位置\n\ndef find_first(nums, x):\n    p = lower_bound(nums, x)\n    return p if p < len(nums) and nums[p] == x else -1"
+        },
+        {
+          "name": "递归二分（教学基线）",
+          "idea": "与迭代版逻辑一致，用递归实现缩小区间。",
+          "detail": "步骤拆解：\n1. dfs(left, right, x)：区间空返回 -1。\n2. mid = (left+right)//2：nums[mid]==x 直接返回（配合向左继续找第一次出现）。\n3. nums[mid] < x 递归右半，否则递归左半。\n\n示例走查：[1,2,2,2,5,7] 查 2：mid=2 命中但不是第一次出现 → 需向左递归 [0,2) 再查……递归写法天然要处理『命中后继续左找』，容易写错——这正是推荐迭代 lower_bound 的原因。\n\n易错点：\n- 命中 x 不等于答案，要继续向左找第一次出现。\n- Python 递归深度 O(log n) 无爆栈风险，但机考更推荐迭代。",
+          "complexity": "时间 O(log n)，空间 O(log n) 递归栈",
+          "code": "def find_first_recursive(nums, x, lo=0, hi=None):\n    if hi is None:\n        hi = len(nums) - 1\n    if lo > hi:\n        return -1\n    mid = (lo + hi) // 2\n    if nums[mid] == x:\n        # 命中也可能不是第一次出现，向左再找更小的下标\n        left_ans = find_first_recursive(nums, x, lo, mid - 1)\n        return left_ans if left_ans != -1 else mid\n    if nums[mid] < x:\n        return find_first_recursive(nums, x, mid + 1, hi)\n    return find_first_recursive(nums, x, lo, mid - 1)"
+        }
+      ],
+      "code": "def lower_bound(nums, x):\n    left, right = 0, len(nums)\n    while left < right:\n        mid = (left + right) // 2\n        if nums[mid] < x:\n            left = mid + 1\n        else:\n            right = mid\n    return left\n\ndef find_first(nums, x):\n    p = lower_bound(nums, x)\n    return p if p < len(nums) and nums[p] == x else -1",
+      "acmCode": "# ACM 模式完整程序\n# 输入：第一行 n q；第二行 n 个升序整数；接下来 q 行每行一个查询 x\n# 输出：每个查询输出 x 首次出现下标（0 起），不存在输出 -1\nimport sys\n\ndef lower_bound(nums, x):\n    left, right = 0, len(nums)\n    while left < right:\n        mid = (left + right) // 2\n        if nums[mid] < x:\n            left = mid + 1\n        else:\n            right = mid\n    return left\n\ndef main():\n    data = sys.stdin.read().split()\n    n, q = int(data[0]), int(data[1])\n    nums = [int(x) for x in data[2:2 + n]]\n    out = []\n    idx = 2 + n\n    for _ in range(q):\n        x = int(data[idx]); idx += 1\n        p = lower_bound(nums, x)\n        out.append(str(p if p < n and nums[p] == x else -1))\n    print('\\n'.join(out))\n\nif __name__ == '__main__':\n    main()",
+      "templates": [
+        "lower_bound 通用模板（记熟可直接默写）：left,right=0,n; while left<right: mid; nums[mid]<x? left=mid+1 : right=mid"
+      ],
+      "codeCpp": "// lower_bound：返回第一个 >= x 的下标；区间不变式 [0,left)<x、[right,n)>=x 收敛\nint lower_bound_idx(const vector<int>& nums, int x) {\n    int left = 0, right = (int)nums.size();\n    while (left < right) {\n        int mid = left + (right - left) / 2;\n        if (nums[mid] < x)\n            left = mid + 1;                     // mid 不可能是答案\n        else\n            right = mid;                        // mid 可能是答案，保留\n    }\n    return left;                                // 第一个 >= x 的位置\n}\n\n// 找 x 首次出现的下标（0 起），不存在返回 -1\nint find_first(const vector<int>& nums, int x) {\n    int p = lower_bound_idx(nums, x);\n    return (p < (int)nums.size() && nums[p] == x) ? p : -1;\n}",
+      "acmCodeCpp": "// ACM 模式：完整可运行程序（stdin -> stdout）\n// 输入格式：\n//   第一行：n q（数组长度、查询次数）\n//   第二行：n 个升序整数（可能有重复）\n//   接下来 q 行：每行一个查询 x\n// 输出格式：每个查询输出一行 x 首次出现的下标（0 起），不存在输出 -1\n#include <iostream>\n#include <vector>\nusing namespace std;\n\n// 左边界二分：返回第一个 >= x 的下标\nint lower_bound_idx(const vector<int>& nums, int x) {\n    int left = 0, right = (int)nums.size();\n    while (left < right) {\n        int mid = left + (right - left) / 2;\n        if (nums[mid] < x) left = mid + 1;     // mid 不可能是答案\n        else right = mid;                      // mid 可能是答案，保留\n    }\n    return left;                               // 第一个 >= x 的位置\n}\n\nint main() {\n    ios::sync_with_stdio(false);\n    cin.tie(nullptr);\n    int n, q;\n    cin >> n >> q;\n    vector<int> nums(n);\n    for (int i = 0; i < n; ++i) cin >> nums[i];\n    while (q--) {\n        int x;\n        cin >> x;\n        int p = lower_bound_idx(nums, x);\n        cout << (p < n && nums[p] == x ? p : -1) << '\\n';\n    }\n    return 0;\n}",
+      "codeJava": "class Solution {\n    // 左边界二分：返回第一个 >= x 的下标\n    private int lowerBound(int[] nums, int x) {\n        int left = 0, right = nums.length;\n        while (left < right) {\n            int mid = left + (right - left) / 2;\n            if (nums[mid] < x) left = mid + 1;   // mid 不可能是答案\n            else right = mid;                    // mid 可能是答案，保留\n        }\n        return left;                             // 第一个 >= x 的位置\n    }\n\n    // 找 x 首次出现的下标（0 起），不存在返回 -1\n    public int findFirst(int[] nums, int x) {\n        int p = lowerBound(nums, x);\n        return p < nums.length && nums[p] == x ? p : -1;\n    }\n}",
+      "codeJs": "/**\n * 左边界二分：返回第一个 >= x 的下标\n * 区间不变式：[0, left) 全部 < x，[right, n) 全部 >= x\n * @param {number[]} nums 升序数组\n * @param {number} x\n * @return {number} 第一个 >= x 的下标\n */\nfunction lowerBound(nums, x) {\n  let left = 0, right = nums.length;\n  while (left < right) {\n    const mid = (left + right) >> 1;\n    if (nums[mid] < x) left = mid + 1; // mid 不可能是答案\n    else right = mid;                  // mid 可能是答案，保留\n  }\n  return left;                         // 第一个 >= x 的位置\n}\n\n/** 找 x 首次出现的下标（0 起），不存在返回 -1\n * @param {number[]} nums\n * @param {number} x\n * @return {number}\n */\nfunction findFirst(nums, x) {\n  const p = lowerBound(nums, x);\n  return p < nums.length && nums[p] === x ? p : -1;\n}",
+      "codeGo": "// lowerBound 左边界二分：返回第一个 >= x 的下标\n// 区间不变式：[0, left) 全部 < x，[right, n) 全部 >= x\nfunc lowerBound(nums []int, x int) int {\n\tleft, right := 0, len(nums)\n\tfor left < right {\n\t\tmid := left + (right-left)/2\n\t\tif nums[mid] < x {\n\t\t\tleft = mid + 1 // mid 不可能是答案\n\t\t} else {\n\t\t\tright = mid // mid 可能是答案，保留\n\t\t}\n\t}\n\treturn left // 第一个 >= x 的位置\n}\n\n// findFirst 找 x 首次出现的下标（0 起），不存在返回 -1\nfunc findFirst(nums []int, x int) int {\n\tp := lowerBound(nums, x)\n\tif p < len(nums) && nums[p] == x {\n\t\treturn p\n\t}\n\treturn -1\n}"
+    },
+    {
+      "id": 1007,
+      "title": "Shortest Path in Grid (BFS)",
+      "titleCn": "ACM 网格最短路（BFS）",
+      "difficulty": "medium",
+      "frequency": 4,
+      "companies": [
+        "字节跳动",
+        "美团",
+        "Momenta"
+      ],
+      "question": "【ACM 模式】给定 n×m 网格（0 可走，1 是墙），从左上角 (0,0) 走到右下角 (n-1,m-1)，每步上下左右移动一格，输出最少步数；走不到输出 -1。起点即终点时步数为 0。\n\n输入描述：第一行 n m；接下来 n 行每行 m 个 0/1。\n输出描述：一行，最少步数或 -1。",
+      "samples": [
+        {
+          "input": "3 3\n0 0 0\n0 1 0\n0 0 0",
+          "output": "4"
+        },
+        {
+          "input": "1 2\n0 1",
+          "output": "-1"
+        }
+      ],
+      "hints": [
+        "审题诀窍：无权图最短路 = BFS（层数即距离）；有权图才是 Dijkstra。审出『每步代价相同』是选 BFS 的依据。",
+        "审题诀窍：访问标记要在入队时打（不是出队时），否则同一格重复入队爆炸。",
+        "追问预备：要输出路径 → 记录 parent 回溯；多源最短路 → 超级源点把所有起点先入队（LC994 腐烂橘子）。"
+      ],
+      "keyPoints": [
+        "BFS 队列 + 层数即步数",
+        "visited 入队时标记",
+        "方向数组 dirs 四方向",
+        "到达 (n-1,m-1) 即返回当前层数"
+      ],
+      "structureTags": [
+        "bfs",
+        "queue",
+        "matrix"
+      ],
+      "approaches": [
+        {
+          "name": "BFS 逐层扩展",
+          "idea": "队列存 (x, y, dist)，第一次到达终点时的 dist 即最短。",
+          "detail": "步骤拆解：\n1. 特判起点或终点是墙、网格为空 → -1。\n2. 队列初始 (0,0,0)，visited[0][0]=True。\n3. 出队 (x,y,d)：若 (x,y)==(n-1,m-1) 返回 d。\n4. 四方向扩展：新格在界内、非墙、未访问 → 标记并入队 (nx,ny,d+1)。\n5. 队空未达 → -1。\n\n示例走查：3×3 样例：BFS 层 0：(0,0)；层 1：(1,0),(0,1)；层 2：(2,0),(2,1)? 不,(2,0),(0,2)…最终 (2,2) 在层 4 被到达 → 4。✓\n\n为什么正确：BFS 按距离递增的顺序访问节点，第一次访问某格时的距离必然最短（无权图）。\n\n易错点：\n- visited 在出队时才标记 → 同格多次入队，复杂度爆炸（机考 TLE 元凶）。\n- n=m=1 且 g[0][0]==0 要输出 0，特判或让循环自然处理。\n- 方向数组写成四份 if 容易漏，用 dirs = ((1,0),(-1,0),(0,1),(0,-1)) 循环。",
+          "complexity": "时间 O(nm)，空间 O(nm)",
+          "optimal": true,
+          "code": "from collections import deque\n\ndef shortest_path(g):\n    n, m = len(g), len(g[0])\n    if g[0][0] == 1 or g[n - 1][m - 1] == 1:\n        return -1\n    q = deque([(0, 0, 0)])            # x, y, dist\n    visited = [[False] * m for _ in range(n)]\n    visited[0][0] = True\n    dirs = ((1, 0), (-1, 0), (0, 1), (0, -1))\n    while q:\n        x, y, d = q.popleft()\n        if (x, y) == (n - 1, m - 1):\n            return d\n        for dx, dy in dirs:\n            nx, ny = x + dx, y + dy\n            if 0 <= nx < n and 0 <= ny < m and g[nx][ny] == 0 \\\n                    and not visited[nx][ny]:\n                visited[nx][ny] = True    # 入队时标记！\n                q.append((nx, ny, d + 1))\n    return -1"
+        },
+        {
+          "name": "双向 BFS（两端同时扩展）",
+          "idea": "从起点和终点同时扩展，相遇即得距离，搜索空间约减半。",
+          "detail": "步骤拆解：\n1. 两个队列 q0（含起点，dist 0）、q1（含终点，dist 0）；两个 visited。\n2. 每次扩展较小的队列一层。\n3. 某侧新扩展的格子出现在另一侧 visited 中 → 两侧距离相加返回。\n\n为什么快：无权图 BFS 的搜索空间是半径的指数级；两端各走一半，d/2 的空间远小于 d。终点固定且明确时（如网格右下角）收益最大。\n\n易错点：\n- 相遇判定在『新节点生成时』做，不是出队时。\n- 终点是墙或起点是墙要先特判。\n- 距离合并别忘了 +1（两侧相遇边被计了两次的坑）。",
+          "complexity": "时间 O(b^(d/2))，空间同量级（b 为分支因子）",
+          "code": "from collections import deque\n\ndef shortest_path_bidirectional(g):\n    n, m = len(g), len(g[0])\n    if g[0][0] == 1 or g[n-1][m-1] == 1:\n        return -1\n    if (n, m) == (1, 1):\n        return 0\n    dirs = ((1, 0), (-1, 0), (0, 1), (0, -1))\n    q = [deque([(0, 0)]), deque([(n - 1, m - 1)])]\n    vis = [{(0, 0)}, {(n - 1, m - 1)}]\n    dist = [{(0, 0): 0}, {(n - 1, m - 1): 0}]\n    side = 0\n    while q[0] and q[1]:\n        if len(q[side]) > len(q[1 - side]):\n            side = 1 - side                 # 扩展较小的一侧\n        for _ in range(len(q[side])):\n            x, y = q[side].popleft()\n            for dx, dy in dirs:\n                nx, ny = x + dx, y + dy\n                if 0 <= nx < n and 0 <= ny < m and g[nx][ny] == 0 \\\n                        and (nx, ny) not in vis[side]:\n                    if (nx, ny) in vis[1 - side]:   # 两侧相遇\n                        return dist[side][(x, y)] + 1 + dist[1 - side][(nx, ny)]\n                    vis[side].add((nx, ny))\n                    dist[side][(nx, ny)] = dist[side][(x, y)] + 1\n                    q[side].append((nx, ny))\n    return -1"
+        }
+      ],
+      "code": "from collections import deque\n\ndef shortest_path(g):\n    n, m = len(g), len(g[0])\n    if g[0][0] == 1 or g[n - 1][m - 1] == 1:\n        return -1\n    q = deque([(0, 0, 0)])\n    visited = [[False] * m for _ in range(n)]\n    visited[0][0] = True\n    dirs = ((1, 0), (-1, 0), (0, 1), (0, -1))\n    while q:\n        x, y, d = q.popleft()\n        if (x, y) == (n - 1, m - 1):\n            return d\n        for dx, dy in dirs:\n            nx, ny = x + dx, y + dy\n            if 0 <= nx < n and 0 <= ny < m and g[nx][ny] == 0 \\\n                    and not visited[nx][ny]:\n                visited[nx][ny] = True\n                q.append((nx, ny, d + 1))\n    return -1",
+      "acmCode": "# ACM 模式完整程序\n# 输入：第一行 n m；接下来 n 行每行 m 个 0/1\n# 输出：一行，最少步数或 -1\nimport sys\nfrom collections import deque\n\ndef shortest_path(g):\n    n, m = len(g), len(g[0])\n    if g[0][0] == 1 or g[n - 1][m - 1] == 1:\n        return -1\n    q = deque([(0, 0, 0)])\n    visited = [[False] * m for _ in range(n)]\n    visited[0][0] = True\n    dirs = ((1, 0), (-1, 0), (0, 1), (0, -1))\n    while q:\n        x, y, d = q.popleft()\n        if (x, y) == (n - 1, m - 1):\n            return d\n        for dx, dy in dirs:\n            nx, ny = x + dx, y + dy\n            if 0 <= nx < n and 0 <= ny < m and g[nx][ny] == 0 \\\n                    and not visited[nx][ny]:\n                visited[nx][ny] = True\n                q.append((nx, ny, d + 1))\n    return -1\n\ndef main():\n    data = sys.stdin.read().split()\n    n, m = int(data[0]), int(data[1])\n    vals = list(map(int, data[2:2 + n * m]))\n    g = [vals[i * m:(i + 1) * m] for i in range(n)]\n    print(shortest_path(g))\n\nif __name__ == '__main__':\n    main()",
+      "templates": [
+        "ACM 网格读入模板：扁平读入后切片 g = [vals[i*m:(i+1)*m] for i in range(n)]",
+        "无权最短路 = BFS；visited 入队时打标；方向数组 + 界内判定的四件套"
+      ],
+      "codeCpp": "// 无权网格最短路：BFS 层数即步数；visited 在入队时标记，防止重复入队\nint shortest_path(const vector<vector<int>>& g) {\n    int n = (int)g.size(), m = (int)g[0].size();\n    if (g[0][0] == 1 || g[n - 1][m - 1] == 1) return -1;   // 起/终点是墙\n    vector<vector<bool>> visited(n, vector<bool>(m, false));\n    queue<tuple<int, int, int>> q;                         // (x, y, dist)\n    q.push({0, 0, 0});\n    visited[0][0] = true;\n    int dirs[4][2] = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}};   // 四方向\n    while (!q.empty()) {\n        auto [x, y, d] = q.front();\n        q.pop();\n        if (x == n - 1 && y == m - 1) return d;            // 首次到终点即最短\n        for (auto& dr : dirs) {\n            int nx = x + dr[0], ny = y + dr[1];\n            if (0 <= nx && nx < n && 0 <= ny && ny < m &&\n                g[nx][ny] == 0 && !visited[nx][ny]) {\n                visited[nx][ny] = true;                    // 入队时标记！\n                q.push({nx, ny, d + 1});\n            }\n        }\n    }\n    return -1;                                             // 队空未达终点\n}",
+      "acmCodeCpp": "// ACM 模式：完整可运行程序（stdin -> stdout）\n// 输入格式：\n//   第一行：n m（行数、列数）\n//   接下来 n 行：每行 m 个 0/1（0 可走，1 是墙）\n// 输出格式：一行，从 (0,0) 到 (n-1,m-1) 的最少步数；走不到输出 -1\n#include <iostream>\n#include <queue>\n#include <tuple>\n#include <vector>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);\n    cin.tie(nullptr);\n    int n, m;\n    cin >> n >> m;\n    vector<vector<int>> g(n, vector<int>(m));\n    for (int i = 0; i < n; ++i)\n        for (int j = 0; j < m; ++j)\n            cin >> g[i][j];                       // 读入网格 0/1\n    if (g[0][0] == 1 || g[n - 1][m - 1] == 1) {   // 起/终点是墙直接 -1\n        cout << -1 << '\\n';\n        return 0;\n    }\n    vector<vector<bool>> visited(n, vector<bool>(m, false));\n    queue<tuple<int, int, int>> q;                // (x, y, dist)\n    q.push({0, 0, 0});\n    visited[0][0] = true;\n    int dirs[4][2] = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}};   // 四方向\n    while (!q.empty()) {\n        auto [x, y, d] = q.front();\n        q.pop();\n        if (x == n - 1 && y == m - 1) {           // 首次到终点即最短\n            cout << d << '\\n';\n            return 0;\n        }\n        for (auto& dr : dirs) {\n            int nx = x + dr[0], ny = y + dr[1];\n            if (0 <= nx && nx < n && 0 <= ny && ny < m &&\n                g[nx][ny] == 0 && !visited[nx][ny]) {\n                visited[nx][ny] = true;           // 入队时标记，防止重复入队\n                q.push({nx, ny, d + 1});\n            }\n        }\n    }\n    cout << -1 << '\\n';                          // 队空未达终点\n    return 0;\n}",
+      "codeJava": "class Solution {\n    // 无权网格最短路：BFS 层数即步数；visited 入队时标记防止重复入队\n    public int shortestPath(int[][] g) {\n        int n = g.length, m = g[0].length;\n        if (g[0][0] == 1 || g[n - 1][m - 1] == 1) return -1;  // 起/终点是墙\n        boolean[][] visited = new boolean[n][m];\n        Deque<int[]> q = new ArrayDeque<>();      // 元素 {x, y, dist}\n        q.offer(new int[]{0, 0, 0});\n        visited[0][0] = true;\n        int[][] dirs = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}};    // 四方向\n        while (!q.isEmpty()) {\n            int[] cur = q.poll();\n            int x = cur[0], y = cur[1], d = cur[2];\n            if (x == n - 1 && y == m - 1) return d;           // 首次到终点即最短\n            for (int[] dr : dirs) {\n                int nx = x + dr[0], ny = y + dr[1];\n                if (0 <= nx && nx < n && 0 <= ny && ny < m &&\n                    g[nx][ny] == 0 && !visited[nx][ny]) {\n                    visited[nx][ny] = true;                   // 入队时标记！\n                    q.offer(new int[]{nx, ny, d + 1});\n                }\n            }\n        }\n        return -1;                                           // 走不到终点\n    }\n}",
+      "codeJs": "/**\n * 无权网格最短路：BFS 层数即步数；visited 在入队时标记防止重复入队\n * @param {number[][]} g n×m 网格，0 可走，1 是墙\n * @return {number} 从 (0,0) 到 (n-1,m-1) 的最少步数，走不到返回 -1\n */\nfunction shortestPath(g) {\n  const n = g.length, m = g[0].length;\n  if (g[0][0] === 1 || g[n - 1][m - 1] === 1) return -1; // 起/终点是墙\n  const visited = Array.from({ length: n }, () => Array(m).fill(false));\n  const q = [[0, 0, 0]];                                 // [x, y, dist]\n  visited[0][0] = true;\n  const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]];       // 四方向\n  while (q.length) {\n    const [x, y, d] = q.shift();\n    if (x === n - 1 && y === m - 1) return d;            // 首次到终点即最短\n    for (const [dx, dy] of dirs) {\n      const nx = x + dx, ny = y + dy;\n      if (nx >= 0 && nx < n && ny >= 0 && ny < m &&\n          g[nx][ny] === 0 && !visited[nx][ny]) {\n        visited[nx][ny] = true;                          // 入队时标记！\n        q.push([nx, ny, d + 1]);\n      }\n    }\n  }\n  return -1;                                             // 走不到终点\n}",
+      "codeGo": "// shortestPath 无权网格最短路：BFS 层数即步数；visited 入队时标记防止重复入队\nfunc shortestPath(g [][]int) int {\n\tn, m := len(g), len(g[0])\n\tif g[0][0] == 1 || g[n-1][m-1] == 1 {\n\t\treturn -1 // 起/终点是墙\n\t}\n\tvisited := make([][]bool, n)\n\tfor i := range visited {\n\t\tvisited[i] = make([]bool, m)\n\t}\n\ttype cell struct{ x, y, d int }\n\tq := []cell{{0, 0, 0}} // 队列元素 [x, y, dist]\n\tvisited[0][0] = true\n\tdirs := [][2]int{{1, 0}, {-1, 0}, {0, 1}, {0, -1}} // 四方向\n\tfor len(q) > 0 {\n\t\tc := q[0]\n\t\tq = q[1:]\n\t\tif c.x == n-1 && c.y == m-1 {\n\t\t\treturn c.d // 首次到终点即最短\n\t\t}\n\t\tfor _, dr := range dirs {\n\t\t\tnx, ny := c.x+dr[0], c.y+dr[1]\n\t\t\tif 0 <= nx && nx < n && 0 <= ny && ny < m &&\n\t\t\t\tg[nx][ny] == 0 && !visited[nx][ny] {\n\t\t\t\tvisited[nx][ny] = true // 入队时标记！\n\t\t\t\tq = append(q, cell{nx, ny, c.d + 1})\n\t\t\t}\n\t\t}\n\t}\n\treturn -1 // 走不到终点\n}"
+    },
+    {
+      "id": 1008,
+      "title": "Union Find (Connected Components)",
+      "titleCn": "ACM 并查集（连通块计数）",
+      "difficulty": "medium",
+      "frequency": 4,
+      "companies": [
+        "字节跳动",
+        "华为",
+        "美团"
+      ],
+      "question": "【ACM 模式】n 个节点（编号 1..n），m 次合并操作：每次给 a b 表示 a、b 所在集合合并。输出最后连通块（集合）个数。\n\n输入描述：第一行 n m；接下来 m 行每行两个整数 a b。\n输出描述：一行，连通块个数。",
+      "samples": [
+        {
+          "input": "5 3\n1 2\n2 3\n4 5",
+          "output": "2"
+        },
+        {
+          "input": "4 2\n1 2\n2 1",
+          "output": "3",
+          "explain": "重复合并不影响结果"
+        }
+      ],
+      "hints": [
+        "审题诀窍：『动态连通性 / 合并集合 / 判断是否同源』的关键词一出现就上并查集。",
+        "审题诀窍：初始每个节点自成一块，块数 = n，每次成功合并块数 -1。",
+        "追问预备：路径压缩 + 按秩合并后单次操作近似 O(α(n))；问『能不能撤销』→ 可撤销并查集（不压缩版本）。"
+      ],
+      "keyPoints": [
+        "fa[i] 数组，初始指向自己",
+        "find 沿父链找根 + 路径压缩",
+        "union 两根不同才合并，块数 -1",
+        "路径压缩让树几乎扁平"
+      ],
+      "structureTags": [
+        "recursion",
+        "single_pass"
+      ],
+      "approaches": [
+        {
+          "name": "并查集（路径压缩）",
+          "idea": "find 找根时顺手把沿途节点直接挂到根上。",
+          "detail": "步骤拆解：\n1. fa = list(range(n+1))，cnt = n。\n2. find(x)：fa[x]==x 返回 x；否则 fa[x]=find(fa[x])（递归压缩）后返回。\n3. union(a,b)：ra, rb = find(a), find(b)；ra != rb 时 fa[ra] = rb，cnt -= 1。\n4. 输出 cnt。\n\n示例走查：1-2 合并：find(1)=1, find(2)=2 → fa[1]=2, cnt=4；2-3 合并：find(2)=2, find(3)=3 → fa[2]=3, cnt=3；4-5 合并 cnt=2。✓\n\n为什么正确：同一集合的节点 find 必然汇到同一根；根不同即不同集合。\n\n易错点：\n- union 判『根不同』而不是『元素不同』，否则重复边会把 cnt 减错。\n- 节点从 1 开始时数组开 n+1。\n- 递归 find 在 1e6 数据上可能爆栈 → 迭代写法（两趟：先找根，再沿途重挂）。",
+          "complexity": "单次操作近似 O(α(n))，总体 O(n + m)",
+          "optimal": true,
+          "code": "def make_dsu(n):\n    fa = list(range(n + 1))          # 节点 1..n\n    return fa\n\ndef find(fa, x):\n    root = x\n    while fa[root] != root:          # 第一趟找根\n        root = fa[root]\n    while fa[x] != root:             # 第二趟路径压缩\n        fa[x], x = root, fa[x]\n    return root\n\ndef union(fa, cnt, a, b):\n    ra, rb = find(fa, a), find(fa, b)\n    if ra != rb:                     # 根不同才算新合并\n        fa[ra] = rb\n        cnt[0] -= 1"
+        },
+        {
+          "name": "DFS/BFS 建图数连通块（离线基线）",
+          "idea": "把所有合并边建成无向图，对每个未访问节点 DFS 一次，DFS 次数即连通块数。",
+          "detail": "步骤拆解：\n1. 邻接表存 m 条边（双向）。\n2. visited 数组，遍历 1..n：未访问则从它 DFS 标记整个连通块，计数 +1。\n3. 计数即答案。\n\n示例走查：边 1-2, 2-3, 4-5：从 1 DFS 标记 {1,2,3}；从 4 DFS 标记 {4,5}；从 5（已访问）跳过……共 2 块。✓\n\n适用边界：本题不需要中间查询，离线一次建图 DFS 完全够；但若操作流中要『随时查询两点是否连通』，必须并查集在线维护。\n\n易错点：\n- 边是双向，邻接表要 append 两次。\n- 递归 DFS 在链状图上深度 O(n)，1e5 数据要改迭代或 setrecursionlimit。",
+          "complexity": "时间 O(n + m)，空间 O(n + m)",
+          "code": "import sys\n\ndef count_components(n, edges):\n    adj = [[] for _ in range(n + 1)]\n    for a, b in edges:\n        adj[a].append(b)                # 无向边存两遍\n        adj[b].append(a)\n    visited = [False] * (n + 1)\n    cnt = 0\n    for s in range(1, n + 1):\n        if visited[s]:\n            continue\n        cnt += 1                        # 新连通块\n        stack = [s]                     # 迭代 DFS 防爆栈\n        visited[s] = True\n        while stack:\n            u = stack.pop()\n            for v in adj[u]:\n                if not visited[v]:\n                    visited[v] = True\n                    stack.append(v)\n    return cnt"
+        }
+      ],
+      "code": "def make_dsu(n):\n    return list(range(n + 1))\n\ndef find(fa, x):\n    root = x\n    while fa[root] != root:\n        root = fa[root]\n    while fa[x] != root:\n        fa[x], x = root, fa[x]\n    return root\n\ndef union(fa, cnt, a, b):\n    ra, rb = find(fa, a), find(fa, b)\n    if ra != rb:\n        fa[ra] = rb\n        cnt[0] -= 1",
+      "acmCode": "# ACM 模式完整程序\n# 输入：第一行 n m；接下来 m 行每行 a b 表示合并\n# 输出：一行，连通块个数\nimport sys\n\ndef find(fa, x):\n    root = x\n    while fa[root] != root:\n        root = fa[root]\n    while fa[x] != root:\n        fa[x], x = root, fa[x]\n    return root\n\ndef main():\n    data = sys.stdin.read().split()\n    n, m = int(data[0]), int(data[1])\n    fa = list(range(n + 1))\n    cnt = n\n    idx = 2\n    for _ in range(m):\n        a, b = int(data[idx]), int(data[idx + 1])\n        idx += 2\n        ra, rb = find(fa, a), find(fa, b)\n        if ra != rb:\n            fa[ra] = rb\n            cnt -= 1\n    print(cnt)\n\nif __name__ == '__main__':\n    main()",
+      "templates": [
+        "DSU 三件套：init 自指 / find 路径压缩 / union 判根合并；计数场景用『初始 n，成功合并减一』"
+      ],
+      "codeCpp": "// 迭代版 find：第一趟找根，第二趟把沿途节点直接挂到根上（路径压缩）\nint find_dsu(vector<int>& fa, int x) {\n    int root = x;\n    while (fa[root] != root) root = fa[root];   // 第一趟：沿父链找根\n    while (fa[x] != root) {                     // 第二趟：路径压缩\n        int nxt = fa[x];\n        fa[x] = root;\n        x = nxt;\n    }\n    return root;\n}\n\n// union：两根不同才合并，连通块数减一\nvoid union_dsu(vector<int>& fa, int& cnt, int a, int b) {\n    int ra = find_dsu(fa, a), rb = find_dsu(fa, b);\n    if (ra != rb) {                             // 根不同才算新合并\n        fa[ra] = rb;\n        --cnt;\n    }\n}",
+      "acmCodeCpp": "// ACM 模式：完整可运行程序（stdin -> stdout）\n// 输入格式：\n//   第一行：n m（节点数 1..n、合并操作数）\n//   接下来 m 行：每行 a b 表示把 a、b 所在集合合并\n// 输出格式：一行，最后的连通块个数\n#include <iostream>\n#include <vector>\nusing namespace std;\n\n// 迭代版 find：第一趟找根，第二趟把沿途节点直接挂到根上（路径压缩）\nint find_dsu(vector<int>& fa, int x) {\n    int root = x;\n    while (fa[root] != root) root = fa[root];   // 第一趟：沿父链找根\n    while (fa[x] != root) {                     // 第二趟：路径压缩\n        int nxt = fa[x];\n        fa[x] = root;\n        x = nxt;\n    }\n    return root;\n}\n\nint main() {\n    ios::sync_with_stdio(false);\n    cin.tie(nullptr);\n    int n, m;\n    cin >> n >> m;\n    vector<int> fa(n + 1);\n    for (int i = 1; i <= n; ++i) fa[i] = i;     // 初始每个节点自成一块\n    int cnt = n;                                // 连通块数 = n\n    for (int k = 0; k < m; ++k) {\n        int a, b;\n        cin >> a >> b;\n        int ra = find_dsu(fa, a), rb = find_dsu(fa, b);\n        if (ra != rb) {                         // 根不同才算新合并\n            fa[ra] = rb;\n            --cnt;\n        }\n    }\n    cout << cnt << '\\n';\n    return 0;\n}",
+      "codeJava": "class Solution {\n    // 迭代版 find：第一趟找根，第二趟把沿途节点直接挂到根上（路径压缩）\n    private int find(int[] fa, int x) {\n        int root = x;\n        while (fa[root] != root) root = fa[root];  // 第一趟：沿父链找根\n        while (fa[x] != root) {                    // 第二趟：路径压缩\n            int nxt = fa[x];\n            fa[x] = root;\n            x = nxt;\n        }\n        return root;\n    }\n\n    // 并查集：初始每节点一块，成功合并一次块数减一\n    public int countComponents(int n, int[][] edges) {\n        int[] fa = new int[n + 1];\n        for (int i = 1; i <= n; i++) fa[i] = i;    // 初始指向自己\n        int cnt = n;\n        for (int[] e : edges) {\n            int ra = find(fa, e[0]), rb = find(fa, e[1]);\n            if (ra != rb) {                        // 根不同才算新合并\n                fa[ra] = rb;\n                cnt--;\n            }\n        }\n        return cnt;                                // 连通块个数\n    }\n}",
+      "codeJs": "/**\n * 迭代版 find：第一趟找根，第二趟把沿途节点直接挂到根上（路径压缩）\n * @param {number[]} fa 父节点数组\n * @param {number} x\n * @return {number} 根节点编号\n */\nfunction find(fa, x) {\n  let root = x;\n  while (fa[root] !== root) root = fa[root];  // 第一趟：沿父链找根\n  while (fa[x] !== root) {                    // 第二趟：路径压缩\n    const nxt = fa[x];\n    fa[x] = root;\n    x = nxt;\n  }\n  return root;\n}\n\n/** 并查集连通块计数：初始每节点一块，成功合并一次块数减一\n * @param {number} n 节点数（1..n）\n * @param {number[][]} edges 每条边 [a, b] 表示合并\n * @return {number} 连通块个数\n */\nfunction countComponents(n, edges) {\n  const fa = Array.from({ length: n + 1 }, (_, i) => i); // 初始指向自己\n  let cnt = n;\n  for (const [a, b] of edges) {\n    const ra = find(fa, a), rb = find(fa, b);\n    if (ra !== rb) {                           // 根不同才算新合并\n      fa[ra] = rb;\n      cnt--;\n    }\n  }\n  return cnt;                                  // 连通块个数\n}",
+      "codeGo": "// find 迭代版并查集查找：第一趟找根，第二趟把沿途节点直接挂到根上（路径压缩）\nfunc find(fa []int, x int) int {\n\troot := x\n\tfor fa[root] != root {\n\t\troot = fa[root] // 第一趟：沿父链找根\n\t}\n\tfor fa[x] != root { // 第二趟：路径压缩\n\t\tfa[x], x = root, fa[x]\n\t}\n\treturn root\n}\n\n// countComponents 并查集连通块计数：初始每节点一块，成功合并一次块数减一\nfunc countComponents(n int, edges [][2]int) int {\n\tfa := make([]int, n+1)\n\tfor i := 1; i <= n; i++ {\n\t\tfa[i] = i // 初始指向自己\n\t}\n\tcnt := n\n\tfor _, e := range edges {\n\t\tra, rb := find(fa, e[0]), find(fa, e[1])\n\t\tif ra != rb { // 根不同才算新合并\n\t\t\tfa[ra] = rb\n\t\t\tcnt--\n\t\t}\n\t}\n\treturn cnt // 连通块个数\n}"
+    },
+    {
+      "id": 1009,
+      "title": "Topological Order (ACM)",
+      "titleCn": "ACM 拓扑排序",
+      "difficulty": "medium",
+      "frequency": 4,
+      "companies": [
+        "字节跳动",
+        "美团",
+        "华为"
+      ],
+      "question": "【ACM 模式】n 个任务（1..n），m 条依赖关系 a b 表示 a 必须在 b 之前完成。输出一个合法完成顺序（字典序最小）；存在循环依赖输出 -1。\n\n输入描述：第一行 n m；接下来 m 行每行 a b。\n输出描述：一行字典序最小的拓扑序（空格分隔），或 -1。",
+      "samples": [
+        {
+          "input": "4 3\n1 2\n1 3\n2 4",
+          "output": "1 2 3 4"
+        },
+        {
+          "input": "3 3\n1 2\n2 3\n3 1",
+          "output": "-1",
+          "explain": "循环依赖无法完成"
+        }
+      ],
+      "hints": [
+        "审题诀窍：要『字典序最小』就把普通队列换成小顶堆，其余流程完全一致。",
+        "审题诀窍：入度表 + 邻接表是拓扑排序固定起手式；输出个数 < n 即有环。",
+        "追问预备：判断有环也可以 DFS 三色标记；问『字典序最大』→ 大顶堆；问『是否存在唯一拓扑序』→ 每步队列大小恒为 1。"
+      ],
+      "keyPoints": [
+        "入度表 indeg + 邻接表 adj",
+        "入度为 0 的节点入堆/队列",
+        "弹出 u，其邻居入度减 1，减到 0 入队",
+        "弹出总数 < n 说明有环"
+      ],
+      "structureTags": [
+        "bfs",
+        "queue",
+        "heap",
+        "greedy"
+      ],
+      "approaches": [
+        {
+          "name": "Kahn 算法（入度表 + 小顶堆求字典序最小）",
+          "idea": "每次取当前可执行节点中编号最小者。",
+          "detail": "步骤拆解：\n1. 建图：adj[a] 追加 b，indeg[b] += 1。\n2. 所有 indeg==0 的节点入小顶堆。\n3. 弹出最小 u，追加到答案；u 的每个邻居 v：indeg[v] -= 1，减到 0 入堆。\n4. 结束时答案长度 == n → 输出；否则有环输出 -1。\n\n示例走查：n=4，边 1→2, 1→3, 2→4。初始入度 [0,1,1,1]，堆={1}：弹 1 → 2、3 入度归零入堆；弹 2 → 4 入堆；弹 3；弹 4 → 1 2 3 4。✓\n\n为什么正确：Kahn 每步弹出的节点都是『当前无未完成前置』的节点，保证合法性；用堆替换队列保证每步取字典序最小，贪心正确性来自『可执行集合里选谁都不影响其余节点的前置约束』。\n\n易错点：\n- 环判定：用答案长度而不是『队列空』判断。\n- 字典序最小必须用堆，用普通队列只保证『一个』合法序。\n- 重复边会让入度多算，若输入可能有重边要去重或容忍（本题样例 2 的 2→1 重复边，减两次入度仍正确，只要建图与减度对称即可）。",
+          "complexity": "时间 O(n + m log n)，空间 O(n + m)",
+          "optimal": true,
+          "code": "import heapq\n\ndef topo(n, edges):\n    adj = [[] for _ in range(n + 1)]\n    indeg = [0] * (n + 1)\n    for a, b in edges:\n        adj[a].append(b)\n        indeg[b] += 1\n    heap = [v for v in range(1, n + 1) if indeg[v] == 0]\n    heapq.heapify(heap)\n    order = []\n    while heap:\n        u = heapq.heappop(heap)      # 取字典序最小的可执行节点\n        order.append(u)\n        for v in adj[u]:\n            indeg[v] -= 1\n            if indeg[v] == 0:\n                heapq.heappush(heap, v)\n    return order if len(order) == n else []   # 空 = 有环"
+        },
+        {
+          "name": "DFS 三色标记（判环 + 后序逆序）",
+          "idea": "白/灰/黑三色 DFS：灰色重遇即有环；完成后序序列逆序即拓扑序。",
+          "detail": "步骤拆解：\n1. color[u]：0 白（未访）、1 灰（递归栈中）、2 黑（完成）。\n2. dfs(u)：标灰；遍历邻居 v：灰色 → 有环；白色 → 递归。回溯前标黑，把 u 追加到 post 列表。\n3. 对所有点跑完后，post 逆序即一个拓扑序。\n\n示例走查：1→2→4、1→3：dfs(4) 完成 post=[4]；dfs(2) 完成 post=[4,2]；dfs(3) 完成 post=[4,2,3]；dfs(1) post=[4,2,3,1]，逆序 [1,3,2,4] —— 是合法拓扑序（本题要求字典序最小，故最优解仍用堆版 Kahn，本解是判环基线）。\n\n为什么面试爱问：它证明了『DFS 后序的逆序是拓扑序』这一重要性质，且三色判环是环检测通用手法。\n\n易错点：\n- 字典序最小无法靠朴素 DFS 保证（要按编号从大到小枚举邻居才近似，且仍不等价）。\n- 灰色相遇才是环，黑色重遇是正常跨边。\n- 递归爆栈同前，用迭代或调深度。",
+          "complexity": "时间 O(n + m)，空间 O(n + m)",
+          "code": "import sys\n\ndef topo_dfs(n, edges):\n    adj = [[] for _ in range(n + 1)]\n    for a, b in edges:\n        adj[a].append(b)\n    color = [0] * (n + 1)             # 0白 1灰 2黑\n    post = []\n\n    def dfs(u):\n        color[u] = 1                  # 进入：标灰\n        for v in adj[u]:\n            if color[v] == 1:\n                return False          # 灰色重遇 → 有环\n            if color[v] == 0 and not dfs(v):\n                return False\n        color[u] = 2                  # 完成：标黑\n        post.append(u)\n        return True\n\n    for s in range(1, n + 1):\n        if color[s] == 0 and not dfs(s):\n            return []\n    return post[::-1]                 # 后序逆序 = 拓扑序"
+        }
+      ],
+      "code": "import heapq\n\ndef topo(n, edges):\n    adj = [[] for _ in range(n + 1)]\n    indeg = [0] * (n + 1)\n    for a, b in edges:\n        adj[a].append(b)\n        indeg[b] += 1\n    heap = [v for v in range(1, n + 1) if indeg[v] == 0]\n    heapq.heapify(heap)\n    order = []\n    while heap:\n        u = heapq.heappop(heap)\n        order.append(u)\n        for v in adj[u]:\n            indeg[v] -= 1\n            if indeg[v] == 0:\n                heapq.heappush(heap, v)\n    return order if len(order) == n else []",
+      "acmCode": "# ACM 模式完整程序\n# 输入：第一行 n m；接下来 m 行每行 a b 表示 a 必须在 b 前\n# 输出：字典序最小的拓扑序，或 -1\nimport sys\nimport heapq\n\ndef topo(n, edges):\n    adj = [[] for _ in range(n + 1)]\n    indeg = [0] * (n + 1)\n    for a, b in edges:\n        adj[a].append(b)\n        indeg[b] += 1\n    heap = [v for v in range(1, n + 1) if indeg[v] == 0]\n    heapq.heapify(heap)\n    order = []\n    while heap:\n        u = heapq.heappop(heap)\n        order.append(u)\n        for v in adj[u]:\n            indeg[v] -= 1\n            if indeg[v] == 0:\n                heapq.heappush(heap, v)\n    return order if len(order) == n else []\n\ndef main():\n    data = sys.stdin.read().split()\n    n, m = int(data[0]), int(data[1])\n    edges = []\n    idx = 2\n    for _ in range(m):\n        a, b = int(data[idx]), int(data[idx + 1])\n        idx += 2\n        edges.append((a, b))\n    order = topo(n, edges)\n    print(' '.join(map(str, order)) if order else '-1')\n\nif __name__ == '__main__':\n    main()",
+      "templates": [
+        "Kahn 模板：入度表 + 邻接表 → 零入度入队 → 弹出减邻居入度；长度不足 n 即有环",
+        "字典序版：队列换小顶堆，其余不动"
+      ],
+      "codeCpp": "// Kahn 拓扑排序：入度表 + 小顶堆，每次取编号最小的可执行节点（字典序最小）\nvector<int> topo(int n, const vector<pair<int, int>>& edges) {\n    vector<vector<int>> adj(n + 1);\n    vector<int> indeg(n + 1, 0);\n    for (auto& e : edges) {\n        adj[e.first].push_back(e.second);       // 依赖边 a -> b\n        indeg[e.second]++;                      // b 入度 +1\n    }\n    priority_queue<int, vector<int>, greater<int>> heap;   // 小顶堆\n    for (int v = 1; v <= n; ++v)\n        if (indeg[v] == 0) heap.push(v);        // 初始可执行节点\n    vector<int> order;\n    while (!heap.empty()) {\n        int u = heap.top(); heap.pop();         // 取字典序最小的可执行节点\n        order.push_back(u);\n        for (int v : adj[u]) {\n            if (--indeg[v] == 0) heap.push(v);  // 入度归零入堆\n        }\n    }\n    return (int)order.size() == n ? order : vector<int>();   // 空 = 有环\n}",
+      "acmCodeCpp": "// ACM 模式：完整可运行程序（stdin -> stdout）\n// 输入格式：\n//   第一行：n m（任务数 1..n、依赖边数）\n//   接下来 m 行：每行 a b 表示 a 必须在 b 之前完成\n// 输出格式：一行字典序最小的拓扑序（空格分隔）；有环输出 -1\n#include <functional>\n#include <iostream>\n#include <queue>\n#include <vector>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);\n    cin.tie(nullptr);\n    int n, m;\n    cin >> n >> m;\n    vector<vector<int>> adj(n + 1);\n    vector<int> indeg(n + 1, 0);\n    for (int k = 0; k < m; ++k) {\n        int a, b;\n        cin >> a >> b;\n        adj[a].push_back(b);                    // 依赖边 a -> b\n        indeg[b]++;                             // b 入度 +1\n    }\n    priority_queue<int, vector<int>, greater<int>> heap;  // 小顶堆求字典序最小\n    for (int v = 1; v <= n; ++v)\n        if (indeg[v] == 0) heap.push(v);        // 初始可执行节点入堆\n    vector<int> order;\n    while (!heap.empty()) {\n        int u = heap.top(); heap.pop();         // 取编号最小的可执行节点\n        order.push_back(u);\n        for (int v : adj[u]) {\n            if (--indeg[v] == 0) heap.push(v);  // 入度归零入堆\n        }\n    }\n    if ((int)order.size() < n) {                // 弹出数 < n 说明有环\n        cout << -1 << '\\n';\n        return 0;\n    }\n    for (int i = 0; i < n; ++i) {               // 输出拓扑序\n        if (i) cout << ' ';\n        cout << order[i];\n    }\n    cout << '\\n';\n    return 0;\n}",
+      "codeJava": "class Solution {\n    // Kahn 拓扑排序：入度表 + 小顶堆，每次取编号最小的可执行节点（字典序最小）\n    public int[] topo(int n, int[][] edges) {\n        List<List<Integer>> adj = new ArrayList<>();\n        for (int i = 0; i <= n; i++) adj.add(new ArrayList<>());\n        int[] indeg = new int[n + 1];\n        for (int[] e : edges) {\n            adj.get(e[0]).add(e[1]);             // 依赖边 a -> b\n            indeg[e[1]]++;                       // b 入度 +1\n        }\n        PriorityQueue<Integer> heap = new PriorityQueue<>();   // 小顶堆\n        for (int v = 1; v <= n; v++)\n            if (indeg[v] == 0) heap.offer(v);    // 初始可执行节点\n        int[] order = new int[n];\n        int k = 0;\n        while (!heap.isEmpty()) {\n            int u = heap.poll();                 // 取字典序最小的可执行节点\n            order[k++] = u;\n            for (int v : adj.get(u)) {\n                if (--indeg[v] == 0) heap.offer(v);  // 入度归零入堆\n            }\n        }\n        return k == n ? order : new int[0];      // 空数组 = 有环\n    }\n}",
+      "codeJs": "/**\n * Kahn 拓扑排序：入度表 + 小顶堆，每次取编号最小的可执行节点（字典序最小）\n * @param {number} n 任务数（1..n）\n * @param {number[][]} edges 依赖边 [a, b] 表示 a 必须在 b 之前完成\n * @return {number[]} 字典序最小的拓扑序；有环返回空数组\n */\nfunction topo(n, edges) {\n  const adj = Array.from({ length: n + 1 }, () => []);\n  const indeg = new Array(n + 1).fill(0);\n  for (const [a, b] of edges) {\n    adj[a].push(b);                       // 依赖边 a -> b\n    indeg[b]++;                           // b 入度 +1\n  }\n  const heap = [];                        // 小顶堆：存当前可执行节点\n  const pushHeap = (x) => {               // 堆插入：尾插后上浮\n    heap.push(x);\n    let i = heap.length - 1;\n    while (i > 0) {\n      const p = (i - 1) >> 1;             // 父节点下标\n      if (heap[i] < heap[p]) {\n        [heap[i], heap[p]] = [heap[p], heap[i]];\n        i = p;\n      } else break;\n    }\n  };\n  const popHeap = () => {                 // 堆弹出：头出尾补后下沉\n    const top = heap[0];\n    const last = heap.pop();\n    if (heap.length) {\n      heap[0] = last;\n      let i = 0;\n      for (;;) {\n        const l = 2 * i + 1, r = 2 * i + 2;\n        let m = i;\n        if (l < heap.length && heap[l] < heap[m]) m = l;   // 选较小的孩子\n        if (r < heap.length && heap[r] < heap[m]) m = r;\n        if (m === i) break;\n        [heap[i], heap[m]] = [heap[m], heap[i]];\n        i = m;\n      }\n    }\n    return top;\n  };\n  for (let v = 1; v <= n; v++) if (indeg[v] === 0) pushHeap(v);  // 初始可执行节点\n  const order = [];\n  while (heap.length) {\n    const u = popHeap();                  // 取字典序最小的可执行节点\n    order.push(u);\n    for (const v of adj[u]) {\n      if (--indeg[v] === 0) pushHeap(v);  // 入度归零入堆\n    }\n  }\n  return order.length === n ? order : []; // 长度不足 n = 有环\n}",
+      "codeGo": "// topo Kahn 拓扑排序：入度表 + 小顶堆，每次取编号最小的可执行节点（字典序最小）\nfunc topo(n int, edges [][2]int) []int {\n\tadj := make([][]int, n+1)\n\tindeg := make([]int, n+1)\n\tfor _, e := range edges {\n\t\tadj[e[0]] = append(adj[e[0]], e[1]) // 依赖边 a -> b\n\t\tindeg[e[1]]++                       // b 入度 +1\n\t}\n\theap := []int{}\n\tpush := func(x int) { // 堆插入：尾插后上浮\n\t\theap = append(heap, x)\n\t\ti := len(heap) - 1\n\t\tfor i > 0 {\n\t\t\tp := (i - 1) / 2 // 父节点下标\n\t\t\tif heap[i] >= heap[p] {\n\t\t\t\tbreak\n\t\t\t}\n\t\t\theap[i], heap[p] = heap[p], heap[i]\n\t\t\ti = p\n\t\t}\n\t}\n\tpop := func() int { // 堆弹出：头出尾补后下沉\n\t\ttop := heap[0]\n\t\theap[0] = heap[len(heap)-1]\n\t\theap = heap[:len(heap)-1]\n\t\ti, sz := 0, len(heap)\n\t\tfor {\n\t\t\tl, r, m := 2*i+1, 2*i+2, i\n\t\t\tif l < sz && heap[l] < heap[m] { // 选较小的孩子\n\t\t\t\tm = l\n\t\t\t}\n\t\t\tif r < sz && heap[r] < heap[m] {\n\t\t\t\tm = r\n\t\t\t}\n\t\t\tif m == i {\n\t\t\t\tbreak\n\t\t\t}\n\t\t\theap[i], heap[m] = heap[m], heap[i]\n\t\t\ti = m\n\t\t}\n\t\treturn top\n\t}\n\tfor v := 1; v <= n; v++ {\n\t\tif indeg[v] == 0 {\n\t\t\tpush(v) // 初始可执行节点\n\t\t}\n\t}\n\torder := []int{}\n\tfor len(heap) > 0 {\n\t\tu := pop() // 取字典序最小的可执行节点\n\t\torder = append(order, u)\n\t\tfor _, v := range adj[u] {\n\t\t\tindeg[v]--\n\t\t\tif indeg[v] == 0 {\n\t\t\t\tpush(v) // 入度归零入堆\n\t\t\t}\n\t\t}\n\t}\n\tif len(order) < n {\n\t\treturn []int{} // 长度不足 n = 有环\n\t}\n\treturn order\n}"
+    },
+    {
+      "id": 1010,
+      "title": "01 Knapsack (ACM)",
+      "titleCn": "ACM 01 背包",
+      "difficulty": "medium",
+      "frequency": 5,
+      "companies": [
+        "字节跳动",
+        "美团",
+        "京东",
+        "Momenta"
+      ],
+      "question": "【ACM 模式】n 件物品，背包容量 V。第 i 件重量 w[i]、价值 v[i]，每件最多选一次。求能装入的最大价值。\n\n输入描述：第一行 n V；接下来 n 行每行 w v。\n输出描述：一行，最大价值。",
+      "samples": [
+        {
+          "input": "3 5\n1 2\n2 3\n3 4",
+          "output": "7",
+          "explain": "选第 1、3 件：重量 4 ≤ 5，价值 6；选第 2、3 件：重量 5，价值 7 最优"
+        },
+        {
+          "input": "2 1\n2 10\n3 20",
+          "output": "0",
+          "explain": "一件都装不下"
+        }
+      ],
+      "hints": [
+        "审题诀窍：『每件最多一次』= 01 背包（体积倒序遍历）；『可以无限次』= 完全背包（正序）。一字之差，遍历方向完全相反。",
+        "审题诀窍：f[j] 表示容量 j 能装的最大价值；倒序是为了保证每件物品只被选一次（正序会重复累加）。",
+        "追问预备：要求『恰好装满』→ 初始化 f[0]=0 其余 -inf；求方案数 → f 数组存计数、转移用加法。"
+      ],
+      "keyPoints": [
+        "状态 f[j]：容量 j 的最大价值",
+        "转移 f[j] = max(f[j], f[j-w] + v)",
+        "01 背包容量必须倒序遍历",
+        "答案即 f[V]"
+      ],
+      "structureTags": [
+        "dp",
+        "greedy"
+      ],
+      "approaches": [
+        {
+          "name": "一维滚动数组（倒序容量）",
+          "idea": "二维压一维，容量倒序保证每件只选一次。",
+          "detail": "步骤拆解：\n1. 初始化 f = [0] * (V+1)（不要求恰好装满）。\n2. 外层枚举物品 i，内层容量 j 从 V 倒序到 w[i]：f[j] = max(f[j], f[j-w[i]] + v[i])。\n3. 输出 f[V]。\n\n示例走查：样例 1，物品 (1,2)：f[1..5] 全变 2；物品 (2,3)：j=5 → f[5]=max(2, f[3]+3)=5 …；物品 (3,4)：j=5 → f[5]=max(5, f[2]+4)。f[2] 在上一轮为 3，得 7。✓\n\n为什么倒序：f[j-w] 必须是『还没考虑第 i 件物品』的旧值；正序时 f[j-w] 已含第 i 件，等于重复选取（那就成了完全背包）。\n\n易错点：\n- 内层方向写反 → 变成完全背包，样例可能侥幸过、大数据必挂。\n- 要求恰好装满时初始化必须是 -inf（Python 用 float('-inf') 或 -1 标记不可达）。\n- 输入物品顺序与下标对应，读入别错位。",
+          "complexity": "时间 O(nV)，空间 O(V)",
+          "optimal": true,
+          "code": "def knapsack_01(n, V, w, v):\n    f = [0] * (V + 1)\n    for i in range(n):\n        for j in range(V, w[i] - 1, -1):   # 倒序！每件只选一次\n            f[j] = max(f[j], f[j - w[i]] + v[i])\n    return f[V]"
+        },
+        {
+          "name": "二维朴素版（教学基线）",
+          "idea": "f[i][j] = 前 i 件、容量 j 的最大价值。",
+          "detail": "转移：不选第 i 件 → f[i-1][j]；选 → f[i-1][j-w[i]] + v[i]（注意是 i-1 行，天然保证只选一次）。空间 O(nV)，n=100、V=1e4 时 1e6 尚可，但大数据会爆内存。它的价值在于讲清状态定义，一维版是它的等价压缩。",
+          "complexity": "时间 O(nV)，空间 O(nV)",
+          "code": "def knapsack_2d(n, V, w, v):\n    f = [[0] * (V + 1) for _ in range(n + 1)]\n    for i in range(1, n + 1):\n        for j in range(V + 1):\n            f[i][j] = f[i - 1][j]                 # 不选\n            if j >= w[i - 1]:                     # 选\n                f[i][j] = max(f[i][j], f[i - 1][j - w[i - 1]] + v[i - 1])\n    return f[n][V]"
+        }
+      ],
+      "code": "def knapsack_01(n, V, w, v):\n    f = [0] * (V + 1)\n    for i in range(n):\n        for j in range(V, w[i] - 1, -1):\n            f[j] = max(f[j], f[j - w[i]] + v[i])\n    return f[V]",
+      "acmCode": "# ACM 模式完整程序\n# 输入：第一行 n V；接下来 n 行每行 w v\n# 输出：一行，最大价值\nimport sys\n\ndef main():\n    data = sys.stdin.read().split()\n    n, V = int(data[0]), int(data[1])\n    w, v = [], []\n    idx = 2\n    for _ in range(n):\n        w.append(int(data[idx]))\n        v.append(int(data[idx + 1]))\n        idx += 2\n    f = [0] * (V + 1)\n    for i in range(n):\n        for j in range(V, w[i] - 1, -1):   # 01 背包倒序\n            f[j] = max(f[j], f[j - w[i]] + v[i])\n    print(f[V])\n\nif __name__ == '__main__':\n    main()",
+      "templates": [
+        "背包家族遍历方向口诀：01 背包倒序、完全背包正序、多重背包二进制拆件",
+        "恰好装满：f[0]=0 其余 -inf；方案计数：max 换 sum"
+      ],
+      "codeCpp": "// 01 背包一维滚动数组：容量倒序遍历，保证每件物品只被选一次\nint knapsack_01(int n, int V, const vector<int>& w, const vector<int>& v) {\n    vector<int> f(V + 1, 0);                    // f[j]：容量 j 能装的最大价值\n    for (int i = 0; i < n; ++i) {               // 外层枚举物品\n        for (int j = V; j >= w[i]; --j) {       // 容量倒序！防止一件被选多次\n            f[j] = max(f[j], f[j - w[i]] + v[i]);\n        }\n    }\n    return f[V];                                // 容量 V 的最大价值即答案\n}",
+      "acmCodeCpp": "// ACM 模式：完整可运行程序（stdin -> stdout）\n// 输入格式：\n//   第一行：n V（物品数、背包容量）\n//   接下来 n 行：每行 w v（第 i 件物品的重量与价值）\n// 输出格式：一行，能装入的最大价值\n#include <algorithm>\n#include <iostream>\n#include <vector>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);\n    cin.tie(nullptr);\n    int n, V;\n    cin >> n >> V;\n    vector<int> w(n), v(n);\n    for (int i = 0; i < n; ++i) cin >> w[i] >> v[i];\n    vector<int> f(V + 1, 0);                    // f[j]：容量 j 能装的最大价值\n    for (int i = 0; i < n; ++i) {               // 外层枚举物品\n        for (int j = V; j >= w[i]; --j) {       // 容量倒序：每件只选一次\n            f[j] = max(f[j], f[j - w[i]] + v[i]);\n        }\n    }\n    cout << f[V] << '\\n';                      // 答案：容量 V 的最大价值\n    return 0;\n}",
+      "codeJava": "class Solution {\n    // 01 背包一维滚动数组：容量倒序遍历，保证每件物品只被选一次\n    public int knapsack(int n, int V, int[] w, int[] v) {\n        int[] f = new int[V + 1];                // f[j]：容量 j 能装的最大价值\n        for (int i = 0; i < n; i++) {            // 外层枚举物品\n            for (int j = V; j >= w[i]; j--) {    // 容量倒序！防止一件被选多次\n                f[j] = Math.max(f[j], f[j - w[i]] + v[i]);\n            }\n        }\n        return f[V];                             // 容量 V 的最大价值即答案\n    }\n}",
+      "codeJs": "/**\n * 01 背包一维滚动数组：容量倒序遍历，保证每件物品只被选一次\n * @param {number} n 物品数\n * @param {number} V 背包容量\n * @param {number[]} w 每件物品的重量\n * @param {number[]} v 每件物品的价值\n * @return {number} 能装入的最大价值\n */\nfunction knapsack01(n, V, w, v) {\n  const f = new Array(V + 1).fill(0);           // f[j]：容量 j 能装的最大价值\n  for (let i = 0; i < n; i++) {                 // 外层枚举物品\n    for (let j = V; j >= w[i]; j--) {           // 容量倒序！防止一件被选多次\n      f[j] = Math.max(f[j], f[j - w[i]] + v[i]);\n    }\n  }\n  return f[V];                                  // 容量 V 的最大价值即答案\n}",
+      "codeGo": "// knapsack01 01 背包一维滚动数组：容量倒序遍历，保证每件物品只被选一次\nfunc knapsack01(n, V int, w, v []int) int {\n\tf := make([]int, V+1) // f[j]：容量 j 能装的最大价值\n\tfor i := 0; i < n; i++ { // 外层枚举物品\n\t\tfor j := V; j >= w[i]; j-- { // 容量倒序！防止一件被选多次\n\t\t\tif f[j-w[i]]+v[i] > f[j] {\n\t\t\t\tf[j] = f[j-w[i]] + v[i]\n\t\t\t}\n\t\t}\n\t}\n\treturn f[V] // 容量 V 的最大价值即答案\n}"
+    },
+    {
+      "id": 1011,
+      "title": "Longest Increasing Subsequence (ACM)",
+      "titleCn": "ACM 最长递增子序列",
+      "difficulty": "medium",
+      "frequency": 4,
+      "companies": [
+        "字节跳动",
+        "Momenta",
+        "美团"
+      ],
+      "question": "【ACM 模式】给定长度为 n 的整数序列，输出最长严格递增子序列（LIS）的长度。\n\n输入描述：第一行 n；第二行 n 个整数。\n输出描述：一行，LIS 长度。",
+      "samples": [
+        {
+          "input": "6\n1 3 2 4 3 5",
+          "output": "4",
+          "explain": "1 2 3(任一) 5 或 1 3 4 5"
+        },
+        {
+          "input": "3\n5 4 3",
+          "output": "1"
+        }
+      ],
+      "hints": [
+        "审题诀窍：n ≤ 5000 用 O(n²) DP 即可；n ≤ 1e5 必须 O(n log n) 贪心+二分。先审数据范围再选算法是机考基本功。",
+        "审题诀窍：贪心数组 tails[i] = 长度 i+1 的递增子序列的最小结尾，它恒有序，可二分。",
+        "追问预备：输出方案 → 记录每个元素接在哪；允许相等 → 二分改 upper_bound；两个序列 → 转 LCS。"
+      ],
+      "keyPoints": [
+        "DP：f[i] = 以 i 结尾的 LIS 长度，O(n²)",
+        "贪心+二分：tails 保持有序，替换第一个 >= x 的位置",
+        "tails 长度即答案",
+        "tails 不是真实的子序列，但长度等价"
+      ],
+      "structureTags": [
+        "dp",
+        "greedy",
+        "binary_search"
+      ],
+      "approaches": [
+        {
+          "name": "贪心 + 二分（O(n log n)）",
+          "idea": "维护 tails 数组，x 替换第一个 ≥x 的位置，追加则 LIS 变长。",
+          "detail": "步骤拆解：\n1. tails = []。\n2. 顺序扫 x：用 bisect_left 找 tails 中第一个 ≥x 的位置 p。\n3. p == len(tails) → append（x 延伸出更长子序列）；否则 tails[p] = x（把某长度的结尾换成更小的 x，给后续留更多余地）。\n4. 答案 len(tails)。\n\n示例走查：[1,3,2,4,3,5]：1→[1]；3→[1,3]；2→替换3→[1,2]；4→[1,2,4]；3→替换4→[1,2,3]；5→append→[1,2,3,5]，长度 4。✓\n\n为什么正确：tails 有序（归纳可证）；替换操作不改变「长度 i 的最优结尾 ≥ tails[i]」这一不变量，最终长度与真实 LIS 一致。\n\n易错点：\n- 严格递增用 bisect_left；允许相等（非严格）用 bisect_right。\n- tails 本身不是某个合法 LIS，只保证长度等价——面试要说清。\n- 输出方案时 tails 不够用，要额外 prev 数组。",
+          "complexity": "时间 O(n log n)，空间 O(n)",
+          "optimal": true,
+          "code": "from bisect import bisect_left\n\ndef lis(nums):\n    tails = []                        # tails[i]: 长度 i+1 的最小结尾\n    for x in nums:\n        p = bisect_left(tails, x)     # 第一个 >= x 的位置\n        if p == len(tails):\n            tails.append(x)           # 更长 → 扩展\n        else:\n            tails[p] = x              # 更优结尾 → 替换\n    return len(tails)"
+        },
+        {
+          "name": "O(n²) 经典 DP",
+          "idea": "f[i] = 以 nums[i] 结尾的 LIS 长度。",
+          "detail": "转移：f[i] = max(f[j] + 1)，j < i 且 nums[j] < nums[i]；初始全 1，答案 max(f)。数据 ≤5000 时首选（写起来快、不易错），也是讲清 LIS 结构的基线。优化到 O(n log n) 的关键洞察：只需要『各长度的最优结尾』，不需要完整 f 数组。",
+          "complexity": "时间 O(n²)，空间 O(n)",
+          "code": "def lis_dp(nums):\n    n = len(nums)\n    f = [1] * n                       # 至少自己一个\n    for i in range(n):\n        for j in range(i):\n            if nums[j] < nums[i]:\n                f[i] = max(f[i], f[j] + 1)\n    return max(f) if f else 0"
+        }
+      ],
+      "code": "from bisect import bisect_left\n\ndef lis(nums):\n    tails = []\n    for x in nums:\n        p = bisect_left(tails, x)\n        if p == len(tails):\n            tails.append(x)\n        else:\n            tails[p] = x\n    return len(tails)",
+      "acmCode": "# ACM 模式完整程序\n# 输入：第一行 n；第二行 n 个整数\n# 输出：一行，LIS 长度\nimport sys\nfrom bisect import bisect_left\n\ndef lis(nums):\n    tails = []\n    for x in nums:\n        p = bisect_left(tails, x)\n        if p == len(tails):\n            tails.append(x)\n        else:\n            tails[p] = x\n    return len(tails)\n\ndef main():\n    data = sys.stdin.read().split()\n    n = int(data[0])\n    nums = [int(x) for x in data[1:1 + n]]\n    print(lis(nums))\n\nif __name__ == '__main__':\n    main()",
+      "templates": [
+        "LIS 速答：bisect_left(tails, x) 命中尾部则 append 否则替换；严格递增 left，非严格 right"
+      ],
+      "codeCpp": "// LIS 贪心 + 二分：tails[i] 为长度 i+1 的递增子序列的最小结尾，恒有序可二分\nint lis(const vector<int>& nums) {\n    vector<int> tails;                          // tails 保持严格递增\n    for (int x : nums) {\n        auto it = lower_bound(tails.begin(), tails.end(), x);   // 第一个 >= x 的位置\n        if (it == tails.end())\n            tails.push_back(x);                 // x 延伸出更长子序列\n        else\n            *it = x;                            // 换成更小结尾，给后续留余地\n    }\n    return (int)tails.size();                   // tails 长度即 LIS 长度\n}",
+      "acmCodeCpp": "// ACM 模式：完整可运行程序（stdin -> stdout）\n// 输入格式：\n//   第一行：n（序列长度）\n//   第二行：n 个整数\n// 输出格式：一行，最长严格递增子序列的长度\n#include <algorithm>\n#include <iostream>\n#include <vector>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);\n    cin.tie(nullptr);\n    int n;\n    cin >> n;\n    vector<int> tails;                          // tails[i]：长度 i+1 的最小结尾\n    for (int i = 0; i < n; ++i) {\n        int x;\n        cin >> x;\n        auto it = lower_bound(tails.begin(), tails.end(), x);  // 第一个 >= x 的位置\n        if (it == tails.end())\n            tails.push_back(x);                 // 更长 → 扩展\n        else\n            *it = x;                            // 更优结尾 → 替换\n    }\n    cout << tails.size() << '\\n';              // tails 长度即 LIS 长度\n    return 0;\n}",
+      "codeJava": "class Solution {\n    // LIS 贪心 + 二分：tails[i] 为长度 i+1 的递增子序列的最小结尾，恒有序可二分\n    public int lengthOfLIS(int[] nums) {\n        List<Integer> tails = new ArrayList<>();  // tails 保持严格递增\n        for (int x : nums) {\n            // 手写 lower_bound：第一个 >= x 的位置\n            int lo = 0, hi = tails.size();\n            while (lo < hi) {\n                int mid = lo + (hi - lo) / 2;\n                if (tails.get(mid) < x) lo = mid + 1;\n                else hi = mid;\n            }\n            if (lo == tails.size()) tails.add(x);  // x 延伸出更长子序列\n            else tails.set(lo, x);                 // 换成更小结尾，给后续留余地\n        }\n        return tails.size();                       // tails 长度即 LIS 长度\n    }\n}",
+      "codeJs": "/**\n * LIS 贪心 + 二分：tails[i] 为长度 i+1 的递增子序列的最小结尾，恒有序可二分\n * @param {number[]} nums\n * @return {number} 最长严格递增子序列的长度\n */\nfunction lengthOfLIS(nums) {\n  const tails = [];                              // tails 保持严格递增\n  for (const x of nums) {\n    // 手写 lower_bound：第一个 >= x 的位置\n    let lo = 0, hi = tails.length;\n    while (lo < hi) {\n      const mid = (lo + hi) >> 1;\n      if (tails[mid] < x) lo = mid + 1;          // mid 不可能是替换位置\n      else hi = mid;\n    }\n    if (lo === tails.length) tails.push(x);      // x 延伸出更长子序列\n    else tails[lo] = x;                          // 换成更小结尾，给后续留余地\n  }\n  return tails.length;                           // tails 长度即 LIS 长度\n}",
+      "codeGo": "// lengthOfLIS LIS 贪心 + 二分：tails[i] 为长度 i+1 的递增子序列的最小结尾，恒有序可二分\nfunc lengthOfLIS(nums []int) int {\n\ttails := []int{} // tails 保持严格递增\n\tfor _, x := range nums {\n\t\t// 手写 lower_bound：第一个 >= x 的位置\n\t\tlo, hi := 0, len(tails)\n\t\tfor lo < hi {\n\t\t\tmid := lo + (hi-lo)/2\n\t\t\tif tails[mid] < x {\n\t\t\t\tlo = mid + 1\n\t\t\t} else {\n\t\t\t\thi = mid\n\t\t\t}\n\t\t}\n\t\tif lo == len(tails) {\n\t\t\ttails = append(tails, x) // x 延伸出更长子序列\n\t\t} else {\n\t\t\ttails[lo] = x // 换成更小结尾，给后续留余地\n\t\t}\n\t}\n\treturn len(tails) // tails 长度即 LIS 长度\n}"
+    },
+    {
+      "id": 1012,
+      "title": "Merge Intervals (ACM)",
+      "titleCn": "ACM 区间合并",
+      "difficulty": "medium",
+      "frequency": 4,
+      "companies": [
+        "字节跳动",
+        "Momenta",
+        "美团"
+      ],
+      "question": "【ACM 模式】给定 n 个区间，把所有有交集（含端点相接）的区间合并，输出合并后按左端点排序的区间个数，再逐行输出区间。\n\n输入描述：第一行 n；接下来 n 行每行 l r。\n输出描述：第一行合并后区间个数 k；接下来 k 行每行 l r。",
+      "samples": [
+        {
+          "input": "4\n1 3\n2 6\n8 10\n15 18",
+          "output": "3\n1 6\n8 10\n15 18"
+        },
+        {
+          "input": "3\n1 4\n4 5\n3 5",
+          "output": "1\n1 5",
+          "explain": "端点相接也算交集"
+        }
+      ],
+      "hints": [
+        "审题诀窍：『端点相接算不算交集』务必审清——本题算，所以判断条件是 next.l <= cur.r（不是 <）。",
+        "审题诀窍：先按左端点排序是本类题的固定起手式，排完只需一次线性扫描。",
+        "追问预备：插入区间（LC57）、无交集区间数（贪心选端）、会议室（差分/排序扫描）都是同族。"
+      ],
+      "keyPoints": [
+        "按左端点排序",
+        "扫描：next.l <= cur.r 则合并（r 取 max）",
+        "否则当前区间定稿，开启新区间",
+        "最后一批别漏输出"
+      ],
+      "structureTags": [
+        "sort",
+        "greedy",
+        "intervals"
+      ],
+      "approaches": [
+        {
+          "name": "排序 + 一次扫描",
+          "idea": "左端点排序后，相邻区间若相交则并成一个。",
+          "detail": "步骤拆解：\n1. 区间按 l 升序排序。\n2. cur = 第一个区间；依次看下一个 (l, r)：l <= cur.r → 合并 cur.r = max(cur.r, r)；否则 cur 定稿、cur = 新区间。\n3. 结束后把最后的 cur 定稿。\n\n示例走查：[1,3][2,6][8,10][15,18]：cur=[1,3]；[2,6]：2≤3 → [1,6]；[8,10]：8>6 → 定稿 [1,6]，cur=[8,10]；[15,18]：15>10 → 定稿 [8,10]，cur=[15,18]；结束定稿 → [1,6][8,10][15,18] 共 3 个。✓\n\n为什么正确：按 l 排序后，任何能与 cur 合并的区间必然紧随其后出现，线性扫描即覆盖所有合并机会。\n\n易错点：\n- 合并时 r 要取 max（next 完全包含在 cur 内时 r 更小）。\n- 循环结束最后一个 cur 记得输出（经典漏笔）。\n- 端点相接的判定符号按题意选 <= 或 <。",
+          "complexity": "时间 O(n log n)（排序），空间 O(n)",
+          "optimal": true,
+          "code": "def merge_intervals(intervals):\n    intervals.sort(key=lambda x: x[0])\n    res = []\n    cur = None\n    for l, r in intervals:\n        if cur is None:\n            cur = [l, r]\n        elif l <= cur[1]:             # 相交（含端点相接）\n            cur[1] = max(cur[1], r)   # r 取 max 防包含情形\n        else:\n            res.append(cur)\n            cur = [l, r]\n    if cur is not None:\n        res.append(cur)               # 最后一批别漏\n    return res"
+        },
+        {
+          "name": "两两合并多次扫描（暴力基线）",
+          "idea": "反复扫描区间列表，凡与前者相交就并进去，直到一轮下来没有发生任何合并。",
+          "detail": "步骤拆解：\n1. 重复：标记 changed=False；线性扫描相邻区间对，相交则合并、changed=True。\n2. changed 为 False 时停止。\n3. 排序输出。\n\n示例走查：[1,4][4,5][3,5]：第一轮 [4,5] 与 [1,4] 相接合并成 [1,5]，再与 [3,5] 合并 → [1,5]；第二轮无变化停止。✓\n\n为什么仅作基线：正确但最坏 O(n²)（如 1e5 个层层嵌套的区间），排序一次扫描的解是标准答案。\n\n易错点：\n- 终止条件必须用 changed 标志，循环次数上界是 O(n) 轮。\n- 输出前要按左端点排序。",
+          "complexity": "时间 O(n²) 最坏，空间 O(n)",
+          "code": "def merge_brute(intervals):\n    changed = True\n    while changed:\n        changed = False\n        res = []\n        cur = None\n        for l, r in intervals:\n            if cur is None:\n                cur = [l, r]\n            elif l <= cur[1]:\n                cur[1] = max(cur[1], r)\n                changed = True\n            else:\n                res.append(tuple(cur))\n                cur = [l, r]\n        if cur is not None:\n            res.append(tuple(cur))\n        intervals = sorted(res)\n    return sorted(intervals)"
+        }
+      ],
+      "code": "def merge_intervals(intervals):\n    intervals.sort(key=lambda x: x[0])\n    res = []\n    cur = None\n    for l, r in intervals:\n        if cur is None:\n            cur = [l, r]\n        elif l <= cur[1]:\n            cur[1] = max(cur[1], r)\n        else:\n            res.append(cur)\n            cur = [l, r]\n    if cur is not None:\n        res.append(cur)\n    return res",
+      "acmCode": "# ACM 模式完整程序\n# 输入：第一行 n；接下来 n 行每行 l r\n# 输出：第一行合并后个数 k；接下来 k 行每行 l r\nimport sys\n\ndef merge_intervals(intervals):\n    intervals.sort(key=lambda x: x[0])\n    res = []\n    cur = None\n    for l, r in intervals:\n        if cur is None:\n            cur = [l, r]\n        elif l <= cur[1]:\n            cur[1] = max(cur[1], r)\n        else:\n            res.append(cur)\n            cur = [l, r]\n    if cur is not None:\n        res.append(cur)\n    return res\n\ndef main():\n    data = sys.stdin.read().split()\n    n = int(data[0])\n    intervals = []\n    idx = 1\n    for _ in range(n):\n        l, r = int(data[idx]), int(data[idx + 1])\n        idx += 2\n        intervals.append((l, r))\n    res = merge_intervals(intervals)\n    out = [str(len(res))]\n    out.extend(f'{l} {r}' for l, r in res)\n    print('\\n'.join(out))\n\nif __name__ == '__main__':\n    main()",
+      "templates": [
+        "区间题固定起手：按左端点排序 → 线性扫描维护 cur；相交判 l <= cur.r，r 取 max"
+      ],
+      "codeCpp": "// 区间合并：按左端点排序后一次扫描，相交（含端点相接）则右端点取 max\nvector<vector<int>> merge_intervals(vector<vector<int>>& intervals) {\n    sort(intervals.begin(), intervals.end());   // 按左端点升序\n    vector<vector<int>> res;\n    for (auto& iv : intervals) {\n        if (res.empty() || iv[0] > res.back()[1]) {\n            res.push_back(iv);                  // 不相交：开启新区间\n        } else {\n            res.back()[1] = max(res.back()[1], iv[1]);  // 合并，右端点取 max\n        }\n    }\n    return res;\n}",
+      "acmCodeCpp": "// ACM 模式：完整可运行程序（stdin -> stdout）\n// 输入格式：\n//   第一行：n（区间个数）\n//   接下来 n 行：每行 l r（区间左、右端点）\n// 输出格式：第一行合并后区间个数 k；接下来 k 行每行 l r\n#include <algorithm>\n#include <iostream>\n#include <vector>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);\n    cin.tie(nullptr);\n    int n;\n    cin >> n;\n    vector<pair<int, int>> intervals(n);\n    for (int i = 0; i < n; ++i)\n        cin >> intervals[i].first >> intervals[i].second;\n    sort(intervals.begin(), intervals.end());   // 按左端点升序\n    vector<pair<int, int>> res;\n    for (auto& iv : intervals) {\n        if (res.empty() || iv.first > res.back().second) {\n            res.push_back(iv);                  // 不相交：开启新区间\n        } else {\n            res.back().second = max(res.back().second, iv.second);  // 合并，右端点取 max\n        }\n    }\n    cout << res.size() << '\\n';                // 第一行输出区间个数\n    for (auto& iv : res) {\n        cout << iv.first << ' ' << iv.second << '\\n';\n    }\n    return 0;\n}",
+      "codeJava": "class Solution {\n    // 区间合并：按左端点排序后一次扫描，相交（含端点相接）则右端点取 max\n    public int[][] merge(int[][] intervals) {\n        Arrays.sort(intervals, (a, b) -> Integer.compare(a[0], b[0]));  // 按左端点升序\n        List<int[]> res = new ArrayList<>();\n        for (int[] iv : intervals) {\n            if (res.isEmpty() || iv[0] > res.get(res.size() - 1)[1]) {\n                res.add(iv);                     // 不相交：开启新区间\n            } else {\n                int[] last = res.get(res.size() - 1);\n                last[1] = Math.max(last[1], iv[1]);  // 合并，右端点取 max\n            }\n        }\n        return res.toArray(new int[0][]);        // 转为二维数组返回\n    }\n}",
+      "codeJs": "/**\n * 区间合并：按左端点排序后一次扫描，相交（含端点相接）则右端点取 max\n * @param {number[][]} intervals 每个区间 [l, r]\n * @return {number[][]} 合并后的区间列表（按左端点升序）\n */\nfunction mergeIntervals(intervals) {\n  intervals.sort((a, b) => a[0] - b[0]);         // 按左端点升序\n  const res = [];\n  for (const [l, r] of intervals) {\n    if (res.length === 0 || l > res[res.length - 1][1]) {\n      res.push([l, r]);                          // 不相交：开启新区间\n    } else {\n      const last = res[res.length - 1];\n      last[1] = Math.max(last[1], r);            // 合并，右端点取 max\n    }\n  }\n  return res;\n}",
+      "codeGo": "// mergeIntervals 区间合并：按左端点排序后一次扫描，相交（含端点相接）则右端点取 max\nfunc mergeIntervals(intervals [][]int) [][]int {\n\t// 按左端点升序排序（机考直接用 sort.Slice）\n\tsort.Slice(intervals, func(i, j int) bool {\n\t\treturn intervals[i][0] < intervals[j][0]\n\t})\n\tres := [][]int{}\n\tfor _, iv := range intervals {\n\t\tif len(res) == 0 || iv[0] > res[len(res)-1][1] {\n\t\t\tres = append(res, iv) // 不相交：开启新区间\n\t\t} else if iv[1] > res[len(res)-1][1] {\n\t\t\tres[len(res)-1][1] = iv[1] // 合并：右端点取 max\n\t\t}\n\t}\n\treturn res\n}"
+    }
+  ]
+}

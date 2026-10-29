@@ -1,0 +1,154 @@
+{
+  "topic": "双指针",
+  "problems": [
+    {
+      "id": 11,
+      "title": "Container With Most Water",
+      "titleCn": "盛最多水的容器",
+      "difficulty": "medium",
+      "frequency": 5,
+      "companies": [
+        "字节跳动",
+        "腾讯",
+        "美团"
+      ],
+      "question": "给定一个长度为 n 的整数数组 height，有 n 条垂线，第 i 条线的两个端点是 (i, 0) 和 (i, height[i])。找出其中的两条线，使得它们与 x 轴共同构成的容器可以容纳最多的水。返回容器可以储存的最大水量。\n\n注意：你不能倾斜容器。\n\n示例：输入 height = [1,8,6,2,5,4,8,3,7]，输出 49（选择第 2 条线(高8)和第 9 条线(高7)，宽度 7 × min(8,7) = 49）。",
+      "samples": [
+        {
+          "input": "height = [1,8,6,2,5,4,8,3,7]",
+          "output": "49",
+          "explain": "选择下标 1（高 8）和下标 8（高 7），容量 = min(8,7) × 7 = 49"
+        },
+        {
+          "input": "height = [1,1]",
+          "output": "1",
+          "explain": "只有两条线，容量 = 1 × 1 = 1"
+        },
+        {
+          "input": "height = [4,3,2,1,4]",
+          "output": "16",
+          "explain": "两端两条高 4 的线：min(4,4) × 4 = 16"
+        }
+      ],
+      "hints": [
+        "审题诀窍：容量 = min(左高, 右高) × 宽度。目标是最大化这个乘积，有两个变量在竞争。",
+        "突破口：宽度越大越好。从『最宽』(左右端点) 开始，每次移动较矮的一侧——因为保留较矮一侧不可能得到更优解：宽度和高度都不会更大。这一步『为什么移动矮的』是最优性证明的核心，面试必问。",
+        "反证叙述：若移动较高一侧，新容器宽度更小、高度受限于较矮者 ≤ 原较矮者，容量必然不增。",
+        "追问预备：42 接雨水和本题的区别？（42 求凹槽内积水总量，按列算 min(左侧最高, 右侧最高) − 当前列高，需前后缀最大值或双指针；本题只选两条线装水，容量 = min × 宽）；为什么宽度变小后答案还可能变大？（较矮一侧被换成更高的线，min 可能显著提升）"
+      ],
+      "keyPoints": [
+        "容量公式：min(h[l], h[r]) * (r - l)",
+        "双指针从两端开始，每步移动较矮的一侧",
+        "正确性论证：移动矮侧才可能找到更大容量，移动高侧容量严格不增",
+        "每步用当前容量更新全局最大值"
+      ],
+      "structureTags": [
+        "two_pointer",
+        "single_pass"
+      ],
+      "approaches": [
+        {
+          "name": "暴力枚举所有线对",
+          "idea": "枚举每一对 (i, j) 计算容量取最大。O(n²) 会超时，但可用于对拍验证。",
+          "detail": "步骤拆解：\n1. 双重循环枚举所有线对 (i, j)，i < j。\n2. 每对算容量 = min(height[i], height[j]) × (j - i)，取全局最大。\n\n示例走查：height = [1,8,6,2,5,4,8,3,7]。检查 (下标1, 下标8) 这对：min(8,7) × 7 = 49，是全枚举中的最大值；任何含下标 0（高 1）的对容量都不超过 1×8=8，(下标2, 下标8) 也只有 6×6=36。最终 49 ✓。\n\n为什么正确：答案就是某一对 (i, j) 的容量，全枚举不重不漏，正确性显然；它的价值是当思维基线和对拍器。\n\n易错点：\n- 内层 j 必须从 i+1 开始，否则同一条线和自己配对，宽度为 0。\n- 容量由较矮一侧决定（木桶效应），别写成 height[i] + height[j] 或 max。\n- n = 10^4 时约 5×10^7 对，Python 下必超时——暴力只能过小数据或用于验证双指针。",
+          "complexity": "时间 O(n²)，空间 O(1)",
+          "code": "def maxArea_brute(height):\n    n = len(height)\n    ans = 0\n    for i in range(n - 1):           # 枚举第一条线\n        for j in range(i + 1, n):    # 从 i+1 开始，避免自己配对自己\n            # 容量 = 宽度 × 两侧较矮者\n            ans = max(ans, min(height[i], height[j]) * (j - i))\n    return ans"
+        },
+        {
+          "name": "对撞双指针",
+          "idea": "左右指针从两端出发，每次算容量、更新答案，然后移动较矮的一侧。直觉：当前较矮一侧是容量的瓶颈，把它换掉才有可能变高；而宽度已经在损失，唯一补偿方式就是高度可能提升。",
+          "detail": "步骤拆解：\n1. l = 0, r = n-1，从最宽状态出发；ans = 0。\n2. 每轮先算容量 min(height[l], height[r]) × (r - l) 并刷新 ans（必须在移动指针之前更新）。\n3. height[l] < height[r] 时 l += 1（矮侧是瓶颈），否则 r -= 1。\n4. l < r 结束，返回 ans。\n\n示例走查：height = [1,8,6,2,5,4,8,3,7]。\n- l=0(高1), r=8(高7)：容量 1×8=8，ans=8；移矮的 l → 1。\n- l=1(高8), r=8(高7)：容量 7×7=49，ans=49；右不高于左，r → 7。\n- 之后容量依次 18、40、16、15、4、6，均小于 49，直到 l 与 r 相遇。\n返回 49 ✓。\n\n为什么正确（反证）：设当前较矮一侧是 l。若最优解的搭档不是当前 r 而是更左的某条线 j，那么该容器宽度更小，且高度 ≤ height[l]（l 仍是较矮者或更矮），容量不会超过已统计过的『以 l 为矮侧的最宽容器』；而移动高侧得到的容器宽度更小、高度仍受矮侧压制，容量必然不增。因此每步淘汰的一侧可以安全放弃，l、r 相遇时所有候选都被覆盖。\n\n易错点：\n- 必须移动较矮的一侧；移动较高一侧会漏掉最优解（这是面试必问的证明点）。\n- 更新 ans 必须在移动指针之前，先移后算会漏掉当前状态。\n- 两侧等高时移哪边都可以（对偶），但不能两个都不移——会死循环。",
+          "complexity": "时间 O(n)，空间 O(1)",
+          "optimal": true,
+          "code": "def maxArea_tp(height):\n    l, r = 0, len(height) - 1   # 从最宽的状态开始\n    ans = 0\n    while l < r:\n        # 当前容量：宽度 × 两侧较矮者（木桶效应）\n        ans = max(ans, min(height[l], height[r]) * (r - l))\n        if height[l] < height[r]:\n            l += 1              # 矮的一侧是瓶颈，向内换人可能更高\n        else:\n            r -= 1              # 右侧不高于左侧，同理收缩右侧\n    return ans"
+        }
+      ],
+      "code": "class Solution:\n    def maxArea(self, height: List[int]) -> int:\n        l, r = 0, len(height) - 1   # 从最宽的状态开始\n        ans = 0\n        while l < r:\n            # 当前容量：宽度 × 两侧较矮者（木桶效应）\n            ans = max(ans, min(height[l], height[r]) * (r - l))\n            if height[l] < height[r]:\n                l += 1              # 矮的一侧是瓶颈，向内换人可能更高\n            else:\n                r -= 1              # 右侧不高于左侧，同理收缩右侧\n        return ans",
+      "acmCode": "# ACM 模式：完整可运行程序（stdin -> stdout）\n# 输入格式：\n#   第一行：n（垂线数量）\n#   第二行：n 个正整数（每条垂线的高度）\n# 输出格式：一个整数，容器可储存的最大水量\nimport sys\n\n\ndef main():\n    data = sys.stdin.read().split()\n    n = int(data[0])\n    height = [int(x) for x in data[1:1 + n]]\n\n    l, r = 0, n - 1          # 从最宽的状态开始\n    ans = 0\n    while l < r:\n        # 当前容量：宽度 × 两侧较矮者（木桶效应）\n        ans = max(ans, min(height[l], height[r]) * (r - l))\n        if height[l] < height[r]:\n            l += 1           # 矮的一侧是瓶颈，向内换人可能更高\n        else:\n            r -= 1\n    print(ans)\n\n\nif __name__ == '__main__':\n    main()",
+      "templates": [
+        "对撞双指针模板：l=0, r=n-1; while l<r: 更新答案; 依据条件收缩一侧"
+      ],
+      "codeCpp": "class Solution {\npublic:\n    int maxArea(vector<int>& height) {\n        int l = 0, r = (int)height.size() - 1;   // 从最宽的状态开始\n        int ans = 0;\n        while (l < r) {\n            // 当前容量：宽度 × 两侧较矮者（木桶效应）\n            ans = max(ans, min(height[l], height[r]) * (r - l));\n            if (height[l] < height[r])\n                ++l;   // 矮的一侧是瓶颈，向内换人可能更高\n            else\n                --r;   // 右侧不高于左侧，同理收缩右侧\n        }\n        return ans;\n    }\n};",
+      "acmCodeCpp": "// ACM 模式：完整可运行程序（stdin -> stdout）\n// 输入格式：\n//   第一行：n（垂线数量）\n//   第二行：n 个正整数（每条垂线的高度）\n// 输出格式：一个整数，容器可储存的最大水量\n#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);   // 关闭同步，读入更快\n    cin.tie(nullptr);\n\n    int n;\n    cin >> n;\n    vector<long long> height(n);\n    for (auto& h : height) cin >> h;\n\n    int l = 0, r = n - 1;          // 从最宽的状态开始\n    long long ans = 0;\n    while (l < r) {\n        // 当前容量：宽度 × 两侧较矮者（木桶效应）\n        ans = max(ans, min(height[l], height[r]) * (r - l));\n        if (height[l] < height[r])\n            ++l;   // 矮的一侧是瓶颈，向内换人可能更高\n        else\n            --r;   // 右侧不高于左侧，同理收缩右侧\n    }\n    cout << ans << endl;\n    return 0;\n}",
+      "codeJava": "class Solution {\n    public int maxArea(int[] height) {\n        int l = 0, r = height.length - 1;   // 从最宽的状态开始\n        int ans = 0;\n        while (l < r) {\n            // 当前容量：宽度 × 两侧较矮者（木桶效应）\n            ans = Math.max(ans, Math.min(height[l], height[r]) * (r - l));\n            if (height[l] < height[r])\n                l++;    // 矮的一侧是瓶颈，向内换人可能更高\n            else\n                r--;    // 右侧不高于左侧，同理收缩右侧\n        }\n        return ans;\n    }\n}",
+      "codeJs": "/**\n * @param {number[]} height\n * @return {number}\n */\nvar maxArea = function (height) {\n  let l = 0, r = height.length - 1;   // 从最宽的状态开始\n  let ans = 0;\n  while (l < r) {\n    // 当前容量：宽度 × 两侧较矮者（木桶效应）\n    ans = Math.max(ans, Math.min(height[l], height[r]) * (r - l));\n    if (height[l] < height[r]) l++;   // 矮的一侧是瓶颈，向内换人可能更高\n    else r--;                         // 右侧不高于左侧，同理收缩右侧\n  }\n  return ans;\n};",
+      "codeGo": "func maxArea(height []int) int {\n\tl, r := 0, len(height)-1 // 从最宽的状态开始\n\tans := 0\n\tfor l < r {\n\t\t// 当前容量：宽度 × 两侧较矮者（木桶效应）\n\t\tarea := height[l]\n\t\tif height[r] < area {\n\t\t\tarea = height[r] // 取两侧较矮者\n\t\t}\n\t\tif w := area * (r - l); w > ans {\n\t\t\tans = w // 更新全局最大容量\n\t\t}\n\t\tif height[l] < height[r] {\n\t\t\tl++ // 矮的一侧是瓶颈，向内换人可能更高\n\t\t} else {\n\t\t\tr-- // 右侧不高于左侧，同理收缩右侧\n\t\t}\n\t}\n\treturn ans\n}"
+    },
+    {
+      "id": 15,
+      "title": "3Sum",
+      "titleCn": "三数之和",
+      "difficulty": "medium",
+      "frequency": 5,
+      "companies": [
+        "字节跳动",
+        "腾讯",
+        "美团",
+        "阿里巴巴"
+      ],
+      "question": "给你一个整数数组 nums，判断是否存在三元组 [nums[i], nums[j], nums[k]] 满足 i != j、i != k 且 j != k，同时还满足 nums[i] + nums[j] + nums[k] == 0。请你返回所有和为 0 且不重复的三元组。\n\n注意：答案中不可以包含重复的三元组。\n\n示例：输入 nums = [-1,0,1,2,-1,-4]，输出 [[-1,-1,2],[-1,0,1]]。",
+      "samples": [
+        {
+          "input": "nums = [-1,0,1,2,-1,-4]",
+          "output": "[[-1,-1,2],[-1,0,1]]",
+          "explain": "(-1)+(-1)+2=0，(-1)+0+1=0；两组互不重复"
+        },
+        {
+          "input": "nums = [0,1,1]",
+          "output": "[]",
+          "explain": "任何三个数之和都大于 0，无解"
+        },
+        {
+          "input": "nums = [0,0,0]",
+          "output": "[[0,0,0]]",
+          "explain": "唯一的零三元组；重复值不能导致收录多次"
+        }
+      ],
+      "hints": [
+        "审题诀窍：『不重复的三元组』是本题最大的坑——去重逻辑漏一行就会答案翻倍。排序后相同元素跳过是标准手法。",
+        "审题诀窍：i != j != k 指的是下标不同，不是值不同；三元组内部可以有两个相等的值（如 [-1,-1,2]）。",
+        "突破口：固定一个数，问题退化为『两数之和 = -该数』。排序 + 双指针把 O(n³) 降到 O(n²)。",
+        "追问预备：为什么整体是 O(n²)？（外层固定 i 共 n 次，内层对撞指针每次至多走 n 步，两层相乘；对比暴力 O(n³)）；如果找『最接近 target 的三元组』呢？（16 题：记录 |s − target| 最小的 s，依据 s 与 target 的大小关系决定移动哪侧指针）"
+      ],
+      "keyPoints": [
+        "先排序，为去重和双指针铺路",
+        "外层固定 nums[i]，内层用对撞双指针找两数之和 = -nums[i]",
+        "去重 1：i 与前一个相同则跳过",
+        "去重 2：找到答案后 l、r 各自跳过重复值",
+        "剪枝：nums[i] > 0 时可直接 break（排序后后面全为正）"
+      ],
+      "structureTags": [
+        "sort",
+        "two_pointer",
+        "dedup"
+      ],
+      "approaches": [
+        {
+          "name": "哈希表三重转化",
+          "idea": "两层循环 + 哈希表查第三数。可行但去重复杂（需对三元组排序后去重），容易写错。",
+          "detail": "步骤拆解：\n1. 外层 i 固定第一个数，target2 = -nums[i]；内层 j 从 i+1 扫描，seen 集合记录 j 之前（i+1..j-1）出现过的值。\n2. 每到 j 算 need = target2 - nums[j]：need in seen 则 (nums[i], nums[j], need) 成一组，排序后转 tuple 存入 res_set 去重。\n3. nums[j] 加入 seen 继续；最后把 res_set 转回列表。\n\n示例走查：nums = [-1,0,1,2,-1,-4]。i=0（-1）：j=2（1）时 need=0 在 seen → (-1,1,0) 规范化为 (-1,0,1)；j=4（-1）时 need=2 在 seen → (-1,-1,2)。i=1（0）：j=4 时需要 1，命中的解与已有 (-1,0,1) 重复，被 set 过滤。最终恰两组 ✓。\n\n为什么正确：固定 i 后『两数之和 = -nums[i]』就是两数之和问题，seen 逐位扩张保证第三数下标严格小于 j 且大于 i；三元组先排序再进 set，重复解被天然过滤。\n\n易错点：\n- 第三数必须来自 j 之前（seen 的语义），若在整个数组里查会用到 j 之后的数，造成漏检与重复。\n- 去重必须先排序三元组再入 set，否则 (-1,0,1) 与 (-1,1,0) 被当成两组。\n- 输出顺序不定（set 无序），LeetCode 不判顺序；对拍时先排序再比较。",
+          "complexity": "时间 O(n²)，空间 O(n)",
+          "code": "def threeSum_hash(nums):\n    n = len(nums)\n    res_set = set()                  # 已收集的三元组（tuple），天然去重\n    for i in range(n - 2):\n        target2 = -nums[i]           # 剩下两数之和应为 target2\n        seen = set()                 # 只记录 j 之前出现过的值\n        for j in range(i + 1, n):\n            need = target2 - nums[j]\n            if need in seen:         # 第三数在 i+1..j-1 中出现过\n                res_set.add(tuple(sorted((nums[i], nums[j], need))))\n            seen.add(nums[j])\n    return [list(t) for t in res_set]"
+        },
+        {
+          "name": "排序 + 双指针",
+          "idea": "排序后固定 i，对 [i+1, n-1] 区间用对撞双指针找和为 -nums[i] 的组合；三处去重（i、l、r 各一处）保证结果不重复。",
+          "detail": "步骤拆解：\n1. 排序；i 从 0 到 n-3 固定第一个数。\n2. 剪枝：nums[i] > 0 直接 break（最小数已为正，三数之和不可能为 0）；i 与前一个相同则 continue 去重。\n3. l = i+1, r = n-1 对撞：s < 0 → l++；s > 0 → r--；s == 0 → 收录答案，l、r 各自跳过重复值再各进一格。\n\n示例走查：nums = [-1,0,1,2,-1,-4] 排序后 [-4,-1,-1,0,1,2]。\n- i=0（-4）：l=1, r=5 时 s = -4+(-1)+2 = -3 <0 → l 前进；此后 s 依次 -3、-2、-1，恒小于 0，l 追上 r，无解。\n- i=1（-1）：l=2, r=5：s = -1+(-1)+2 = 0 → 收 [-1,-1,2]；跳重后 l=3, r=4：s = -1+0+1 = 0 → 收 [-1,0,1]；l=4, r=3 结束。\n- i=2（-1）：与前一个相同，continue 去重。\n- i=3（0）：l=4(1), r=5(2)：s=3 >0 → r=4，结束。\n输出 [[-1,-1,2], [-1,0,1]] ✓。\n\n为什么正确：排序后固定 i，问题化为有序数组两数之和，对撞指针每步安全淘汰一个不可能的元素（和偏小只有 l 能增大，偏大只有 r 能减小），因此不漏解；三处去重保证同一值组合只被收录一次。\n\n易错点：\n- 三处去重缺一不可：i 跳重、命中后 l 跳重、r 跳重；漏掉任何一处答案就翻倍。\n- 剪枝 nums[i] > 0 必须 break 而非 continue（后面全为正，直接结束）。\n- 收录答案后 l、r 还要各走一步（先跳重再进位），否则卡死在同一个解上。",
+          "complexity": "时间 O(n²)，空间 O(log n)（排序栈）",
+          "optimal": true,
+          "code": "def threeSum_tp(nums):\n    nums.sort()                     # 排序：双指针的前提，也是去重的基础\n    n, res = len(nums), []\n    for i in range(n - 2):\n        if nums[i] > 0:             # 剪枝：最小数都为正，后面不可能凑出 0\n            break\n        if i > 0 and nums[i] == nums[i - 1]:\n            continue                # 去重1：跳过重复的固定数\n        l, r = i + 1, n - 1         # 在 i 右侧区间找两数之和 = -nums[i]\n        while l < r:\n            s = nums[i] + nums[l] + nums[r]\n            if s < 0:\n                l += 1              # 和太小，左指针右移增大\n            elif s > 0:\n                r -= 1              # 和太大，右指针左移减小\n            else:\n                res.append([nums[i], nums[l], nums[r]])\n                while l < r and nums[l] == nums[l + 1]:\n                    l += 1          # 去重2：跳过左重复\n                while l < r and nums[r] == nums[r - 1]:\n                    r -= 1          # 去重3：跳过右重复\n                l += 1\n                r -= 1              # 指向新的不同元素，继续找\n    return res"
+        }
+      ],
+      "code": "class Solution:\n    def threeSum(self, nums: List[int]) -> List[List[int]]:\n        nums.sort()                     # 排序：双指针的前提，也是去重的基础\n        n, res = len(nums), []\n        for i in range(n - 2):\n            if nums[i] > 0:             # 剪枝：最小数都为正，后面不可能凑出 0\n                break\n            if i > 0 and nums[i] == nums[i - 1]:\n                continue                # 去重1：跳过重复的固定数\n            l, r = i + 1, n - 1         # 在 i 右侧区间找两数之和 = -nums[i]\n            while l < r:\n                s = nums[i] + nums[l] + nums[r]\n                if s < 0:\n                    l += 1              # 和太小，左指针右移增大\n                elif s > 0:\n                    r -= 1              # 和太大，右指针左移减小\n                else:\n                    res.append([nums[i], nums[l], nums[r]])\n                    while l < r and nums[l] == nums[l + 1]:\n                        l += 1          # 去重2：跳过左重复\n                    while l < r and nums[r] == nums[r - 1]:\n                        r -= 1          # 去重3：跳过右重复\n                    l += 1\n                    r -= 1              # 指向新的不同元素，继续找\n        return res",
+      "acmCode": "# ACM 模式：完整可运行程序（stdin -> stdout）\n# 输入格式：\n#   第一行：n（数组长度）\n#   第二行：n 个整数\n# 输出格式：\n#   第一行：不重复三元组的个数 k\n#   接下来 k 行：每行一个三元组，元素升序、空格分隔（整体按字典序）\nimport sys\n\n\ndef main():\n    data = sys.stdin.read().split()\n    n = int(data[0])\n    nums = [int(x) for x in data[1:1 + n]]\n    nums.sort()                      # 排序：双指针的前提，也是去重的基础\n\n    res = []\n    for i in range(n - 2):\n        if nums[i] > 0:              # 剪枝：最小数都为正，不可能凑出 0\n            break\n        if i > 0 and nums[i] == nums[i - 1]:\n            continue                 # 去重1：跳过重复的固定数\n        l, r = i + 1, n - 1\n        while l < r:\n            s = nums[i] + nums[l] + nums[r]\n            if s < 0:\n                l += 1               # 和太小，左指针右移\n            elif s > 0:\n                r -= 1               # 和太大，右指针左移\n            else:\n                res.append((nums[i], nums[l], nums[r]))\n                while l < r and nums[l] == nums[l + 1]:\n                    l += 1           # 去重2：跳过左重复\n                while l < r and nums[r] == nums[r - 1]:\n                    r -= 1           # 去重3：跳过右重复\n                l += 1\n                r -= 1\n\n    print(len(res))\n    for t in res:\n        print(*t)\n\n\nif __name__ == '__main__':\n    main()",
+      "templates": [
+        "『n 数之和』通用套路：排序后固定最外层，内层降维为双指针/两数之和；每一层都要去重"
+      ],
+      "codeCpp": "class Solution {\npublic:\n    vector<vector<int>> threeSum(vector<int>& nums) {\n        sort(nums.begin(), nums.end());   // 排序：双指针的前提，也是去重的基础\n        vector<vector<int>> res;\n        int n = (int)nums.size();\n        for (int i = 0; i < n - 2; ++i) {\n            if (nums[i] > 0) break;   // 剪枝：最小数都为正，后面不可能凑出 0\n            if (i > 0 && nums[i] == nums[i - 1]) continue;   // 去重1：跳过重复的固定数\n            int l = i + 1, r = n - 1;   // 在 i 右侧区间找两数之和 = -nums[i]\n            while (l < r) {\n                int s = nums[i] + nums[l] + nums[r];\n                if (s < 0) {\n                    ++l;   // 和太小，左指针右移增大\n                } else if (s > 0) {\n                    --r;   // 和太大，右指针左移减小\n                } else {\n                    res.push_back({nums[i], nums[l], nums[r]});\n                    while (l < r && nums[l] == nums[l + 1]) ++l;   // 去重2：跳过左重复\n                    while (l < r && nums[r] == nums[r - 1]) --r;   // 去重3：跳过右重复\n                    ++l; --r;   // 指向新的不同元素，继续找\n                }\n            }\n        }\n        return res;\n    }\n};",
+      "acmCodeCpp": "// ACM 模式：完整可运行程序（stdin -> stdout）\n// 输入格式：\n//   第一行：n（数组长度）\n//   第二行：n 个整数\n// 输出格式：\n//   第一行：不重复三元组的个数 k\n//   接下来 k 行：每行一个三元组，元素升序、空格分隔（整体按字典序）\n#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);   // 关闭同步，读入更快\n    cin.tie(nullptr);\n\n    int n;\n    cin >> n;\n    vector<int> nums(n);\n    for (auto& x : nums) cin >> x;\n    sort(nums.begin(), nums.end());   // 排序：双指针的前提，也是去重的基础\n\n    vector<array<int, 3>> res;\n    for (int i = 0; i < n - 2; ++i) {\n        if (nums[i] > 0) break;   // 剪枝：最小数都为正，不可能凑出 0\n        if (i > 0 && nums[i] == nums[i - 1]) continue;   // 去重1：跳过重复的固定数\n        int l = i + 1, r = n - 1;   // 在 i 右侧区间找两数之和 = -nums[i]\n        while (l < r) {\n            int s = nums[i] + nums[l] + nums[r];\n            if (s < 0) {\n                ++l;   // 和太小，左指针右移\n            } else if (s > 0) {\n                --r;   // 和太大，右指针左移\n            } else {\n                res.push_back({nums[i], nums[l], nums[r]});\n                while (l < r && nums[l] == nums[l + 1]) ++l;   // 去重2：跳过左重复\n                while (l < r && nums[r] == nums[r - 1]) --r;   // 去重3：跳过右重复\n                ++l; --r;   // 指向新的不同元素，继续找\n            }\n        }\n    }\n\n    cout << res.size() << \"\\n\";   // 第一行：三元组个数\n    for (const auto& t : res)     // 每行一个三元组，元素升序、空格分隔\n        cout << t[0] << \" \" << t[1] << \" \" << t[2] << \"\\n\";\n    return 0;\n}",
+      "codeJava": "class Solution {\n    public List<List<Integer>> threeSum(int[] nums) {\n        Arrays.sort(nums);   // 排序：双指针的前提，也是去重的基础\n        List<List<Integer>> res = new ArrayList<>();\n        int n = nums.length;\n        for (int i = 0; i < n - 2; i++) {\n            if (nums[i] > 0) break;   // 剪枝：最小数都为正，后面不可能凑出 0\n            if (i > 0 && nums[i] == nums[i - 1]) continue;   // 去重1：跳过重复的固定数\n            int l = i + 1, r = n - 1;   // 在 i 右侧区间找两数之和 = -nums[i]\n            while (l < r) {\n                int s = nums[i] + nums[l] + nums[r];\n                if (s < 0) {\n                    l++;   // 和太小，左指针右移增大\n                } else if (s > 0) {\n                    r--;   // 和太大，右指针左移减小\n                } else {\n                    res.add(Arrays.asList(nums[i], nums[l], nums[r]));\n                    while (l < r && nums[l] == nums[l + 1]) l++;   // 去重2：跳过左重复\n                    while (l < r && nums[r] == nums[r - 1]) r--;   // 去重3：跳过右重复\n                    l++; r--;   // 指向新的不同元素，继续找\n                }\n            }\n        }\n        return res;\n    }\n}",
+      "codeJs": "/**\n * @param {number[]} nums\n * @return {number[][]}\n */\nvar threeSum = function (nums) {\n  nums.sort((a, b) => a - b);   // 排序：双指针的前提，也是去重的基础\n  const res = [];\n  const n = nums.length;\n  for (let i = 0; i < n - 2; i++) {\n    if (nums[i] > 0) break;   // 剪枝：最小数都为正，后面不可能凑出 0\n    if (i > 0 && nums[i] === nums[i - 1]) continue;   // 去重1：跳过重复的固定数\n    let l = i + 1, r = n - 1;   // 在 i 右侧区间找两数之和 = -nums[i]\n    while (l < r) {\n      const s = nums[i] + nums[l] + nums[r];\n      if (s < 0) {\n        l++;   // 和太小，左指针右移增大\n      } else if (s > 0) {\n        r--;   // 和太大，右指针左移减小\n      } else {\n        res.push([nums[i], nums[l], nums[r]]);\n        while (l < r && nums[l] === nums[l + 1]) l++;   // 去重2：跳过左重复\n        while (l < r && nums[r] === nums[r - 1]) r--;   // 去重3：跳过右重复\n        l++; r--;   // 指向新的不同元素，继续找\n      }\n    }\n  }\n  return res;\n};",
+      "codeGo": "func threeSum(nums []int) [][]int {\n\tsort.Ints(nums) // 排序：双指针的前提，也是去重的基础\n\tres := [][]int{}\n\tn := len(nums)\n\tfor i := 0; i < n-2; i++ {\n\t\tif nums[i] > 0 { // 剪枝：最小数都为正，后面不可能凑出 0\n\t\t\tbreak\n\t\t}\n\t\tif i > 0 && nums[i] == nums[i-1] { // 去重1：跳过重复的固定数\n\t\t\tcontinue\n\t\t}\n\t\tl, r := i+1, n-1 // 在 i 右侧区间找两数之和 = -nums[i]\n\t\tfor l < r {\n\t\t\ts := nums[i] + nums[l] + nums[r]\n\t\t\tif s < 0 {\n\t\t\t\tl++ // 和太小，左指针右移增大\n\t\t\t} else if s > 0 {\n\t\t\t\tr-- // 和太大，右指针左移减小\n\t\t\t} else {\n\t\t\t\tres = append(res, []int{nums[i], nums[l], nums[r]})\n\t\t\t\tfor l < r && nums[l] == nums[l+1] { // 去重2：跳过左重复\n\t\t\t\t\tl++\n\t\t\t\t}\n\t\t\t\tfor l < r && nums[r] == nums[r-1] { // 去重3：跳过右重复\n\t\t\t\t\tr--\n\t\t\t\t}\n\t\t\t\tl++ // 指向新的不同元素，继续找\n\t\t\t\tr--\n\t\t\t}\n\t\t}\n\t}\n\treturn res\n}"
+    }
+  ]
+}

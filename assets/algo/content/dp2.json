@@ -1,0 +1,821 @@
+{
+  "topic": "动态规划",
+  "problems": [
+    {
+      "id": 5,
+      "title": "Longest Palindromic Substring",
+      "titleCn": "最长回文子串",
+      "difficulty": "medium",
+      "frequency": 5,
+      "question": "给你一个字符串 s，找到 s 中最长的回文子串。如果字符串的反序与原始字符串相同，则该字符串称为回文字符串。题目保证 s 长度至少为 1；如果有多个答案，返回任意一个即可。\n\n示例 1：输入 s = \"babad\"，输出 \"bab\"（\"aba\" 同样是有效答案）。\n示例 2：输入 s = \"cbbd\"，输出 \"bb\"。",
+      "hints": [
+        "审题诀窍：子串必须连续，这排除了『跳过中间字符』的可能；而『连续区间是否回文』只取决于两端字符与内部小区间，天然是区间 DP 的形状。",
+        "审题诀窍：状态别直接定义『最长』，先定义『是不是』——dp[i][j] 记录 s[i..j] 是否回文，转移只有『长度≤2 且两端相等』或『两端相等且内部回文』两种；『最长』只是扫描时给 true 的区间量长度。",
+        "突破口：回文关于中心对称，候选中心只有 n 个字符位加 n-1 个字符间隙共 2n-1 个——从中心向两边扩展即可把 O(n²) 的 dp 表压成 O(1) 空间。",
+        "追问预备：Manacher 算法 O(n) 怎么做？（插入分隔符统一奇偶 + 利用镜像信息避免重复扩展）；最长回文子序列呢？（516：区间 DP，不要求连续）；如何统计回文子串个数？（647：同样中心扩展，计数而非取 max）"
+      ],
+      "keyPoints": [
+        "区间 DP 状态 dp[i][j] 表示 s[i..j] 是否回文：s[i]==s[j] 且（j-i<3 或 dp[i+1][j-1]）时为 true",
+        "枚举顺序按区间长度从小到大，保证算 dp[i][j] 时内部子区间已就绪",
+        "中心扩展：2n-1 个中心（字符位与字符间隙各算一种），奇偶长度分别尝试",
+        "记录最长回文的起点与长度，最后切片返回"
+      ],
+      "structureTags": [
+        "dp",
+        "two_pointer"
+      ],
+      "approaches": [
+        {
+          "name": "记忆化搜索",
+          "idea": "递归 isPal(i, j) 表示 s[i..j] 是否回文：s[i]!=s[j] 直接 false，否则继续问 isPal(i+1, j-1)。用 memo 缓存 (i, j) 的布尔结果，把指数级重复计算压到每个状态只算一次。",
+          "complexity": "时间 O(n²)，空间 O(n²)",
+          "detail": "状态定义：isPal(i, j) = 子串 s[i..j] 是否回文。转移推导（两端字符分类）：s[i] != s[j] 直接 false；相等时取决于去掉两端后的内部子串——isPal(i, j) = isPal(i+1, j-1)，长度 <=2 的区间以两端字符是否相等直接判定。\n\n示例走查：s=\"babad\"。isPal(1,3)：s[1]=a==s[3]=a，问 isPal(2,2)=true → true，即 \"aba\"；isPal(0,2)：b==b 且 isPal(1,1)=true → true，即 \"bab\"；两者长度 3，都是答案候选。\n\n为什么正确：回文的定义『去壳后仍是回文』天然递归，区间 (i,j) 只有 O(n²) 个，缓存后每个只算一次，避免朴素递归的指数重复。易错点：\n- 长度 1、2 的区间是递归出口（j-i<=1 时返回 s[i]==s[j]），漏掉会无限递归。\n- memo 维度是 (i,j) 二维，n=1000 时 10^6 状态内存可控，再大建议中心扩展。\n- 递归深度最深 O(n)，Python 注意递归上限。",
+          "code": "def longest_pal_memo(s):\n    n = len(s)\n    from functools import lru_cache\n    @lru_cache(maxsize=None)\n    def is_pal(i, j):\n        if j - i <= 1:                # 长度 1 或 2：只看两端字符\n            return s[i] == s[j]\n        # 去壳：两端相等且内部仍是回文\n        return s[i] == s[j] and is_pal(i + 1, j - 1)\n    best = (0, 0)                     # 记录最长回文的 (起点, 终点)\n    for i in range(n):\n        for j in range(i, n):\n            if is_pal(i, j) and j - i > best[1] - best[0]:\n                best = (i, j)\n    return s[best[0]:best[1] + 1]"
+        },
+        {
+          "name": "区间 DP 递推",
+          "idea": "dp[i][j] = (s[i]==s[j]) 且（j-i<3 或 dp[i+1][j-1]）。外层按区间长度 len 从 2 到 n 递增、内层枚举起点，保证依赖的子区间先算好；边填表边用为 true 的区间更新最长回文的起止位置。",
+          "complexity": "时间 O(n²)，空间 O(n²)",
+          "detail": "状态定义：dp[i][j] = s[i..j] 是否回文。转移推导（两端字符分类）：dp[i][j] = (s[i]==s[j]) 且（长度<=3 或 dp[i+1][j-1]）——长度 2、3 的区间两端相等即回文（内部为空或单字符），更长的必须看内部子区间。\n\n示例走查：s=\"cbbd\"。长度 1 全 true；长度 2：dp[1][2]=（b==b）true；长度 3：dp[0][2]=（c==b）false、dp[1][3]=（b==d）false；长度 4：dp[0][3]=（c==d）false。扫描中 dp[1][2] 为 true 且最长 → 答案 \"bb\" ✓。\n\n为什么正确：填表按区间长度从小到大，保证算 dp[i][j] 时 dp[i+1][j-1] 已就绪——区间 DP 的铁律；回文定义的递归结构被忠实翻译成填表。易错点：\n- 外层必须枚举区间长度、内层枚举起点；若外层直接枚举 i，dp[i+1][j-1] 可能还没算。\n- 『长度<=3』的短路判断要放在 dp[i+1][j-1] 之前，避免内部子区间越界。\n- 边扫边更新最长回文的起点与长度，最后切片返回。",
+          "code": "def longest_pal_table(s):\n    n = len(s)\n    dp = [[False] * n for _ in range(n)]   # dp[i][j] = s[i..j] 是否回文\n    for i in range(n):\n        dp[i][i] = True               # 长度 1 恒为回文\n    start, max_len = 0, 1\n    for length in range(2, n + 1):    # 外层按区间长度从小到大\n        for i in range(0, n - length + 1):\n            j = i + length - 1\n            if s[i] == s[j] and (length <= 3 or dp[i + 1][j - 1]):\n                dp[i][j] = True\n                if length > max_len:\n                    start, max_len = i, length\n    return s[start:start + max_len]"
+        },
+        {
+          "name": "中心扩展",
+          "idea": "回文一定关于中心对称，候选中心只有 2n-1 个（每个字符 + 每个字符间隙）。从每个中心向两侧扩展直到字符不等，记录扩展出的最长回文。时间与区间 DP 同阶，但无需 dp 表，空间降到 O(1)。",
+          "complexity": "时间 O(n²)，空间 O(1)",
+          "optimal": true,
+          "detail": "状态定义：expand(l, r) = 以 s[l..r]（单字符或字符间隙）为中心向两侧扩展出的回文长度。转移/分类：候选中心共 2n-1 个——n 个字符位（奇数长度回文）+ n-1 个字符间隙（偶数长度回文），每个中心向两边扩到字符不等为止。\n\n示例走查：s=\"cbbd\"。i=1：奇数中心 (1,1) 只扩出 \"b\" 长度 1；偶数中心 (1,2)：s[1]==s[2]=b → 扩出 \"bb\" 长度 2 → 更新答案；其余中心长度均 <=1，最终返回 \"bb\" ✓。s=\"babad\"：i=1 奇数中心扩出 \"bab\"（长 3）→ i=2 扩出 \"aba\"（长 3，不更新），返回 \"bab\" ✓。\n\n为什么正确：任何回文都有唯一中心（字符或间隙），枚举全部 2n-1 个中心不重不漏；扩展过程就是区间 DP 状态的空间优化版，无需 dp 表。易错点：\n- expand 返回 r-l-1 而不是 r-l：循环结束时 s[l]、s[r] 已不匹配（或越界），要退一格。\n- 由长度反推端点：start = i - (m-1)//2、end = i + m//2，奇偶通用，写错会偏移。\n- 中心别漏间隙（否则 \"cbbd\" 的 \"bb\" 找不到），也别漏字符位（否则奇回文找不到）。",
+          "code": "def longest_pal_expand(s):\n    def expand(l, r):\n        while l >= 0 and r < len(s) and s[l] == s[r]:\n            l -= 1                    # 向左扩一格\n            r += 1                    # 向右扩一格\n        return r - l - 1              # 失配后回退，回文长度 r-l-1\n    start, end = 0, 0\n    for i in range(len(s)):\n        m = max(expand(i, i), expand(i, i + 1))   # 字符位/字符间隙两种中心\n        if m > end - start + 1:\n            start, end = i - (m - 1) // 2, i + m // 2\n    return s[start:end + 1]"
+        }
+      ],
+      "code": "class Solution:\n    def longestPalindrome(self, s: str) -> str:\n        # 状态定义：expand(l, r) 返回以 s[l..r] 为中心能扩展出的回文长度\n        # （即区间 DP 状态 dp[i][j]=s[i..j] 是否回文做空间优化后的等价形式）\n        def expand(l, r):\n            while l >= 0 and r < len(s) and s[l] == s[r]:\n                l -= 1              # 向左扩一格\n                r += 1              # 向右扩一格\n            return r - l - 1        # 循环结束时 s[l..r] 已不回文，回文长度为 r-l-1\n        start, end = 0, 0           # 记录当前最长回文的左右端点\n        for i in range(len(s)):\n            odd = expand(i, i)      # 奇数长度回文：中心是一个字符\n            even = expand(i, i + 1) # 偶数长度回文：中心是字符间隙\n            m = max(odd, even)\n            if m > end - start + 1: # 发现更长的回文则更新端点\n                start = i - (m - 1) // 2\n                end = i + m // 2\n        return s[start:end + 1]",
+      "templates": [
+        "区间 DP 判回文模板：dp[i][j] = (s[i]==s[j]) and (j-i<3 or dp[i+1][j-1])，按区间长度外层枚举；求『最长回文子串』先想『区间真值表再取最长』。",
+        "回文中心扩展模板：2n-1 个中心（字符位 + 字符间隙）各向两边扩，奇偶长度一把抓——比区间 DP 省一维空间。"
+      ],
+      "companies": [
+        "字节跳动",
+        "腾讯"
+      ],
+      "samples": [
+        {
+          "input": "s = \"babad\"",
+          "output": "\"bab\"",
+          "explain": "\"aba\" 同样是有效答案"
+        },
+        {
+          "input": "s = \"cbbd\"",
+          "output": "\"bb\"",
+          "explain": "偶数长度回文，中心是两个 b 之间的间隙"
+        }
+      ],
+      "acmCode": "# ACM 模式：完整可运行程序（stdin -> stdout）\n# 输入格式：\n#   第一行：字符串 s（长度 >= 1，不含空白字符）\n# 输出格式：一行一个字符串，s 的最长回文子串（若有多个输出任意一个）\nimport sys\n\ndef main():\n    s = sys.stdin.read().split()[0]   # 读入字符串\n\n    def expand(l, r):\n        while l >= 0 and r < len(s) and s[l] == s[r]:\n            l -= 1\n            r += 1\n        return r - l - 1\n\n    start, end = 0, 0\n    for i in range(len(s)):\n        m = max(expand(i, i), expand(i, i + 1))   # 字符位/间隙两种中心\n        if m > end - start + 1:\n            start, end = i - (m - 1) // 2, i + m // 2\n    print(s[start:end + 1])\n\nif __name__ == '__main__':\n    main()",
+      "codeCpp": "class Solution {\npublic:\n    string longestPalindrome(string s) {\n        // 状态定义：expand(l, r) 返回以 s[l..r] 为中心能扩展出的最长回文长度\n        // （相当于区间 DP dp[i][j] 空间优化后的等价形式，避免 O(n^2) 存储）\n        int n = (int)s.size();\n        auto expand = [&](int l, int r) {   // 向两侧扩展\n            while (l >= 0 && r < n && s[l] == s[r]) { --l; ++r; }\n            return r - l - 1;               // 循环结束时已不回文，长度为 r-l-1\n        };\n        int start = 0, end = 0;             // 记录当前最长回文的左右端点\n        for (int i = 0; i < n; ++i) {\n            int m = max(expand(i, i), expand(i, i + 1));   // 字符位/间隙两种中心\n            if (m > end - start + 1) {      // 发现更长的回文则更新端点\n                start = i - (m - 1) / 2;\n                end = i + m / 2;\n            }\n        }\n        return s.substr(start, end - start + 1);\n    }\n};",
+      "acmCodeCpp": "// ACM 模式：完整可运行程序（stdin -> stdout）\n// 输入格式：\n//   第一行：字符串 s（长度 >= 1，不含空白字符）\n// 输出格式：一行一个字符串，s 的最长回文子串（若有多个输出任意一个）\n#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);   // 关闭同步，读入更快\n    cin.tie(nullptr);\n\n    string s;\n    cin >> s;                      // 读入字符串 s\n    int n = (int)s.size();\n    auto expand = [&](int l, int r) {   // 向两侧扩展\n        while (l >= 0 && r < n && s[l] == s[r]) { --l; ++r; }\n        return r - l - 1;               // 循环结束时已不回文，长度为 r-l-1\n    };\n    int start = 0, end = 0;             // 记录当前最长回文的左右端点\n    for (int i = 0; i < n; ++i) {\n        int m = max(expand(i, i), expand(i, i + 1));   // 字符位/间隙两种中心\n        if (m > end - start + 1) {      // 发现更长的回文则更新端点\n            start = i - (m - 1) / 2;\n            end = i + m / 2;\n        }\n    }\n    cout << s.substr(start, end - start + 1) << endl;\n    return 0;\n}",
+      "codeJava": "class Solution {\n    public String longestPalindrome(String s) {\n        // 状态定义：expand(l, r) 返回以 s[l..r] 为中心能扩展出的最长回文长度\n        // （相当于区间 DP dp[i][j] 空间优化后的等价形式）\n        int n = s.length();\n        int start = 0, end = 0;          // 记录当前最长回文的左右端点\n        for (int i = 0; i < n; i++) {\n            int m = Math.max(expand(s, i, i), expand(s, i, i + 1));   // 字符位/间隙两种中心\n            if (m > end - start + 1) {   // 发现更长的回文则更新端点\n                start = i - (m - 1) / 2;\n                end = i + m / 2;\n            }\n        }\n        return s.substring(start, end + 1);\n    }\n\n    private int expand(String s, int l, int r) {   // 向两侧扩展\n        while (l >= 0 && r < s.length() && s.charAt(l) == s.charAt(r)) { l--; r++; }\n        return r - l - 1;                          // 循环结束时已不回文，长度为 r-l-1\n    }\n}",
+      "codeJs": "/**\n * @param {string} s\n * @return {string}\n */\nvar longestPalindrome = function (s) {\n  // 状态定义：expand(l, r) 返回以 s[l..r] 为中心能扩展出的最长回文长度\n  // （相当于区间 DP dp[i][j] 空间优化后的等价形式）\n  const n = s.length;\n  const expand = (l, r) => {           // 向两侧扩展\n    while (l >= 0 && r < n && s[l] === s[r]) { l--; r++; }\n    return r - l - 1;                  // 循环结束时已不回文，长度为 r-l-1\n  };\n  let start = 0, end = 0;              // 记录当前最长回文的左右端点\n  for (let i = 0; i < n; i++) {\n    const m = Math.max(expand(i, i), expand(i, i + 1));   // 字符位/间隙两种中心\n    if (m > end - start + 1) {         // 发现更长的回文则更新端点\n      start = i - Math.floor((m - 1) / 2);\n      end = i + Math.floor(m / 2);\n    }\n  }\n  return s.slice(start, end + 1);\n};",
+      "codeGo": "func longestPalindrome(s string) string {\n\t// 状态定义：expand(l, r) 返回以 s[l..r] 为中心能扩展出的最长回文长度\n\t// （相当于区间 DP dp[i][j] 空间优化后的等价形式）\n\tn := len(s)\n\texpand := func(l, r int) int {   // 向两侧扩展\n\t\tfor l >= 0 && r < n && s[l] == s[r] {\n\t\t\tl--\n\t\t\tr++\n\t\t}\n\t\treturn r - l - 1              // 循环结束时已不回文，长度为 r-l-1\n\t}\n\tstart, end := 0, 0                // 记录当前最长回文的左右端点\n\tfor i := 0; i < n; i++ {\n\t\todd := expand(i, i)           // 奇数长度回文：中心是一个字符\n\t\teven := expand(i, i+1)        // 偶数长度回文：中心是字符间隙\n\t\tm := odd\n\t\tif even > m {\n\t\t\tm = even\n\t\t}\n\t\tif m > end-start+1 {          // 发现更长的回文则更新端点\n\t\t\tstart = i - (m-1)/2\n\t\t\tend = i + m/2\n\t\t}\n\t}\n\treturn s[start : end+1]\n}"
+    },
+    {
+      "id": 62,
+      "title": "Unique Paths",
+      "titleCn": "不同路径",
+      "difficulty": "medium",
+      "frequency": 3,
+      "question": "一个机器人位于一个 m x n 网格的左上角（起始点在下图中标记为 \"Start\"）。机器人每次只能向下或者向右移动一步，机器人试图达到网格的右下角（标记为 \"Finish\"）。问总共有多少条不同的路径？\n\n示例 1：输入 m = 3, n = 7，输出 28。\n示例 2：输入 m = 3, n = 2，输出 3（右→右→下 / 右→下→右 / 下→右→右）。\n\n1 <= m, n <= 100，题目数据保证答案小于等于 2 * 10^9。",
+      "hints": [
+        "审题诀窍：『只能向右或向下』决定了到达 (i, j) 的最后一步必来自 (i-1, j) 或 (i, j-1)——大问题被拆成这两个来源相加，转移方程就自动浮现。",
+        "审题诀窍：第一行、第一列只有一条到达方式（一路直走），这是初始化的锚点；数路径数用『加法』聚合，对比 64 最小路径和用『min』，网格骨架完全相同。",
+        "突破口：第 i 行只依赖第 i-1 行，二维表可压成一维滚动数组：更新前 f[j] 是正上方的值、f[j-1] 是已更新的左方值，故 f[j] += f[j-1]。",
+        "追问预备：网格有障碍物怎么办？（63 题：障碍格 dp 置 0，其余转移不变）；换成最小路径和怎么变形？（64：聚合从加法换 min，骨架完全相同）；m、n 很大时组合数怎么算？（C(m+n-2, m-1) 逆元或逐乘取模）"
+      ],
+      "keyPoints": [
+        "状态 dp[i][j] 表示从起点走到 (i, j) 的路径数，转移 dp[i][j] = dp[i-1][j] + dp[i][j-1]",
+        "边界：首行首列全为 1（起点 dp[0][0] = 1）",
+        "滚动数组：f[j] += f[j-1]，一行扫完即压缩掉行维度",
+        "组合数学视角：路径 = m-1 个下步 + n-1 个右步的排列，答案 C(m+n-2, m-1)"
+      ],
+      "structureTags": [
+        "dp",
+        "matrix"
+      ],
+      "approaches": [
+        {
+          "name": "记忆化搜索",
+          "idea": "递归 f(i, j) 表示从起点走到 (i, j) 的路径数：f(i, j) = f(i-1, j) + f(i, j-1)，i==0 或 j==0 时返回 1。不加缓存是指数级，缓存 (i, j) 后每个状态只算一次。",
+          "complexity": "时间 O(mn)，空间 O(mn)",
+          "detail": "状态定义：f(i, j) = 从起点 (0,0) 走到 (i,j) 的路径数。转移推导（最后一步分类）：到达 (i,j) 的最后一步要么从上方 (i-1,j) 向下、要么从左方 (i,j-1) 向右，两条来路互斥且覆盖全部，f(i,j) = f(i-1,j) + f(i,j-1)；边界 i==0 或 j==0 时只有一条直路（返回 1）。\n\n示例走查：m=3, n=3。首行首列全 1；f(1,1)=1+1=2 → f(1,2)=f(0,2)+f(1,1)=1+2=3 → f(2,1)=f(1,1)+f(2,0)=2+1=3 → f(2,2)=f(1,2)+f(2,1)=3+3=6，答案 6（与 C(4,2)=6 吻合）。\n\n为什么正确：每条路径由每一步的走向唯一确定，按最后一步拆分不重不漏；缓存 (i,j) 后 O(mn) 个状态各算一次，无缓存则是指数级。易错点：\n- 边界判断（i==0 or j==0）必须在递归最前，否则负下标越界。\n- 聚合用『加法』——对比 64 最小路径和用 min，骨架相同、语义不同。\n- 递归深度 O(m+n)，m=n=100 时安全。",
+          "code": "def unique_paths_memo(m, n):\n    from functools import lru_cache\n    @lru_cache(maxsize=None)\n    def f(i, j):\n        if i == 0 or j == 0:\n            return 1                  # 首行首列只有一条直路\n        return f(i - 1, j) + f(i, j - 1)   # 上方来 + 左方来\n    return f(m - 1, n - 1)"
+        },
+        {
+          "name": "二维递推 DP",
+          "idea": "开 dp 表逐格填：首行首列初始化为 1，内部 dp[i][j] = dp[i-1][j] + dp[i][j-1]，答案 dp[m-1][n-1]。",
+          "complexity": "时间 O(mn)，空间 O(mn)",
+          "detail": "状态定义：dp[i][j] = 从 (0,0) 走到 (i,j) 的路径数。转移方程 dp[i][j] = dp[i-1][j] + dp[i][j-1]；边界：dp[0][0]=1，首行首列全 1（只能一路直走）。\n\n示例走查：m=3, n=7。首行 [1,1,1,1,1,1,1]；第 1 行 [1,2,3,4,5,6,7]；第 2 行 [1,3,6,10,15,21,28]，答案 dp[2][6]=28 ✓。\n\n为什么正确：逐行从上到下、行内从左到右填表，两个依赖（上、左）总在之前算好；加法原理保证方案数不重不漏。易错点：\n- dp[0][0] 是 1 不是 0（『原地不动』作为递推种子的空路径）。\n- 行列别写反：dp[i-1][j] 是上方、dp[i][j-1] 是左方。\n- 答案在 dp[m-1][n-1]；二维表直观但 O(mn) 空间，面试应主动提出滚动优化。",
+          "code": "def unique_paths_table(m, n):\n    dp = [[1] * n for _ in range(m)]  # 首行首列全 1\n    for i in range(1, m):\n        for j in range(1, n):\n            dp[i][j] = dp[i - 1][j] + dp[i][j - 1]   # 上方 + 左方\n    return dp[m - 1][n - 1]"
+        },
+        {
+          "name": "一维滚动 DP",
+          "idea": "第 i 行只依赖第 i-1 行：用一维数组 f 逐行滚动。更新前 f[j] 存的是正上方 dp[i-1][j]，f[j-1] 已更新是左方 dp[i][j-1]，故转移写 f[j] += f[j-1]。空间从 O(mn) 压到 O(n)。",
+          "complexity": "时间 O(mn)，空间 O(n)",
+          "optimal": true,
+          "detail": "状态定义：f[j] = 走到当前行第 j 列的路径数（滚动压缩掉行维度）。转移推导：更新前 f[j] 存的是正上方 dp[i-1][j]，f[j-1] 已被本轮更新是左方 dp[i][j-1]，故转移写成原地加法 f[j] += f[j-1]；首行初始化全 1。\n\n示例走查：m=3, n=7。初始 f=[1,1,1,1,1,1,1]。第 1 行：f=[1,2,3,4,5,6,7]；第 2 行：f=[1,3,6,10,15,21,28]，输出 28 ✓。\n\n为什么正确：第 i 行只依赖第 i-1 行，一维数组滚动与二维表逐格等价；正序更新正好利用『左边已更新、上面未覆盖』的时间差。易错点：\n- 内层必须从 j=1 开始正序（j=0 首列恒为 1 不能动），倒序会读到未更新的左方旧值。\n- f 初始化 [1]*n 就是首行，别再单独处理 dp[0][0]。\n- m=1 或 n=1 时循环体不执行，直接返回 1，天然正确。",
+          "code": "def unique_paths_rolling(m, n):\n    f = [1] * n                       # 第 0 行：路径数全为 1\n    for i in range(1, m):\n        for j in range(1, n):         # 正序：f[j-1] 是本行新值\n            f[j] += f[j - 1]          # f[j] 旧值=上方，f[j-1]=左方\n    return f[n - 1]"
+        },
+        {
+          "name": "组合数学",
+          "idea": "任何一条路径都是 m-1 次向下和 n-1 次向右的排列，总步数 m+n-2，路径数即从中选出 m-1 个下步的方案数 C(m+n-2, m-1)，一次连乘可得（数学上时间更优，可作为面试加分补充；本题主考 DP，最优解标给滚动数组）。",
+          "complexity": "时间 O(m+n)，空间 O(1)",
+          "detail": "推导：一条路径由 m-1 次向下、n-1 次向右共 m+n-2 步组成，路径数 = 在 m+n-2 步中选出 m-1 个下步位置的方法数，即 C(m+n-2, m-1)。\n\n示例走查：m=3, n=7 → C(8,2)=28 ✓；m=3, n=2 → C(3,2)=3 ✓。\n\n为什么正确：DP 数出的每条路径一一对应一个『下步位置集合』，双射成立，计数一致。易错点：\n- 连乘计算组合数时先除后乘可能除不尽，用 math.comb 或边乘边除（乘完 i 项恰能被 i! 整除）。\n- 这是数学加分项，本题主考 DP；面试先写 DP，再抛组合公式展示深度。\n- 结果可达 2*10^9，Python 无溢出之忧，C++ 要用 long long。",
+          "code": "import math\n\ndef unique_paths_math(m, n):\n    # 路径 = m-1 个下步 + n-1 个右步的排列数，即 C(m+n-2, m-1)\n    return math.comb(m + n - 2, m - 1)"
+        }
+      ],
+      "code": "class Solution:\n    def uniquePaths(self, m: int, n: int) -> int:\n        # 状态定义：f[j] 表示走到当前行第 j 列的不同路径数（滚动压缩自 dp[i][j]）\n        f = [1] * n               # 第 0 行：只能一路向右，路径数全为 1\n        for i in range(1, m):     # 从第 1 行开始逐行递推\n            for j in range(1, n):\n                # 更新前 f[j] 是正上方 dp[i-1][j]，f[j-1] 是已更新的左方 dp[i][j-1]\n                f[j] += f[j - 1]\n        return f[n - 1]           # 右下角的路径数",
+      "templates": [
+        "网格计数 DP 模板：dp[i][j] = dp[i-1][j] + dp[i][j-1]，首行首列初始化为 1（有障碍时按条件置 0），压成一维时转移写 f[j] += f[j-1]。",
+        "『路径数用加法、路径最值用 min/max』——同一网格骨架换聚合函数即可迁移到 64/63 等题。"
+      ],
+      "companies": [
+        "百度"
+      ],
+      "samples": [
+        {
+          "input": "m = 3, n = 7",
+          "output": "28"
+        },
+        {
+          "input": "m = 3, n = 2",
+          "output": "3",
+          "explain": "右→右→下 / 右→下→右 / 下→右→右"
+        }
+      ],
+      "acmCode": "# ACM 模式：完整可运行程序（stdin -> stdout）\n# 输入格式：\n#   第一行：m n（网格行数、列数）\n# 输出格式：一行一个整数，从左上角到右下角的不同路径数\nimport sys\n\ndef main():\n    m, n = map(int, sys.stdin.read().split()[:2])\n    f = [1] * n                       # 第 0 行全 1\n    for i in range(1, m):\n        for j in range(1, n):\n            f[j] += f[j - 1]          # f[j] 旧值=上方，f[j-1]=左方\n    print(f[n - 1])\n\nif __name__ == '__main__':\n    main()",
+      "codeCpp": "class Solution {\npublic:\n    int uniquePaths(int m, int n) {\n        // 状态定义：f[j] 表示走到当前行第 j 列的不同路径数（滚动压缩自 dp[i][j]）\n        vector<int> f(n, 1);          // 第 0 行：只能一路向右，路径数全为 1\n        for (int i = 1; i < m; ++i) { // 从第 1 行开始逐行递推\n            for (int j = 1; j < n; ++j) {\n                // 更新前 f[j] 是正上方 dp[i-1][j]，f[j-1] 是已更新的左方 dp[i][j-1]\n                f[j] += f[j - 1];\n            }\n        }\n        return f[n - 1];              // 右下角的路径数\n    }\n};",
+      "acmCodeCpp": "// ACM 模式：完整可运行程序（stdin -> stdout）\n// 输入格式：\n//   第一行：m n（网格行数、列数）\n// 输出格式：一行一个整数，从左上角到右下角的不同路径数\n#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);   // 关闭同步，读入更快\n    cin.tie(nullptr);\n\n    int m, n;\n    cin >> m >> n;\n    vector<int> f(n, 1);           // 第 0 行全 1\n    for (int i = 1; i < m; ++i) {\n        for (int j = 1; j < n; ++j) {\n            f[j] += f[j - 1];      // f[j] 旧值=上方，f[j-1]=左方\n        }\n    }\n    cout << f[n - 1] << endl;\n    return 0;\n}",
+      "codeJava": "class Solution {\n    public int uniquePaths(int m, int n) {\n        // 状态定义：f[j] 表示走到当前行第 j 列的不同路径数（滚动压缩自 dp[i][j]）\n        int[] f = new int[n];\n        Arrays.fill(f, 1);           // 第 0 行：只能一路向右，路径数全为 1\n        for (int i = 1; i < m; i++) {   // 从第 1 行开始逐行递推\n            for (int j = 1; j < n; j++) {\n                // 更新前 f[j] 是正上方 dp[i-1][j]，f[j-1] 是已更新的左方 dp[i][j-1]\n                f[j] += f[j - 1];\n            }\n        }\n        return f[n - 1];             // 右下角的路径数\n    }\n}",
+      "codeJs": "/**\n * @param {number} m\n * @param {number} n\n * @return {number}\n */\nvar uniquePaths = function (m, n) {\n  // 状态定义：f[j] 表示走到当前行第 j 列的不同路径数（滚动压缩自 dp[i][j]）\n  const f = new Array(n).fill(1);    // 第 0 行：只能一路向右，路径数全为 1\n  for (let i = 1; i < m; i++) {      // 从第 1 行开始逐行递推\n    for (let j = 1; j < n; j++) {\n      // 更新前 f[j] 是正上方 dp[i-1][j]，f[j-1] 是已更新的左方 dp[i][j-1]\n      f[j] += f[j - 1];\n    }\n  }\n  return f[n - 1];                   // 右下角的路径数\n};",
+      "codeGo": "func uniquePaths(m int, n int) int {\n\t// 状态定义：f[j] 表示走到当前行第 j 列的不同路径数（滚动压缩自 dp[i][j]）\n\tf := make([]int, n)\n\tfor j := range f {\n\t\tf[j] = 1                    // 第 0 行：只能一路向右，路径数全为 1\n\t}\n\tfor i := 1; i < m; i++ {        // 从第 1 行开始逐行递推\n\t\tfor j := 1; j < n; j++ {\n\t\t\t// 更新前 f[j] 是正上方 dp[i-1][j]，f[j-1] 是已更新的左方 dp[i][j-1]\n\t\t\tf[j] += f[j-1]\n\t\t}\n\t}\n\treturn f[n-1]                   // 右下角的路径数\n}"
+    },
+    {
+      "id": 64,
+      "title": "Minimum Path Sum",
+      "titleCn": "最小路径和",
+      "difficulty": "medium",
+      "frequency": 4,
+      "question": "给定一个包含非负整数的 m x n 网格 grid，请找出一条从左上角到右下角的路径，使得路径上的数字总和为最小。每次只能向下或者向右移动一步。\n\n示例 1：输入 grid = [[1,3,1],[1,5,1],[4,2,1]]，输出 7（路径 1→3→1→1→1 的总和最小）。\n示例 2：输入 grid = [[1,2,3],[4,5,6]]，输出 12（路径 1→2→3→6）。",
+      "hints": [
+        "审题诀窍：终点 (i, j) 的路径必经 (i-1, j) 或 (i, j-1)，且两条来路互不干扰、满足无后效性——dp[i][j] = min(两条来路) + grid[i][j] 一步到位。",
+        "审题诀窍：元素非负也别想贪心『每步选小的』，局部最小不保证全局最小；DP 的价值正是让每个格子老老实实继承全局最优子路径。",
+        "突破口：首行只能从左来、首列只能从上来，初始化为前缀和；逐行扫描时 f[j] 未更新是上方值、f[j-1] 已更新是左方值，一维数组即可滚动。",
+        "追问预备：如果允许上下左右四个方向怎么办？（不再是无环依赖，DP 失效，需 Dijkstra/SPFA）；有障碍物呢？（不可达格置正无穷）；权值可为负时呢？（同样要转最短路算法，无后效性被破坏）"
+      ],
+      "keyPoints": [
+        "状态 dp[i][j]：从 (0,0) 走到 (i,j) 的最小路径和",
+        "转移 dp[i][j] = min(dp[i-1][j], dp[i][j-1]) + grid[i][j]",
+        "边界：dp[0][0] = grid[0][0]，首行首列分别是行/列前缀和",
+        "空间优化：f[j] = min(f[j]（上方旧值）, f[j-1]（左方新值）) + grid[i][j]"
+      ],
+      "structureTags": [
+        "dp",
+        "matrix"
+      ],
+      "approaches": [
+        {
+          "name": "记忆化搜索",
+          "idea": "递归 f(i, j) 表示从 (0,0) 到 (i,j) 的最小路径和：f(i, j) = grid[i][j] + min(f(i-1, j), f(i, j-1))，越界返回无穷大表示不可达。缓存后每个格子只算一次。",
+          "complexity": "时间 O(mn)，空间 O(mn)",
+          "detail": "状态定义：f(i, j) = 从 (0,0) 走到 (i,j) 的最小路径和。转移推导（最后一步分类）：到 (i,j) 的最后一步来自上方或左方，两条来路取更省的一条再加自身格子：f(i,j) = grid[i][j] + min(f(i-1,j), f(i,j-1))；越界返回正无穷（不可达），f(0,0)=grid[0][0]。\n\n示例走查：grid=[[1,3,1],[1,5,1],[4,2,1]]。f(0,*)=1,4,5；f(1,0)=2；f(1,1)=5+min(4,2)=7；f(1,2)=1+min(5,7)=6；f(2,0)=6；f(2,1)=2+min(7,6)=8；f(2,2)=1+min(6,8)=7，答案 7 ✓。\n\n为什么正确：每个格子的最优路径必经上方或左方的最优子路径（最优子结构），两条来路分类覆盖全部；缓存后 O(mn) 状态各算一次。易错点：\n- 越界返回 inf 而非 0——返回 0 会错误地『奖励』越界方向。\n- 聚合用 min 不是加法（对比 62 数路径），别混淆。\n- 元素非负也别贪心每步选小格：局部最优不保证全局最优，DP 的意义正在于此。",
+          "code": "def min_path_sum_memo(grid):\n    m, n = len(grid), len(grid[0])\n    from functools import lru_cache\n    @lru_cache(maxsize=None)\n    def f(i, j):\n        if i < 0 or j < 0:\n            return float('inf')       # 越界不可达\n        if i == 0 and j == 0:\n            return grid[0][0]         # 起点\n        return grid[i][j] + min(f(i - 1, j), f(i, j - 1))\n    return f(m - 1, n - 1)"
+        },
+        {
+          "name": "二维递推 DP",
+          "idea": "dp 表逐格填：dp[0][0] = grid[0][0]，首行首列做前缀和，内部取两条来路的 min 再加自身格子，答案 dp[m-1][n-1]。",
+          "complexity": "时间 O(mn)，空间 O(mn)",
+          "detail": "状态定义：dp[i][j] = 从 (0,0) 到 (i,j) 的最小路径和。转移 dp[i][j] = min(dp[i-1][j], dp[i][j-1]) + grid[i][j]；边界：dp[0][0]=grid[0][0]，首行/首列分别是行/列前缀和（只能直走）。\n\n示例走查：grid=[[1,2,3],[4,5,6]]。首行 [1,3,6]；第 1 行：dp[1][0]=5、dp[1][1]=5+min(3,5)=8、dp[1][2]=6+min(6,8)=12，答案 12 ✓（1→2→3→6）。\n\n为什么正确：从上到下、从左到右填表时两个依赖已就绪；min 聚合保证每格继承的是全局最优子路径而非局部贪心。易错点：\n- 首行首列必须做前缀和初始化，不能套内层转移（会越界）。\n- dp[0][0] 只加一次 grid[0][0]。\n- O(mn) 空间可压成 O(n)，面试要主动说出滚动方案。",
+          "code": "def min_path_sum_table(grid):\n    m, n = len(grid), len(grid[0])\n    dp = [[0] * n for _ in range(m)]\n    dp[0][0] = grid[0][0]\n    for j in range(1, n):             # 首行：只能从左来\n        dp[0][j] = dp[0][j - 1] + grid[0][j]\n    for i in range(1, m):             # 首列：只能从上来\n        dp[i][0] = dp[i - 1][0] + grid[i][0]\n    for i in range(1, m):\n        for j in range(1, n):\n            dp[i][j] = min(dp[i - 1][j], dp[i][j - 1]) + grid[i][j]\n    return dp[m - 1][n - 1]"
+        },
+        {
+          "name": "一维滚动 DP",
+          "idea": "逐行扫一遍：f[j] 更新前存的是正上方结果，f[j-1] 是刚更新的左方结果，故 f[j] = min(f[j], f[j-1]) + grid[i][j]，空间从 O(mn) 压到 O(n)。",
+          "complexity": "时间 O(mn)，空间 O(n)",
+          "optimal": true,
+          "detail": "状态定义：f[j] = 从 (0,0) 走到当前行第 j 列的最小路径和。转移推导：更新前 f[j] 是正上方旧值 dp[i-1][j]、f[j-1] 是刚更新的左方新值 dp[i][j-1]，故 f[j] = min(f[j], f[j-1]) + grid[i][j]；首行做前缀和、每行开头先滚第 0 列。\n\n示例走查：grid=[[1,3,1],[1,5,1],[4,2,1]]。首行 f=[1,4,5]。第 1 行：f[0]=1+1=2；f[1]=min(4,2)+5=7；f[2]=min(5,7)+1=6。第 2 行：f[0]=2+4=6；f[1]=min(7,6)+2=8；f[2]=min(6,8)+1=7，输出 7 ✓。\n\n为什么正确：与二维表逐格等价，第 i 行只依赖第 i-1 行与本行左侧。易错点：\n- 内层正序（依赖左方新值）——与 0-1 背包的倒序场景区分开，方向由依赖关系决定。\n- 每行第 0 列先 f[0] += grid[i][0]，漏了会让整行错位。\n- min(f[j], f[j-1]) 里两个值的『新旧身份』要记牢：f[j] 旧=上方，f[j-1] 新=左方。",
+          "code": "def min_path_sum_rolling(grid):\n    m, n = len(grid), len(grid[0])\n    f = [0] * n\n    f[0] = grid[0][0]\n    for j in range(1, n):             # 首行前缀和\n        f[j] = f[j - 1] + grid[0][j]\n    for i in range(1, m):\n        f[0] += grid[i][0]            # 第 0 列只能从上来\n        for j in range(1, n):         # 正序：f[j-1] 是左方新值\n            f[j] = min(f[j], f[j - 1]) + grid[i][j]\n    return f[n - 1]"
+        }
+      ],
+      "code": "class Solution:\n    def minPathSum(self, grid: List[List[int]]) -> int:\n        # 状态定义：f[j] 表示从 (0,0) 走到当前行第 j 列的最小路径和（滚动自 dp[i][j]）\n        m, n = len(grid), len(grid[0])\n        f = [0] * n\n        f[0] = grid[0][0]\n        for j in range(1, n):          # 第 0 行：只能从左来，做前缀和\n            f[j] = f[j - 1] + grid[0][j]\n        for i in range(1, m):          # 逐行向下递推\n            f[0] += grid[i][0]         # 第 0 列：只能从上来\n            for j in range(1, n):\n                # f[j] 旧值 = 上方 dp[i-1][j]，f[j-1] 新值 = 左方 dp[i][j-1]\n                f[j] = min(f[j], f[j - 1]) + grid[i][j]\n        return f[n - 1]",
+      "templates": [
+        "网格最值 DP 模板：dp[i][j] = min/max(dp[i-1][j], dp[i][j-1]) + grid[i][j]；先写清起点与首行首列的边界，再套双层循环。",
+        "滚动数组口诀：从上到下、从左到右更新时，f[j] 未动 = 上方，f[j-1] 已动 = 左方；凡只依赖上一行和左边一格的网格 DP 都能这样压维。"
+      ],
+      "companies": [
+        "百度"
+      ],
+      "samples": [
+        {
+          "input": "grid = [[1,3,1],[1,5,1],[4,2,1]]",
+          "output": "7",
+          "explain": "路径 1→3→1→1→1 的总和最小"
+        },
+        {
+          "input": "grid = [[1,2,3],[4,5,6]]",
+          "output": "12",
+          "explain": "路径 1→2→3→6"
+        }
+      ],
+      "acmCode": "# ACM 模式：完整可运行程序（stdin -> stdout）\n# 输入格式：\n#   第一行：m n（网格行数、列数）\n#   随后 m 行：每行 n 个非负整数（网格）\n# 输出格式：一行一个整数，左上角到右下角的最小路径和\nimport sys\n\ndef main():\n    data = sys.stdin.read().split()\n    m, n = int(data[0]), int(data[1])\n    vals = [int(x) for x in data[2:2 + m * n]]\n    grid = [vals[i * n:(i + 1) * n] for i in range(m)]   # 还原二维网格\n    f = [0] * n\n    f[0] = grid[0][0]\n    for j in range(1, n):             # 首行前缀和\n        f[j] = f[j - 1] + grid[0][j]\n    for i in range(1, m):\n        f[0] += grid[i][0]            # 第 0 列只能从上来\n        for j in range(1, n):\n            f[j] = min(f[j], f[j - 1]) + grid[i][j]\n    print(f[n - 1])\n\nif __name__ == '__main__':\n    main()",
+      "codeCpp": "class Solution {\npublic:\n    int minPathSum(vector<vector<int>>& grid) {\n        // 状态定义：f[j] 表示从 (0,0) 走到当前行第 j 列的最小路径和（滚动自 dp[i][j]）\n        int m = (int)grid.size(), n = (int)grid[0].size();\n        vector<int> f(n, 0);\n        f[0] = grid[0][0];\n        for (int j = 1; j < n; ++j)      // 第 0 行：只能从左来，做前缀和\n            f[j] = f[j - 1] + grid[0][j];\n        for (int i = 1; i < m; ++i) {    // 逐行向下递推\n            f[0] += grid[i][0];          // 第 0 列：只能从上来\n            for (int j = 1; j < n; ++j)\n                // f[j] 旧值 = 上方 dp[i-1][j]，f[j-1] 新值 = 左方 dp[i][j-1]\n                f[j] = min(f[j], f[j - 1]) + grid[i][j];\n        }\n        return f[n - 1];\n    }\n};",
+      "acmCodeCpp": "// ACM 模式：完整可运行程序（stdin -> stdout）\n// 输入格式：\n//   第一行：m n（网格行数、列数）\n//   随后 m 行：每行 n 个非负整数（网格）\n// 输出格式：一行一个整数，左上角到右下角的最小路径和\n#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);   // 关闭同步，读入更快\n    cin.tie(nullptr);\n\n    int m, n;\n    cin >> m >> n;\n    vector<vector<int>> grid(m, vector<int>(n));\n    for (int i = 0; i < m; ++i)        // 读入 m 行 n 列网格\n        for (int j = 0; j < n; ++j)\n            cin >> grid[i][j];\n    vector<int> f(n, 0);\n    f[0] = grid[0][0];\n    for (int j = 1; j < n; ++j)        // 首行前缀和\n        f[j] = f[j - 1] + grid[0][j];\n    for (int i = 1; i < m; ++i) {\n        f[0] += grid[i][0];            // 第 0 列只能从上来\n        for (int j = 1; j < n; ++j)\n            f[j] = min(f[j], f[j - 1]) + grid[i][j];\n    }\n    cout << f[n - 1] << endl;\n    return 0;\n}",
+      "codeJava": "class Solution {\n    public int minPathSum(int[][] grid) {\n        // 状态定义：f[j] 表示从 (0,0) 走到当前行第 j 列的最小路径和（滚动自 dp[i][j]）\n        int m = grid.length, n = grid[0].length;\n        int[] f = new int[n];\n        f[0] = grid[0][0];\n        for (int j = 1; j < n; j++)      // 第 0 行：只能从左来，做前缀和\n            f[j] = f[j - 1] + grid[0][j];\n        for (int i = 1; i < m; i++) {    // 逐行向下递推\n            f[0] += grid[i][0];          // 第 0 列：只能从上来\n            for (int j = 1; j < n; j++)\n                // f[j] 旧值 = 上方 dp[i-1][j]，f[j-1] 新值 = 左方 dp[i][j-1]\n                f[j] = Math.min(f[j], f[j - 1]) + grid[i][j];\n        }\n        return f[n - 1];\n    }\n}",
+      "codeJs": "/**\n * @param {number[][]} grid\n * @return {number}\n */\nvar minPathSum = function (grid) {\n  // 状态定义：f[j] 表示从 (0,0) 走到当前行第 j 列的最小路径和（滚动自 dp[i][j]）\n  const m = grid.length, n = grid[0].length;\n  const f = new Array(n).fill(0);\n  f[0] = grid[0][0];\n  for (let j = 1; j < n; j++)        // 第 0 行：只能从左来，做前缀和\n    f[j] = f[j - 1] + grid[0][j];\n  for (let i = 1; i < m; i++) {      // 逐行向下递推\n    f[0] += grid[i][0];              // 第 0 列：只能从上来\n    for (let j = 1; j < n; j++)\n      // f[j] 旧值 = 上方 dp[i-1][j]，f[j-1] 新值 = 左方 dp[i][j-1]\n      f[j] = Math.min(f[j], f[j - 1]) + grid[i][j];\n  }\n  return f[n - 1];\n};",
+      "codeGo": "func minPathSum(grid [][]int) int {\n\t// 状态定义：f[j] 表示从 (0,0) 走到当前行第 j 列的最小路径和（滚动自 dp[i][j]）\n\tm, n := len(grid), len(grid[0])\n\tf := make([]int, n)\n\tf[0] = grid[0][0]\n\tfor j := 1; j < n; j++ {         // 第 0 行：只能从左来，做前缀和\n\t\tf[j] = f[j-1] + grid[0][j]\n\t}\n\tfor i := 1; i < m; i++ {         // 逐行向下递推\n\t\tf[0] += grid[i][0]           // 第 0 列：只能从上来\n\t\tfor j := 1; j < n; j++ {\n\t\t\t// f[j] 旧值 = 上方 dp[i-1][j]，f[j-1] 新值 = 左方 dp[i][j-1]\n\t\t\tf[j] = min(f[j], f[j-1]) + grid[i][j]\n\t\t}\n\t}\n\treturn f[n-1]\n}"
+    },
+    {
+      "id": 72,
+      "title": "Edit Distance",
+      "titleCn": "编辑距离",
+      "difficulty": "hard",
+      "frequency": 5,
+      "question": "给你两个单词 word1 和 word2，请返回将 word1 转换成 word2 所使用的最少操作数。\n\n可以对一个单词进行如下三种操作：插入一个字符、删除一个字符、替换一个字符。\n\n示例 1：输入 word1 = \"horse\", word2 = \"ros\"，输出 3（horse → rorse（替换 h）→ rose（删除 r）→ ros（删除 e））。\n示例 2：输入 word1 = \"intention\", word2 = \"execution\"，输出 5。",
+      "hints": [
+        "审题诀窍：别盯着『操作』想，先定义『需求』——dp[i][j] = word1 前 i 个字符变成 word2 前 j 个字符的最少操作数；再想『最后一步』：末尾两字符相等则原封不动继承对角线，不等则在增/删/改三种代价里取最小。",
+        "审题诀窍：三种操作各对应一个邻居状态——替换 dp[i-1][j-1]、删除 dp[i-1][j]、插入 dp[i][j-1]（插入与删除对偶：在 word1 末尾插入等价于从 word2 视角删除）；三个邻居缺一不可。",
+        "突破口：边界即『一方为空串』：dp[i][0] = i（全删）、dp[0][j] = j（全插）；想不清转移时用最小例子 i=1, j=1 从空串情形倒推。",
+        "追问预备：只允许删/插不允许替换怎么做？（转移去掉 f(i-1,j-1)，结果可由 LCS 推导）；编辑距离与 LCS 的数量关系？（仅允许删除时为 m+n-2*LCS）；如何还原操作序列？（dp 回溯每步选了哪个邻居）"
+      ],
+      "keyPoints": [
+        "状态 dp[i][j]：word1 前 i 个字符变成 word2 前 j 个字符的最少操作数",
+        "word1[i-1]==word2[j-1] 时 dp[i][j] = dp[i-1][j-1]；否则 dp[i][j] = 1 + min(dp[i-1][j-1] 替换, dp[i-1][j] 删除, dp[i][j-1] 插入)",
+        "边界 dp[i][0] = i（全删）、dp[0][j] = j（全插）",
+        "一维滚动：只依赖上一行与左上角，用 prev 变量暂存对角线旧值，空间 O(n)"
+      ],
+      "structureTags": [
+        "dp"
+      ],
+      "approaches": [
+        {
+          "name": "记忆化搜索",
+          "idea": "递归 f(i, j) 表示 word1 前 i 个字符变成 word2 前 j 个字符的最少操作数；末字符相等直接继承 f(i-1, j-1)，否则在替换/删除/插入三个子问题中取 min 加 1。缓存 (i, j) 后共 O(mn) 个状态各算一次。",
+          "complexity": "时间 O(mn)，空间 O(mn)",
+          "detail": "状态定义：f(i, j) = word1 前 i 个字符变成 word2 前 j 个字符的最少操作数。转移推导（末尾字符分类）：word1[i-1]==word2[j-1] 时末尾无需处理，f(i,j)=f(i-1,j-1)；不等时对末尾做一次操作，三种选择——替换（两末尾同时消去）f(i-1,j-1)、删除 word1 末字符 f(i-1,j)、在 word1 末尾插入 word2 的末字符（等价消去 word2 末尾）f(i,j-1)，取 min 再 +1。边界 f(i,0)=i（全删）、f(0,j)=j（全插）。\n\n示例走查：word1=\"horse\", word2=\"ros\"。f(1,1)：h≠r → 1+min(f(0,0), f(0,1), f(1,0))=1（替换 h→r）；f(2,2)：o==o → f(1,1)=1；f(5,3) 一路展开得 3 ✓（替换 h、删 r、删 e）。\n\n为什么正确：三个邻居对应三种互斥的末尾处置方式，覆盖所有编辑方案；缓存后 O(mn) 状态各算一次。易错点：\n- 相等时必须直接继承对角线，再套 min 会画蛇添足。\n- 三个邻居一个都不能少：漏掉插入 f(i,j-1) 在『word1 比 word2 长』的样例上会答错。\n- 边界含义要想透：一方为空串时操作数等于另一方的长度。",
+          "code": "def min_distance_memo(word1, word2):\n    m, n = len(word1), len(word2)\n    from functools import lru_cache\n    @lru_cache(maxsize=None)\n    def f(i, j):\n        if i == 0:\n            return j                  # word1 空：插入 j 个字符\n        if j == 0:\n            return i                  # word2 空：删除 i 个字符\n        if word1[i - 1] == word2[j - 1]:\n            return f(i - 1, j - 1)    # 末字符相同：无需操作\n        # 替换 / 删除 / 插入，三种末尾处置取最小再 +1\n        return 1 + min(f(i - 1, j - 1), f(i - 1, j), f(i, j - 1))\n    return f(m, n)"
+        },
+        {
+          "name": "二维递推 DP",
+          "idea": "标准填表：dp[i][j] = dp[i-1][j-1]（字符相等）或 1 + min(dp[i-1][j-1], dp[i-1][j], dp[i][j-1])（不等），第 0 行填 j、第 0 列填 i，答案 dp[m][n]。",
+          "complexity": "时间 O(mn)，空间 O(mn)",
+          "detail": "状态定义：dp[i][j] = word1 前 i 个字符变成 word2 前 j 个字符的最少操作数。转移：末字符相等 → dp[i][j] = dp[i-1][j-1]；不等 → dp[i][j] = 1 + min(dp[i-1][j-1] 替换, dp[i-1][j] 删除, dp[i][j-1] 插入)。边界 dp[i][0]=i、dp[0][j]=j。\n\n示例走查：word1=\"horse\", word2=\"ros\"。第 0 行 [0,1,2,3]；第 1 行（h）[1,1,2,3]；第 2 行（o）[2,2,1,2]（o==o 处直接继承对角线 1）；第 3 行（r）[3,2,2,2]（r==r 继承 2）；第 4 行（s）[4,3,3,2]（s==s 继承 2）；第 5 行（e）[5,4,4,3]，答案 dp[5][3]=3 ✓。\n\n为什么正确：填表按 i、j 双递增，三个邻居（左上、上、左）都先算好；转移把『操作作用在末尾』作为最后一步分类，覆盖所有编辑方案。易错点：\n- dp 表开 (m+1)×(n+1)，第 0 行/列是空串语义，不能初始化成 0。\n- 相等分支直接取对角线，不要也套 1+min。\n- 下标偏移：word 的第 i 个字符是 word[i-1]。",
+          "code": "def min_distance_table(word1, word2):\n    m, n = len(word1), len(word2)\n    dp = [[0] * (n + 1) for _ in range(m + 1)]\n    for i in range(m + 1):\n        dp[i][0] = i                  # 变空串：删除 i 个字符\n    for j in range(n + 1):\n        dp[0][j] = j                  # 从空串变来：插入 j 个字符\n    for i in range(1, m + 1):\n        for j in range(1, n + 1):\n            if word1[i - 1] == word2[j - 1]:\n                dp[i][j] = dp[i - 1][j - 1]     # 末字符相同：免费继承\n            else:\n                dp[i][j] = 1 + min(dp[i - 1][j - 1],   # 替换\n                                   dp[i - 1][j],       # 删除\n                                   dp[i][j - 1])       # 插入\n    return dp[m][n]"
+        },
+        {
+          "name": "一维滚动 DP",
+          "idea": "dp[i][*] 只依赖上一行与本行左一格：用一维数组滚动，进每行时用 prev 暂存左上角旧值（它会被 f[j] 的更新覆盖），空间降到 O(n)。",
+          "complexity": "时间 O(mn)，空间 O(n)",
+          "optimal": true,
+          "detail": "状态定义：f[j] = word1 前 i 个字符变成 word2 前 j 个字符的最少操作数（滚动掉 i 维）。转移推导：依赖上一行同列 f[j]（旧值）、左上角 dp[i-1][j-1]（即将被覆盖，用 prev 暂存）、本行左格 f[j-1]（已更新）。进每行先 prev=f[0]、f[0]=i，逐列先记 cur=f[j] 再更新，行末 prev=cur。\n\n示例走查：word1=\"horse\", word2=\"ros\"。第 0 行 f=[0,1,2,3]。i=1（h）：prev=0，f[0]=1；j=1：cur=1，h≠r → f[1]=1+min(prev=0, 1, 1)=1，prev←1；j=2：cur=2，h≠o → f[2]=1+min(1,2,1)=2；j=3：f[3]=1+min(2,3,2)=3 → f=[1,1,2,3]，与二维表第 1 行一致；后续各行同理，最终 f[3]=3 ✓。\n\n为什么正确：与二维表逐格等价，prev 变量保住被覆盖前的对角线旧值。易错点：\n- cur 必须在更新 f[j] 之前暂存——它就是下一列的左上角。\n- f[0]=i 每行都要重置，f 初始为 list(range(n+1))（第 0 行）。\n- 一维滚动是压维重灾区：先在纸上画出二维表再写 prev/cur，别凭感觉。",
+          "code": "def min_distance_rolling(word1, word2):\n    m, n = len(word1), len(word2)\n    f = list(range(n + 1))            # 第 0 行：dp[0][j] = j\n    for i in range(1, m + 1):\n        prev = f[0]                   # prev 暂存左上角 dp[i-1][j-1]\n        f[0] = i                      # 第 0 列：dp[i][0] = i\n        for j in range(1, n + 1):\n            cur = f[j]                # 先记 dp[i-1][j]，它是下一列的左上角\n            if word1[i - 1] == word2[j - 1]:\n                f[j] = prev           # 相等：继承对角线\n            else:\n                f[j] = 1 + min(prev, f[j], f[j - 1])   # 替换/删除/插入\n            prev = cur\n    return f[n]"
+        }
+      ],
+      "code": "class Solution:\n    def minDistance(self, word1: str, word2: str) -> int:\n        # 状态定义：f[j] = word1 前 i 个字符变成 word2 前 j 个字符的最少操作数（滚动自 dp[i][j]）\n        m, n = len(word1), len(word2)\n        f = list(range(n + 1))         # 第 0 行 dp[0][j] = j：向空串插入 j 个字符\n        for i in range(1, m + 1):\n            prev = f[0]                # prev 暂存左上角 dp[i-1][j-1]\n            f[0] = i                   # 第 0 列 dp[i][0] = i：删除 i 个字符变空串\n            for j in range(1, n + 1):\n                cur = f[j]             # cur 先记下 dp[i-1][j]，它是下一轮的左上角\n                if word1[i - 1] == word2[j - 1]:\n                    f[j] = prev        # 末字符相等：无需操作，继承对角线\n                else:\n                    # 替换用 prev、删除用 f[j]（上方）、插入用 f[j-1]（左方），取最小再 +1\n                    f[j] = 1 + min(prev, f[j], f[j - 1])\n                prev = cur\n        return f[n]",
+      "templates": [
+        "双序列对齐 DP 模板：dp[i][j] 由 dp[i-1][j-1]、dp[i-1][j]、dp[i][j-1] 三个邻居决定，先问『末尾两个字符如何处置』再写转移；编辑距离/LCS/不同的子序列全是这套骨架。",
+        "边界即空串语义：dp[i][0]、dp[0][j] 必须按题目实际含义（全删/全插/空串匹配）显式赋值，不能想当然置 0。"
+      ],
+      "companies": [
+        "字节跳动",
+        "快手"
+      ],
+      "samples": [
+        {
+          "input": "word1 = \"horse\", word2 = \"ros\"",
+          "output": "3",
+          "explain": "horse → rorse（替换 h）→ rose（删除 r）→ ros（删除 e）"
+        },
+        {
+          "input": "word1 = \"intention\", word2 = \"execution\"",
+          "output": "5",
+          "explain": "替换/删除共需 5 步"
+        }
+      ],
+      "acmCode": "# ACM 模式：完整可运行程序（stdin -> stdout）\n# 输入格式：\n#   第一行：word1\n#   第二行：word2\n# 输出格式：一行一个整数，最少编辑操作数\nimport sys\n\ndef main():\n    data = sys.stdin.read().split()\n    word1, word2 = data[0], data[1]\n    m, n = len(word1), len(word2)\n    f = list(range(n + 1))            # 第 0 行：dp[0][j] = j\n    for i in range(1, m + 1):\n        prev = f[0]                   # 暂存左上角\n        f[0] = i                      # 第 0 列：dp[i][0] = i\n        for j in range(1, n + 1):\n            cur = f[j]                # 先记 dp[i-1][j]\n            if word1[i - 1] == word2[j - 1]:\n                f[j] = prev           # 相等：继承对角线\n            else:\n                f[j] = 1 + min(prev, f[j], f[j - 1])   # 替换/删除/插入\n            prev = cur\n    print(f[n])\n\nif __name__ == '__main__':\n    main()",
+      "codeCpp": "class Solution {\npublic:\n    int minDistance(string word1, string word2) {\n        // 状态定义：f[j] = word1 前 i 个字符变成 word2 前 j 个字符的最少操作数（滚动自 dp[i][j]）\n        int m = (int)word1.size(), n = (int)word2.size();\n        vector<int> f(n + 1);\n        iota(f.begin(), f.end(), 0);     // 第 0 行 dp[0][j] = j：向空串插入 j 个字符\n        for (int i = 1; i <= m; ++i) {\n            int prev = f[0];             // prev 暂存左上角 dp[i-1][j-1]\n            f[0] = i;                    // 第 0 列 dp[i][0] = i：删除 i 个字符变空串\n            for (int j = 1; j <= n; ++j) {\n                int cur = f[j];          // cur 先记下 dp[i-1][j]，它是下一轮的左上角\n                if (word1[i - 1] == word2[j - 1]) {\n                    f[j] = prev;         // 末字符相等：无需操作，继承对角线\n                } else {\n                    // 替换用 prev、删除用 f[j]（上方）、插入用 f[j-1]（左方），取最小再 +1\n                    f[j] = 1 + min({prev, f[j], f[j - 1]});\n                }\n                prev = cur;\n            }\n        }\n        return f[n];\n    }\n};",
+      "acmCodeCpp": "// ACM 模式：完整可运行程序（stdin -> stdout）\n// 输入格式：\n//   第一行：word1\n//   第二行：word2\n// 输出格式：一行一个整数，最少编辑操作数\n#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);   // 关闭同步，读入更快\n    cin.tie(nullptr);\n\n    string word1, word2;\n    cin >> word1 >> word2;\n    int m = (int)word1.size(), n = (int)word2.size();\n    vector<int> f(n + 1);\n    iota(f.begin(), f.end(), 0);       // 第 0 行：dp[0][j] = j\n    for (int i = 1; i <= m; ++i) {\n        int prev = f[0];               // 暂存左上角\n        f[0] = i;                      // 第 0 列：dp[i][0] = i\n        for (int j = 1; j <= n; ++j) {\n            int cur = f[j];            // 先记 dp[i-1][j]\n            if (word1[i - 1] == word2[j - 1]) {\n                f[j] = prev;           // 相等：继承对角线\n            } else {\n                f[j] = 1 + min({prev, f[j], f[j - 1]});   // 替换/删除/插入\n            }\n            prev = cur;\n        }\n    }\n    cout << f[n] << endl;\n    return 0;\n}",
+      "codeJava": "class Solution {\n    public int minDistance(String word1, String word2) {\n        // 状态定义：f[j] = word1 前 i 个字符变成 word2 前 j 个字符的最少操作数（滚动自 dp[i][j]）\n        int m = word1.length(), n = word2.length();\n        int[] f = new int[n + 1];\n        for (int j = 0; j <= n; j++) f[j] = j;   // 第 0 行 dp[0][j] = j：向空串插入 j 个字符\n        for (int i = 1; i <= m; i++) {\n            int prev = f[0];             // prev 暂存左上角 dp[i-1][j-1]\n            f[0] = i;                    // 第 0 列 dp[i][0] = i：删除 i 个字符变空串\n            for (int j = 1; j <= n; j++) {\n                int cur = f[j];          // cur 先记下 dp[i-1][j]，它是下一轮的左上角\n                if (word1.charAt(i - 1) == word2.charAt(j - 1)) {\n                    f[j] = prev;         // 末字符相等：无需操作，继承对角线\n                } else {\n                    // 替换用 prev、删除用 f[j]（上方）、插入用 f[j-1]（左方），取最小再 +1\n                    f[j] = 1 + Math.min(prev, Math.min(f[j], f[j - 1]));\n                }\n                prev = cur;\n            }\n        }\n        return f[n];\n    }\n}",
+      "codeJs": "/**\n * @param {string} word1\n * @param {string} word2\n * @return {number}\n */\nvar minDistance = function (word1, word2) {\n  // 状态定义：f[j] = word1 前 i 个字符变成 word2 前 j 个字符的最少操作数（滚动自 dp[i][j]）\n  const m = word1.length, n = word2.length;\n  const f = Array.from({ length: n + 1 }, (_, j) => j);   // 第 0 行 dp[0][j] = j\n  for (let i = 1; i <= m; i++) {\n    let prev = f[0];                   // prev 暂存左上角 dp[i-1][j-1]\n    f[0] = i;                          // 第 0 列 dp[i][0] = i：删除 i 个字符变空串\n    for (let j = 1; j <= n; j++) {\n      const cur = f[j];                // cur 先记下 dp[i-1][j]，它是下一轮的左上角\n      if (word1[i - 1] === word2[j - 1]) {\n        f[j] = prev;                   // 末字符相等：无需操作，继承对角线\n      } else {\n        // 替换用 prev、删除用 f[j]（上方）、插入用 f[j-1]（左方），取最小再 +1\n        f[j] = 1 + Math.min(prev, f[j], f[j - 1]);\n      }\n      prev = cur;\n    }\n  }\n  return f[n];\n};",
+      "codeGo": "func minDistance(word1 string, word2 string) int {\n\t// 状态定义：f[j] = word1 前 i 个字符变成 word2 前 j 个字符的最少操作数（滚动自 dp[i][j]）\n\tm, n := len(word1), len(word2)\n\tf := make([]int, n+1)\n\tfor j := range f {\n\t\tf[j] = j                    // 第 0 行 dp[0][j] = j：向空串插入 j 个字符\n\t}\n\tfor i := 1; i <= m; i++ {\n\t\tprev := f[0]                // prev 暂存左上角 dp[i-1][j-1]\n\t\tf[0] = i                    // 第 0 列 dp[i][0] = i：删除 i 个字符变空串\n\t\tfor j := 1; j <= n; j++ {\n\t\t\tcur := f[j]             // cur 先记下 dp[i-1][j]，它是下一轮的左上角\n\t\t\tif word1[i-1] == word2[j-1] {\n\t\t\t\tf[j] = prev         // 末字符相等：无需操作，继承对角线\n\t\t\t} else {\n\t\t\t\t// 替换用 prev、删除用 f[j]（上方）、插入用 f[j-1]（左方），取最小再 +1\n\t\t\t\tf[j] = 1 + min(prev, min(f[j], f[j-1]))\n\t\t\t}\n\t\t\tprev = cur\n\t\t}\n\t}\n\treturn f[n]\n}"
+    },
+    {
+      "id": 97,
+      "title": "Interleaving String",
+      "titleCn": "交错字符串",
+      "difficulty": "medium",
+      "frequency": 2,
+      "question": "给定三个字符串 s1、s2 和 s3，请判断 s3 能否由 s1 和 s2 交错组成。s1 和 s2 交错组成 s3 的定义是：s3 的所有字符恰好来自 s1 和 s2，且来自两个字符串的部分都保持原有的相对顺序。\n\n示例 1：输入 s1 = \"aabcc\", s2 = \"dbbca\", s3 = \"aadbbcbcac\"，输出 true（如 s1 取 \"aa\"+\"bc\"+\"c\"，s2 取 \"dbbc\"+\"a\"，交错拼接得到 s3）。\n示例 2：输入 s1 = \"aabcc\", s2 = \"dbbca\", s3 = \"aadbbbaccc\"，输出 false。\n示例 3：输入 s1 = \"\", s2 = \"\", s3 = \"\"，输出 true。",
+      "hints": [
+        "审题诀窍：s3 的最后一个字符必来自 s1 或 s2 的末尾，且 s3 长度 = 两串之和（先判长度做剪枝），于是只需二维状态 dp[i][j]：s1 前 i 个与 s2 前 j 个能否交错组成 s3 前 i+j 个。",
+        "审题诀窍：这是『能否』型布尔 DP——dp[i][j] = (dp[i-1][j] 且 s1 末字符匹配) or (dp[i][j-1] 且 s2 末字符匹配)，相当于在二维格子上找一条从 (0,0) 通向 (m,n) 的路。",
+        "突破口：s3 的下标由 i+j 唯一确定，不需要第三个维度；对比 115 同样骨架却用『加法』数方案、本题用『or』判可达——聚合方式由问题语义决定。",
+        "追问预备：s3 有重复字符时为什么 DP 仍正确？（状态含 i、j 双计数，天然区分字符来源）；能否把空间压到 O(min(m,n))？（滚动较短串所在的那一维）；贪心逐字匹配为什么错？（局部匹配会堵死另一串的合法取字路径）"
+      ],
+      "keyPoints": [
+        "状态 dp[i][j]：s1 前 i 个字符与 s2 前 j 个字符能否交错拼成 s3 前 i+j 个字符",
+        "转移：来自 s1（dp[i-1][j] 且 s1[i-1]==s3[i+j-1]）或来自 s2（dp[i][j-1] 且 s2[j-1]==s3[i+j-1]）",
+        "边界：dp[0][0]=true；dp[i][0] 只看 s1 前缀与 s3 前缀逐位相等，dp[0][j] 同理看 s2",
+        "一维滚动：只依赖上一行与左一格，f[j] = (f[j] and s1匹配) or (f[j-1] and s2匹配)，正序更新"
+      ],
+      "structureTags": [
+        "dp"
+      ],
+      "approaches": [
+        {
+          "name": "记忆化搜索",
+          "idea": "递归 f(i, j) 判断 s1 前 i 个、s2 前 j 个能否交错组成 s3 前 i+j 个：s1 末字符匹配就从 s1 回退，s2 末字符匹配就从 s2 回退，任一可达即为 true。缓存布尔结果后共 O(mn) 个状态。",
+          "complexity": "时间 O(mn)，空间 O(mn)",
+          "detail": "状态定义：f(i, j) = s1 前 i 个字符与 s2 前 j 个字符能否交错组成 s3 前 i+j 个字符。转移推导（s3 末字符来源分类）：s3 的第 i+j 个字符要么取自 s1 末尾（f(i-1,j) 且 s1[i-1]==s3[i+j-1]），要么取自 s2 末尾（f(i,j-1) 且 s2[j-1]==s3[i+j-1]），or 连接；边界 f(0,0)=True。\n\n示例走查：s1=\"aabcc\", s2=\"dbbca\", s3=\"aadbbcbcac\"。f(2,4)：s3 前 6 位 aadbbc 的末位 c 可来自 s1（f(1,4)）或 s2（f(2,3)），沿合法来路一路回溯到 f(0,0)=True → True ✓。反例 s3=\"aadbbbaccc\"：所有来路在中途断链，返回 False ✓。\n\n为什么正确：s3 的下标由 i+j 唯一确定（不需要第三维），末字符来源两类互斥覆盖；缓存后 O(mn) 个布尔状态。易错点：\n- 先判 len(s1)+len(s2)==len(s3)，不等直接 False（剪枝，也避免状态定义失效）。\n- 每条来路要同时验证『子前缀可达』和『末字符匹配』两个条件，缺一不可。\n- 记忆化值是布尔，用 lru_cache 区分『未计算』最省心。",
+          "code": "def is_interleave_memo(s1, s2, s3):\n    m, n = len(s1), len(s2)\n    if m + n != len(s3):\n        return False                  # 长度不匹配直接剪枝\n    from functools import lru_cache\n    @lru_cache(maxsize=None)\n    def f(i, j):\n        if i == 0 and j == 0:\n            return True               # 空对空\n        ok = False\n        if i > 0 and s1[i - 1] == s3[i + j - 1]:   # 末字符取自 s1\n            ok = f(i - 1, j)\n        if not ok and j > 0 and s2[j - 1] == s3[i + j - 1]:   # 取自 s2\n            ok = f(i, j - 1)\n        return ok\n    return f(m, n)"
+        },
+        {
+          "name": "二维递推 DP",
+          "idea": "dp 表逐格填：dp[i][j] 由两条来路 or 而成，首行首列按『单串前缀逐位相等』初始化，答案看 dp[m][n]。",
+          "complexity": "时间 O(mn)，空间 O(mn)",
+          "detail": "状态定义：dp[i][j] = s1 前 i 个与 s2 前 j 个能否交错组成 s3 前 i+j 个字符。转移：dp[i][j] = (dp[i-1][j] 且 s1[i-1]==s3[i+j-1]) or (dp[i][j-1] 且 s2[j-1]==s3[i+j-1])；边界：dp[0][0]=True，dp[i][0] 要求 s1 前 i 个与 s3 前 i 个逐位相等，dp[0][j] 同理看 s2。\n\n示例走查：s1=\"aabcc\", s2=\"dbbca\", s3=\"aadbbcbcac\"。dp[0][0]=T；第 0 行（只用 s2 拼 aadbb 前缀）：d≠a 在 j=1 断链全 False；第 0 列：dp[1][0]=T（a==a）、dp[2][0]=T（aa==aa）、dp[3][0]=F（s1[2]=b≠s3[2]=d）……内部逐格按两条来路 or，最终 dp[5][5]=True ✓。\n\n为什么正确：二维格子上每格只由上、左两格推来，等价于在格网中找一条从 (0,0) 到 (m,n) 的通路；or 聚合符合『存在一种拼法』的语义。易错点：\n- 首行首列不是全 True，要按『单串前缀与 s3 前缀逐位相等』推。\n- s3 的下标是 i+j-1，由 i、j 唯一决定，写错全盘皆输。\n- 遍历按 i、j 双递增即可，无需按对角线顺序。",
+          "code": "def is_interleave_table(s1, s2, s3):\n    m, n = len(s1), len(s2)\n    if m + n != len(s3):\n        return False\n    dp = [[False] * (n + 1) for _ in range(m + 1)]\n    dp[0][0] = True\n    for i in range(1, m + 1):         # 只用 s1 的第 0 列\n        dp[i][0] = dp[i - 1][0] and s1[i - 1] == s3[i - 1]\n    for j in range(1, n + 1):         # 只用 s2 的第 0 行\n        dp[0][j] = dp[0][j - 1] and s2[j - 1] == s3[j - 1]\n    for i in range(1, m + 1):\n        for j in range(1, n + 1):\n            use_s1 = dp[i - 1][j] and s1[i - 1] == s3[i + j - 1]\n            use_s2 = dp[i][j - 1] and s2[j - 1] == s3[i + j - 1]\n            dp[i][j] = use_s1 or use_s2\n    return dp[m][n]"
+        },
+        {
+          "name": "一维滚动 DP",
+          "idea": "dp[i][*] 只依赖上一行同列与左一格：用长度 n+1 的一维布尔数组滚动，f[j] 未更新是上一行结果、f[j-1] 是本行左格结果，正序更新即可，空间 O(n)。",
+          "complexity": "时间 O(mn)，空间 O(n)",
+          "optimal": true,
+          "detail": "状态定义：f[j] = s1 前 i 个与 s2 前 j 个能否交错组成 s3 前 i+j 个字符（滚动掉 i 维）。转移推导：依赖上一行同列（f[j] 旧值）与本行左格（f[j-1] 新值），f[j] = (f[j] and s1[i-1]==s3[i+j-1]) or (f[j-1] and s2[j-1]==s3[i+j-1])；第 0 行先用 s2 初始化，每行开头先滚第 0 列。\n\n示例走查：s1=\"ab\", s2=\"cd\", s3=\"acbd\"。第 0 行：f[1]=（T 且 c==a）F，f=[T,F,F]。i=1（a）：f[0]=T（a==a）；j=1：use_s1=f[1]旧 F、use_s2=f[0]T 且 c==s3[1]=c → f[1]=T；j=2：use_s2=f[1]T 且 d==s3[2]=b → F。i=2（b）：f[0]=T 且 b==s3[1]=c → F；j=1：use_s1=f[1]T 且 b==s3[2]=b → T；j=2：use_s2=f[1]T 且 d==s3[3]=d → T，输出 True ✓。\n\n为什么正确：与二维表逐格等价；正序更新恰好满足『f[j] 旧=上一行、f[j-1] 新=本行左侧』的时间差利用。易错点：\n- 内层必须正序（依赖左格新值）——对比 115 依赖左上角要倒序，方向由依赖关系决定。\n- 第 0 列每行要重算 f[0] = f[0] and s1[i-1]==s3[i-1]，漏掉会把非法前缀当可达。\n- 长度剪枝 m+n==len(s3) 放最前面。",
+          "code": "def is_interleave_rolling(s1, s2, s3):\n    m, n = len(s1), len(s2)\n    if m + n != len(s3):\n        return False\n    f = [False] * (n + 1)\n    f[0] = True\n    for j in range(1, n + 1):         # 第 0 行：只用 s2\n        f[j] = f[j - 1] and s2[j - 1] == s3[j - 1]\n    for i in range(1, m + 1):\n        f[0] = f[0] and s1[i - 1] == s3[i - 1]    # 滚第 0 列\n        for j in range(1, n + 1):     # 正序：f[j-1] 是本行新值\n            use_s1 = f[j] and s1[i - 1] == s3[i + j - 1]     # f[j] 旧=上一行\n            use_s2 = f[j - 1] and s2[j - 1] == s3[i + j - 1]\n            f[j] = use_s1 or use_s2\n    return f[n]"
+        }
+      ],
+      "code": "class Solution:\n    def isInterleave(self, s1: str, s2: str, s3: str) -> bool:\n        # 状态定义：f[j] = s1 前 i 个与 s2 前 j 个能否交错组成 s3 前 i+j 个字符（滚动自 dp[i][j]）\n        m, n = len(s1), len(s2)\n        if m + n != len(s3):           # 长度不匹配必然无法组成，提前剪枝\n            return False\n        f = [False] * (n + 1)\n        f[0] = True                    # 空串组成空串\n        for j in range(1, n + 1):      # 只用 s2 组成 s3 前缀的情形（第 0 行）\n            f[j] = f[j - 1] and s2[j - 1] == s3[j - 1]\n        for i in range(1, m + 1):\n            f[0] = f[0] and s1[i - 1] == s3[i - 1]    # 只用 s1 组成的第 0 列\n            for j in range(1, n + 1):\n                # f[j] 旧值 = 上一行 dp[i-1][j]（末字符取自 s1）\n                use_s1 = f[j] and s1[i - 1] == s3[i + j - 1]\n                # f[j-1] 新值 = 本行左格 dp[i][j-1]（末字符取自 s2）\n                use_s2 = f[j - 1] and s2[j - 1] == s3[i + j - 1]\n                f[j] = use_s1 or use_s2\n        return f[n]",
+      "templates": [
+        "『能否拼成/可达』型双序列 DP：布尔状态 + or 连接多条来路，每条来路要求对应末字符匹配；对比 115 计数用加法、72 最值用 min——同骨架不同聚合。",
+        "s3 的下标由 i+j 唯一确定，双序列问题不需要第三维；先判 len(s1)+len(s2)==len(s3) 做剪枝。"
+      ],
+      "companies": [
+        "字节跳动",
+        "腾讯"
+      ],
+      "samples": [
+        {
+          "input": "s1 = \"aabcc\", s2 = \"dbbca\", s3 = \"aadbbcbcac\"",
+          "output": "true",
+          "explain": "s1 取 aa+bc+c，s2 取 dbbc+a，交错得到 s3"
+        },
+        {
+          "input": "s1 = \"aabcc\", s2 = \"dbbca\", s3 = \"aadbbbaccc\"",
+          "output": "false"
+        }
+      ],
+      "acmCode": "# ACM 模式：完整可运行程序（stdin -> stdout）\n# 输入格式：\n#   第一行：s1\n#   第二行：s2\n#   第三行：s3\n# 输出格式：一行 true 或 false\nimport sys\n\ndef main():\n    data = sys.stdin.read().split()\n    s1 = data[0] if len(data) > 0 else \"\"\n    s2 = data[1] if len(data) > 1 else \"\"\n    s3 = data[2] if len(data) > 2 else \"\"\n    m, n = len(s1), len(s2)\n    if m + n != len(s3):\n        print('false')\n        return\n    f = [False] * (n + 1)\n    f[0] = True\n    for j in range(1, n + 1):         # 第 0 行：只用 s2\n        f[j] = f[j - 1] and s2[j - 1] == s3[j - 1]\n    for i in range(1, m + 1):\n        f[0] = f[0] and s1[i - 1] == s3[i - 1]   # 滚第 0 列\n        for j in range(1, n + 1):\n            use_s1 = f[j] and s1[i - 1] == s3[i + j - 1]\n            use_s2 = f[j - 1] and s2[j - 1] == s3[i + j - 1]\n            f[j] = use_s1 or use_s2\n    print('true' if f[n] else 'false')\n\nif __name__ == '__main__':\n    main()",
+      "codeCpp": "class Solution {\npublic:\n    bool isInterleave(string s1, string s2, string s3) {\n        // 状态定义：f[j] = s1 前 i 个与 s2 前 j 个能否交错组成 s3 前 i+j 个字符（滚动自 dp[i][j]）\n        int m = (int)s1.size(), n = (int)s2.size();\n        if (m + n != (int)s3.size())     // 长度不匹配必然无法组成，提前剪枝\n            return false;\n        vector<bool> f(n + 1, false);\n        f[0] = true;                     // 空串组成空串\n        for (int j = 1; j <= n; ++j)     // 只用 s2 组成 s3 前缀的情形（第 0 行）\n            f[j] = f[j - 1] && s2[j - 1] == s3[j - 1];\n        for (int i = 1; i <= m; ++i) {\n            f[0] = f[0] && s1[i - 1] == s3[i - 1];   // 只用 s1 组成的第 0 列\n            for (int j = 1; j <= n; ++j) {\n                // f[j] 旧值 = 上一行 dp[i-1][j]（末字符取自 s1）\n                bool use_s1 = f[j] && s1[i - 1] == s3[i + j - 1];\n                // f[j-1] 新值 = 本行左格 dp[i][j-1]（末字符取自 s2）\n                bool use_s2 = f[j - 1] && s2[j - 1] == s3[i + j - 1];\n                f[j] = use_s1 || use_s2;\n            }\n        }\n        return f[n];\n    }\n};",
+      "acmCodeCpp": "// ACM 模式：完整可运行程序（stdin -> stdout）\n// 输入格式：\n//   第一行：s1\n//   第二行：s2\n//   第三行：s3\n// 输出格式：一行 true 或 false\n#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);   // 关闭同步，读入更快\n    cin.tie(nullptr);\n\n    string s1, s2, s3;\n    getline(cin, s1);              // 按行读入，允许空串\n    getline(cin, s2);\n    getline(cin, s3);\n    int m = (int)s1.size(), n = (int)s2.size();\n    if (m + n != (int)s3.size()) {   // 长度不匹配必然无法组成\n        cout << \"false\" << endl;\n        return 0;\n    }\n    vector<bool> f(n + 1, false);\n    f[0] = true;\n    for (int j = 1; j <= n; ++j)       // 第 0 行：只用 s2\n        f[j] = f[j - 1] && s2[j - 1] == s3[j - 1];\n    for (int i = 1; i <= m; ++i) {\n        f[0] = f[0] && s1[i - 1] == s3[i - 1];   // 滚第 0 列\n        for (int j = 1; j <= n; ++j) {\n            bool use_s1 = f[j] && s1[i - 1] == s3[i + j - 1];\n            bool use_s2 = f[j - 1] && s2[j - 1] == s3[i + j - 1];\n            f[j] = use_s1 || use_s2;\n        }\n    }\n    cout << (f[n] ? \"true\" : \"false\") << endl;\n    return 0;\n}",
+      "codeJava": "class Solution {\n    public boolean isInterleave(String s1, String s2, String s3) {\n        // 状态定义：f[j] = s1 前 i 个与 s2 前 j 个能否交错组成 s3 前 i+j 个字符（滚动自 dp[i][j]）\n        int m = s1.length(), n = s2.length();\n        if (m + n != s3.length())        // 长度不匹配必然无法组成，提前剪枝\n            return false;\n        boolean[] f = new boolean[n + 1];\n        f[0] = true;                     // 空串组成空串\n        for (int j = 1; j <= n; j++)     // 只用 s2 组成 s3 前缀的情形（第 0 行）\n            f[j] = f[j - 1] && s2.charAt(j - 1) == s3.charAt(j - 1);\n        for (int i = 1; i <= m; i++) {\n            f[0] = f[0] && s1.charAt(i - 1) == s3.charAt(i - 1);   // 只用 s1 组成的第 0 列\n            for (int j = 1; j <= n; j++) {\n                // f[j] 旧值 = 上一行 dp[i-1][j]（末字符取自 s1）\n                boolean useS1 = f[j] && s1.charAt(i - 1) == s3.charAt(i + j - 1);\n                // f[j-1] 新值 = 本行左格 dp[i][j-1]（末字符取自 s2）\n                boolean useS2 = f[j - 1] && s2.charAt(j - 1) == s3.charAt(i + j - 1);\n                f[j] = useS1 || useS2;\n            }\n        }\n        return f[n];\n    }\n}",
+      "codeJs": "/**\n * @param {string} s1\n * @param {string} s2\n * @param {string} s3\n * @return {boolean}\n */\nvar isInterleave = function (s1, s2, s3) {\n  // 状态定义：f[j] = s1 前 i 个与 s2 前 j 个能否交错组成 s3 前 i+j 个字符（滚动自 dp[i][j]）\n  const m = s1.length, n = s2.length;\n  if (m + n !== s3.length) return false;   // 长度不匹配必然无法组成，提前剪枝\n  const f = new Array(n + 1).fill(false);\n  f[0] = true;                             // 空串组成空串\n  for (let j = 1; j <= n; j++)             // 只用 s2 组成 s3 前缀的情形（第 0 行）\n    f[j] = f[j - 1] && s2[j - 1] === s3[j - 1];\n  for (let i = 1; i <= m; i++) {\n    f[0] = f[0] && s1[i - 1] === s3[i - 1];   // 只用 s1 组成的第 0 列\n    for (let j = 1; j <= n; j++) {\n      // f[j] 旧值 = 上一行 dp[i-1][j]（末字符取自 s1）\n      const useS1 = f[j] && s1[i - 1] === s3[i + j - 1];\n      // f[j-1] 新值 = 本行左格 dp[i][j-1]（末字符取自 s2）\n      const useS2 = f[j - 1] && s2[j - 1] === s3[i + j - 1];\n      f[j] = useS1 || useS2;\n    }\n  }\n  return f[n];\n};",
+      "codeGo": "func isInterleave(s1 string, s2 string, s3 string) bool {\n\t// 状态定义：f[j] = s1 前 i 个与 s2 前 j 个能否交错组成 s3 前 i+j 个字符（滚动自 dp[i][j]）\n\tm, n := len(s1), len(s2)\n\tif m+n != len(s3) {              // 长度不匹配必然无法组成，提前剪枝\n\t\treturn false\n\t}\n\tf := make([]bool, n+1)\n\tf[0] = true                      // 空串组成空串\n\tfor j := 1; j <= n; j++ {        // 只用 s2 组成 s3 前缀的情形（第 0 行）\n\t\tf[j] = f[j-1] && s2[j-1] == s3[j-1]\n\t}\n\tfor i := 1; i <= m; i++ {\n\t\tf[0] = f[0] && s1[i-1] == s3[i-1]   // 只用 s1 组成的第 0 列\n\t\tfor j := 1; j <= n; j++ {\n\t\t\t// f[j] 旧值 = 上一行 dp[i-1][j]（末字符取自 s1）\n\t\t\tuseS1 := f[j] && s1[i-1] == s3[i+j-1]\n\t\t\t// f[j-1] 新值 = 本行左格 dp[i][j-1]（末字符取自 s2）\n\t\t\tuseS2 := f[j-1] && s2[j-1] == s3[i+j-1]\n\t\t\tf[j] = useS1 || useS2\n\t\t}\n\t}\n\treturn f[n]\n}"
+    },
+    {
+      "id": 115,
+      "title": "Distinct Subsequences",
+      "titleCn": "不同的子序列",
+      "difficulty": "hard",
+      "frequency": 3,
+      "question": "给你两个字符串 s 和 t，统计并返回在 s 的子序列中 t 出现的个数。题目数据保证答案符合 32 位带符号整数范围。\n\n字符串的一个子序列是指：通过删除一些（也可以不删除）字符且不干扰剩余字符相对位置所组成的新字符串。例如 \"ACE\" 是 \"ABCDE\" 的子序列，而 \"AEC\" 不是。\n\n示例 1：输入 s = \"rabbbit\", t = \"rabbit\"，输出 3（s 中三个不同位置的 b 被删去后均得到 \"rabbit\"）。\n示例 2：输入 s = \"babgbag\", t = \"bag\"，输出 5。",
+      "hints": [
+        "审题诀窍：要数『方案数』就把状态定义成计数——dp[i][j] = s 前 i 个字符的子序列中等于 t 前 j 个的个数；决策点在 s[i-1]：不用它（dp[i-1][j]）或在相等时用它（dp[i-1][j-1]），两类互斥可直接相加。",
+        "审题诀窍：边界回语义：dp[i][0] = 1——空串在任意串中都『出现一次』（全不选）；dp[0][j] = 0（j>0）——空 s 匹配不出非空 t。想不清边界就用 i=1, j=1 的最小例子验证。",
+        "突破口：一维滚动必须 j 倒序——正序时 f[j-1] 已是本行新值，等于让 s[i-1] 被重复消费（变成完全背包语义）；倒序保证 f[j-1] 仍是上一行的 dp[i-1][j-1]。",
+        "追问预备：答案需要取模时怎么处理？（每步 %1e9+7，加法转移取模不影响计数）；与 97 的本质区别？（97 聚合用 or、本题用加法计数，滚动方向也不同）；若问『至少删多少字符使 s 变 t』？（等价 m - (匹配数) 或转编辑距离骨架）"
+      ],
+      "keyPoints": [
+        "状态 dp[i][j]：s 前 i 个字符的子序列中等于 t 前 j 个字符的方案数",
+        "s[i-1]==t[j-1] 时 dp[i][j] = dp[i-1][j] + dp[i-1][j-1]（不用/用它）；不等时只有 dp[i-1][j]",
+        "边界 dp[i][0] = 1（空 t 有一种『全不选』的匹配），dp[0][j] = 0（j>0）",
+        "一维滚动 + j 倒序（0-1 背包式），转移 f[j] += f[j-1]，空间 O(n)"
+      ],
+      "structureTags": [
+        "dp"
+      ],
+      "approaches": [
+        {
+          "name": "记忆化搜索",
+          "idea": "递归 f(i, j)：s[i-1]==t[j-1] 时返回 f(i-1, j) + f(i-1, j-1)（不用/用它），否则返回 f(i-1, j)；j==0 返回 1，i<j 返回 0。缓存 (i, j) 后每状态 O(1) 转移。",
+          "complexity": "时间 O(mn)，空间 O(mn)",
+          "detail": "状态定义：f(i, j) = s 前 i 个字符的子序列中等于 t 前 j 个字符的个数。转移推导（s[i-1] 用不用分类）：不用 s[i-1] → f(i-1, j)；相等时还可以用 s[i-1] 配 t[j-1] → f(i-1, j-1)，两类互斥相加：f(i,j) = f(i-1,j) + (相等时 f(i-1,j-1))。边界 f(i,0)=1（空串『全不选』一种匹配）、f(0,j)=0（j>0）。\n\n示例走查：s=\"rabbbit\", t=\"rabbit\"。f(7,6)：s[6]=t==t[5]=t → f(6,6)+f(6,5)；沿『不用末尾』链回推，三个 b 处各产生一个分叉，最终 f(7,6)=3 ✓。\n\n为什么正确：每个匹配方案中 s[i-1] 要么被用要么不用，分类完备；计数型聚合用加法（对比 97 布尔 or、72 min）。易错点：\n- f(i,0)=1 不是 0——空 t 在任何 s 中恰有一种『全不选』的匹配。\n- 不相等时只有 f(i-1,j) 一项，别顺手加 f(i-1,j-1)。\n- i<j 时直接返回 0 可剪枝；递归深度 O(m)，m 大时改递推。",
+          "code": "def num_distinct_memo(s, t):\n    m, n = len(s), len(t)\n    from functools import lru_cache\n    @lru_cache(maxsize=None)\n    def f(i, j):\n        if j == 0:\n            return 1                  # 空 t：全不选，恰有一种匹配\n        if i < j:\n            return 0                  # s 剩余不够长，剪枝\n        # 不用 s[i-1]；相等时再累加用它配 t[j-1] 的方案\n        return f(i - 1, j) + (f(i - 1, j - 1) if s[i - 1] == t[j - 1] else 0)\n    return f(m, n)"
+        },
+        {
+          "name": "二维递推 DP",
+          "idea": "按 i 递增填表：首列全 1、首行（除 [0][0]）全 0，内部按『不用 s[i-1]，相等时再累加用它的方案』转移，答案 dp[m][n]。",
+          "complexity": "时间 O(mn)，空间 O(mn)",
+          "detail": "状态定义：dp[i][j] = s 前 i 个字符的子序列中等于 t 前 j 个的个数。转移：s[i-1]==t[j-1] 时 dp[i][j] = dp[i-1][j] + dp[i-1][j-1]（不用/用它），否则 dp[i][j] = dp[i-1][j]；边界 dp[i][0]=1、dp[0][j]=0（j>0）。\n\n示例走查：s=\"babgbag\", t=\"bag\"。第 0 列全 1。i=1（b）：dp[1][1]=dp[0][1]+dp[0][0]=1；i=2（a）：dp[2][2]=dp[1][2]+dp[1][1]=1；i=3（b）：dp[3][1]=dp[2][1]+dp[2][0]=2；逐格填到 dp[7][3]=5 ✓（b-a-g 的多种位置组合）。\n\n为什么正确：按『是否使用 s[i-1]』分类不重不漏，加法聚合；i 递增填表保证 dp[i-1][*] 就绪。易错点：\n- 相等时两项相加、不等时只继承，条件写反直接错。\n- 首列全 1、首行（除 [0][0]）全 0，两者边界语义不同。\n- 下标偏移：s[i-1]、t[j-1] 对应状态 (i,j)。",
+          "code": "def num_distinct_table(s, t):\n    m, n = len(s), len(t)\n    if n > m:\n        return 0\n    dp = [[0] * (n + 1) for _ in range(m + 1)]\n    for i in range(m + 1):\n        dp[i][0] = 1                  # 空 t 有一种『全不选』匹配\n    for i in range(1, m + 1):\n        for j in range(1, n + 1):\n            dp[i][j] = dp[i - 1][j]   # 不用 s[i-1]\n            if s[i - 1] == t[j - 1]:\n                dp[i][j] += dp[i - 1][j - 1]   # 用 s[i-1] 配 t[j-1]\n    return dp[m][n]"
+        },
+        {
+          "name": "一维倒序滚动",
+          "idea": "去掉 i 维：相等时 f[j] += f[j-1]，j 从 n 到 1 倒序枚举，保证 f[j-1] 仍是上一行的值（dp[i-1][j-1]），空间 O(n)。",
+          "complexity": "时间 O(mn)，空间 O(n)",
+          "optimal": true,
+          "detail": "状态定义：f[j] = s 前 i 个字符中匹配 t 前 j 个的方案数（滚动掉 i 维）。转移推导：相等时 f[j] += f[j-1]（不用它的旧值 + 用它的左上角旧值）；j 必须从 n 到 1 倒序——正序时 f[j-1] 已被本行更新，等于让 s[i-1] 被消费两次（0-1 背包变完全背包的语义错误）；倒序保证 f[j-1] 仍是上一行的 dp[i-1][j-1]。\n\n示例走查：s=\"babgbag\", t=\"bag\"，f=[1,0,0,0]。i=1（b）：f[1]+=f[0] → [1,1,0,0]；i=2（a）：f[2]+=f[1] → [1,1,1,0]；i=3（b）：f[1]+=f[0] → [1,2,1,0]；i=4（g）：f[3]+=f[2] → [1,2,1,1]；i=5（b）：f[1]+=f[0] → [1,3,1,1]；i=6（a）：f[2]+=f[1] → [1,3,4,1]；i=7（g）：f[3]+=f[2] → [1,3,4,5]，输出 5 ✓。\n\n为什么正确：倒序维护『每个 s 字符至多用一次』的 0-1 语义，与二维表逐格等价。易错点：\n- 倒序是本题命门，写成正序答案会偏大（变成可重复使用计数）。\n- f[0]=1 的种子含义：空串匹配。\n- n>m 时提前返回 0，省去无效滚动。",
+          "code": "def num_distinct_rolling(s, t):\n    m, n = len(s), len(t)\n    if n > m:\n        return 0\n    f = [0] * (n + 1)\n    f[0] = 1                          # 空 t 的锚点：一种『全不选』匹配\n    for i in range(1, m + 1):\n        for j in range(n, 0, -1):     # 倒序！f[j-1] 保持为上一行的值\n            if s[i - 1] == t[j - 1]:\n                f[j] += f[j - 1]      # 不用（f[j] 旧值）+ 用（f[j-1] 旧值）\n    return f[n]"
+        }
+      ],
+      "code": "class Solution:\n    def numDistinct(self, s: str, t: str) -> int:\n        # 状态定义：f[j] = s 前 i 个字符的子序列中，匹配 t 前 j 个字符的方案数\n        m, n = len(s), len(t)\n        if n > m:                      # t 更长则不可能匹配\n            return 0\n        f = [0] * (n + 1)\n        f[0] = 1                       # dp[i][0] = 1：空串有一种『全不选』的匹配\n        for i in range(1, m + 1):\n            for j in range(n, 0, -1):  # 倒序！保证 f[j-1] 仍是上一行的 dp[i-1][j-1]\n                if s[i - 1] == t[j - 1]:\n                    # 不用 s[i-1] 的方案数 f[j]，加上用它（配上 t[j-1]）的方案数 f[j-1]\n                    f[j] += f[j - 1]\n        return f[n]",
+      "templates": [
+        "子序列计数模板：dp[i][j] = dp[i-1][j]（跳过 s[i-1]）+ 相等时的 dp[i-1][j-1]（使用它）；边界 dp[i][0]=1 是『空串匹配』的锚点。",
+        "压缩到一维后正序还是倒序，看新值是否依赖本行左边：依赖左上角（计数/0-1 背包）必须倒序；依赖左边（完全背包/交错字符串）正序。"
+      ],
+      "companies": [
+        "字节跳动",
+        "华为"
+      ],
+      "samples": [
+        {
+          "input": "s = \"rabbbit\", t = \"rabbit\"",
+          "output": "3",
+          "explain": "s 中三个不同位置的 b 被删去后均得到 rabbit"
+        },
+        {
+          "input": "s = \"babgbag\", t = \"bag\"",
+          "output": "5"
+        }
+      ],
+      "acmCode": "# ACM 模式：完整可运行程序（stdin -> stdout）\n# 输入格式：\n#   第一行：字符串 s\n#   第二行：字符串 t\n# 输出格式：一行一个整数，t 在 s 的子序列中出现的个数\nimport sys\n\ndef main():\n    data = sys.stdin.read().split()\n    s, t = data[0], data[1]\n    m, n = len(s), len(t)\n    if n > m:\n        print(0)\n        return\n    f = [0] * (n + 1)\n    f[0] = 1                          # 空 t 锚点\n    for i in range(1, m + 1):\n        for j in range(n, 0, -1):     # 倒序保证每个 s 字符只用一次\n            if s[i - 1] == t[j - 1]:\n                f[j] += f[j - 1]\n    print(f[n])\n\nif __name__ == '__main__':\n    main()",
+      "codeCpp": "class Solution {\npublic:\n    int numDistinct(string s, string t) {\n        // 状态定义：f[j] = s 前 i 个字符的子序列中，匹配 t 前 j 个字符的方案数\n        int m = (int)s.size(), n = (int)t.size();\n        if (n > m) return 0;             // t 更长则不可能匹配\n        vector<long long> f(n + 1, 0);   // 方案数可能很大，用 long long 防止溢出\n        f[0] = 1;                        // dp[i][0] = 1：空串有一种『全不选』的匹配\n        for (int i = 1; i <= m; ++i) {\n            for (int j = n; j >= 1; --j) {   // 倒序！保证 f[j-1] 仍是上一行的 dp[i-1][j-1]\n                if (s[i - 1] == t[j - 1])\n                    // 不用 s[i-1] 的方案数 f[j]，加上用它（配上 t[j-1]）的方案数 f[j-1]\n                    f[j] += f[j - 1];\n            }\n        }\n        return (int)f[n];\n    }\n};",
+      "acmCodeCpp": "// ACM 模式：完整可运行程序（stdin -> stdout）\n// 输入格式：\n//   第一行：字符串 s\n//   第二行：字符串 t\n// 输出格式：一行一个整数，t 在 s 的子序列中出现的个数\n#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);   // 关闭同步，读入更快\n    cin.tie(nullptr);\n\n    string s, t;\n    cin >> s >> t;\n    int m = (int)s.size(), n = (int)t.size();\n    if (n > m) {                   // t 更长则不可能匹配\n        cout << 0 << endl;\n        return 0;\n    }\n    vector<long long> f(n + 1, 0); // 方案数可能很大，用 long long 防止溢出\n    f[0] = 1;                      // 空 t 锚点\n    for (int i = 1; i <= m; ++i) {\n        for (int j = n; j >= 1; --j) {   // 倒序保证每个 s 字符只用一次\n            if (s[i - 1] == t[j - 1])\n                f[j] += f[j - 1];\n        }\n    }\n    cout << f[n] << endl;\n    return 0;\n}",
+      "codeJava": "class Solution {\n    public int numDistinct(String s, String t) {\n        // 状态定义：f[j] = s 前 i 个字符的子序列中，匹配 t 前 j 个字符的方案数\n        int m = s.length(), n = t.length();\n        if (n > m) return 0;             // t 更长则不可能匹配\n        long[] f = new long[n + 1];      // 方案数可能很大，用 long 防止溢出\n        f[0] = 1;                        // dp[i][0] = 1：空串有一种『全不选』的匹配\n        for (int i = 1; i <= m; i++) {\n            for (int j = n; j >= 1; j--) {   // 倒序！保证 f[j-1] 仍是上一行的 dp[i-1][j-1]\n                if (s.charAt(i - 1) == t.charAt(j - 1))\n                    // 不用 s[i-1] 的方案数 f[j]，加上用它（配上 t[j-1]）的方案数 f[j-1]\n                    f[j] += f[j - 1];\n            }\n        }\n        return (int) f[n];\n    }\n}",
+      "codeJs": "/**\n * @param {string} s\n * @param {string} t\n * @return {number}\n */\nvar numDistinct = function (s, t) {\n  // 状态定义：f[j] = s 前 i 个字符的子序列中，匹配 t 前 j 个字符的方案数\n  const m = s.length, n = t.length;\n  if (n > m) return 0;                 // t 更长则不可能匹配\n  const f = new Array(n + 1).fill(0);\n  f[0] = 1;                            // dp[i][0] = 1：空串有一种『全不选』的匹配\n  for (let i = 1; i <= m; i++) {\n    for (let j = n; j >= 1; j--) {     // 倒序！保证 f[j-1] 仍是上一行的 dp[i-1][j-1]\n      if (s[i - 1] === t[j - 1])\n        // 不用 s[i-1] 的方案数 f[j]，加上用它（配上 t[j-1]）的方案数 f[j-1]\n        f[j] += f[j - 1];\n    }\n  }\n  return f[n];\n};",
+      "codeGo": "func numDistinct(s string, t string) int {\n\t// 状态定义：f[j] = s 前 i 个字符的子序列中，匹配 t 前 j 个字符的方案数\n\tm, n := len(s), len(t)\n\tif n > m {\n\t\treturn 0                    // t 更长则不可能匹配\n\t}\n\tf := make([]int, n+1)\n\tf[0] = 1                        // dp[i][0] = 1：空串有一种『全不选』的匹配\n\tfor i := 1; i <= m; i++ {\n\t\tfor j := n; j >= 1; j-- {   // 倒序！保证 f[j-1] 仍是上一行的 dp[i-1][j-1]\n\t\t\tif s[i-1] == t[j-1] {\n\t\t\t\t// 不用 s[i-1] 的方案数 f[j]，加上用它（配上 t[j-1]）的方案数 f[j-1]\n\t\t\t\tf[j] += f[j-1]\n\t\t\t}\n\t\t}\n\t}\n\treturn f[n]\n}"
+    },
+    {
+      "id": 416,
+      "title": "Partition Equal Subset Sum",
+      "titleCn": "分割等和子集",
+      "difficulty": "medium",
+      "frequency": 5,
+      "question": "给你一个只包含正整数的非空数组 nums，请判断是否可以将这个数组分割成两个子集，使得两个子集的元素和相等。\n\n示例 1：输入 nums = [1,5,11,5]，输出 true（数组可以分割成 [1,5,5] 和 [11]）。\n示例 2：输入 nums = [1,2,3,5]，输出 false（数组不能分割成两个元素和相等的子集）。",
+      "hints": [
+        "审题诀窍：先把『平分』翻译成背包语言——总和为奇数直接 false；否则问『能否选出若干数恰好凑出 sum/2』，这是 0-1 背包的可行性判定，每个元素只能选一次对应『0-1』。",
+        "审题诀窍：状态 dp[j] 只需回答『和为 j 能否凑出』，转移 dp[j] = dp[j] or dp[j-nums[i]]；求『能否』不用 min/max 聚合而用 or，最后看 dp[target]。",
+        "突破口：一维滚动必须 j 从大到小倒序——正序会让本轮刚更新的 dp[j-nums[i]] 被再次使用，同一个数被选两次；倒序是 0-1 背包『每个物品只用一次』的命门。",
+        "追问预备：要输出具体的分割方案怎么办？（记录每个 j 由哪个数转移而来再回溯）；元素可为负怎么办？（DP 需下标偏移，或改用meet in the middle）；位运算怎么优化？（dp |= dp << x 的 bitset 思路，常数极小）"
+      ],
+      "keyPoints": [
+        "转化：sum 为奇数直接 false；否则 target = sum//2，判定能否凑出 target",
+        "状态 dp[j]：能否从已遍历数字中选出和恰为 j 的子集，dp[0] = true",
+        "转移 dp[j] = dp[j] or dp[j-nums[i]]，j 从 target 倒序到 nums[i] 保证每个数只用一次",
+        "dp[target] 即答案；可在每轮结束后检查 dp[target] 提前返回"
+      ],
+      "structureTags": [
+        "dp"
+      ],
+      "approaches": [
+        {
+          "name": "记忆化搜索",
+          "idea": "递归 dfs(i, remain) 表示前 i 个数能否恰好凑出 remain：不选第 i 个看 dfs(i-1, remain)，选则看 dfs(i-1, remain-nums[i])。缓存 (i, remain)，共 O(n·target) 个状态。",
+          "complexity": "时间 O(n·target)，空间 O(n·target)",
+          "detail": "状态定义：dfs(i, remain) = 前 i 个数能否恰好凑出 remain。转移推导（第 i 个数选不选分类）：不选 → dfs(i-1, remain)；选 → dfs(i-1, remain-nums[i-1])，or 连接；边界 remain==0 为 True（什么都不选），i==0 且 remain>0 为 False，remain<0 为 False。\n\n示例走查：nums=[1,5,11,5]，target=11。dfs(4,11)：不选 5 → dfs(3,11)：不选 11 → dfs(2,11) → …dfs(2,6)：选 5 → dfs(1,1) → dfs(0,1)=False、不选 → dfs(1,6) → dfs(0,6)=False；另一支 dfs(3,11) 选 11 → dfs(2,0)=True，逐层 or 回 True ✓。\n\n为什么正确：每个数只有选/不选两种归属（放入左子集或右子集，等价于凑/不凑 target），分类完备；缓存 O(n·target) 个状态。易错点：\n- 先算总和判奇偶，奇数直接 False，别进搜索。\n- 缓存键是 (i, remain) 二元组，漏维度会串状态。\n- 剩余为负要返回 False，防止死递归。",
+          "code": "def can_partition_memo(nums):\n    total = sum(nums)\n    if total % 2:\n        return False                  # 总和为奇数，无法平分\n    target = total // 2\n    n = len(nums)\n    from functools import lru_cache\n    @lru_cache(maxsize=None)\n    def dfs(i, remain):\n        if remain == 0:\n            return True               # 恰好凑出\n        if i == 0 or remain < 0:\n            return False              # 没数可用 / 凑超了\n        # 不选第 i 个 or 选第 i 个\n        return dfs(i - 1, remain) or dfs(i - 1, remain - nums[i - 1])\n    return dfs(n, target)"
+        },
+        {
+          "name": "二维递推 DP",
+          "idea": "dp[i][j] = dp[i-1][j] or（j>=nums[i] 且 dp[i-1][j-nums[i]]），首列 dp[i][0] = true，答案 dp[n][target]。",
+          "complexity": "时间 O(n·target)，空间 O(n·target)",
+          "detail": "状态定义：dp[i][j] = 从前 i 个数中能否选出若干个恰好凑出和 j。转移（第 i 个数选不选）：dp[i][j] = dp[i-1][j] or（j>=nums[i] 且 dp[i-1][j-nums[i]]）；边界 dp[i][0]=True（全不选凑 0）。\n\n示例走查：nums=[1,5,11,5]，target=11。i=1（1）：可凑 {0,1}；i=2（5）：可凑 {0,1,5,6}；i=3（11）：加入后 dp[3][11]=True ✓。nums=[1,2,3,5]：总和 11 为奇数，入口奇偶判断直接 False，根本不用进表 ✓。\n\n为什么正确：0-1 背包可行性判定，每数选/不选分类完备；i 递增填表保证上一行就绪。易错点：\n- 奇偶剪枝放最前（本例 [1,2,3,5] 的迷惑性正在于此——1+2+3 虽能凑出 5，但总和是奇数）。\n- j>=nums[i] 才有『选』分支，判断不能省。\n- O(n·target) 空间偏大，主动提出一维倒序优化。",
+          "code": "def can_partition_table(nums):\n    total = sum(nums)\n    if total % 2:\n        return False                  # 奇数无法平分\n    target = total // 2\n    n = len(nums)\n    dp = [[False] * (target + 1) for _ in range(n + 1)]\n    for i in range(n + 1):\n        dp[i][0] = True               # 凑 0：全不选\n    for i in range(1, n + 1):\n        x = nums[i - 1]\n        for j in range(1, target + 1):\n            dp[i][j] = dp[i - 1][j]   # 不选 x\n            if j >= x:\n                dp[i][j] = dp[i][j] or dp[i - 1][j - x]   # 选 x\n    return dp[n][target]"
+        },
+        {
+          "name": "一维倒序滚动",
+          "idea": "去掉『个数』维：dp[j] |= dp[j-nums[i]]，j 从 target 倒序到 nums[i]，保证每个数本轮只贡献一次，空间压到 O(target)。",
+          "complexity": "时间 O(n·target)，空间 O(target)",
+          "optimal": true,
+          "detail": "状态定义：dp[j] = 已遍历的数字中能否选出若干个凑出和 j（0-1 背包可行性）。转移 dp[j] = dp[j] or dp[j-x]；j 必须从 target 倒序到 x——正序时本轮刚更新的 dp[j-x] 会被再次使用，同一个数被选两次；倒序保证 dp[j-x] 还是『没考虑 x』的旧值，即每个数只用一次。\n\n示例走查：nums=[1,5,11,5]，target=11。x=1：dp[1]=T；x=5：dp[6]=T、dp[5]=T；x=11：dp[11] |= dp[0]=True → 提前返回 True ✓。nums=[1,2,3,5]：总和 11 为奇数，入口即 False ✓。\n\n为什么正确：与二维表逐格等价，倒序维护 0-1 语义；dp[0]=True 是『凑 0 不选任何数』的锚点。易错点：\n- 倒序范围是 range(target, x-1, -1)，x 以下无处可减，多写了会读负下标。\n- 每轮处理完可查 dp[target] 提前返回，只省时间不改正确性。\n- 对比 518 完全背包的正序：正/倒序的本质是『本轮刚更新的值能否立刻被再次使用』。",
+          "code": "def can_partition_rolling(nums):\n    total = sum(nums)\n    if total % 2:\n        return False                  # 奇数无法平分\n    target = total // 2\n    dp = [False] * (target + 1)\n    dp[0] = True                      # 凑 0：什么都不选\n    for x in nums:\n        for j in range(target, x - 1, -1):   # 倒序：x 只用一次\n            dp[j] = dp[j] or dp[j - x]\n        if dp[target]:                # 提前凑出直接返回\n            return True\n    return dp[target]"
+        }
+      ],
+      "code": "class Solution:\n    def canPartition(self, nums: List[int]) -> bool:\n        # 状态定义：dp[j] = 已遍历的数字中能否选出若干个，使和恰好为 j（0-1 背包可行性）\n        total = sum(nums)\n        if total % 2:                  # 总和为奇数，无法平分\n            return False\n        target = total // 2\n        dp = [False] * (target + 1)\n        dp[0] = True                   # 和为 0：一个都不选即可\n        for x in nums:\n            for j in range(target, x - 1, -1):   # 倒序：保证 x 只被选一次\n                dp[j] = dp[j] or dp[j - x]       # 不选 x（原值）or 选 x（减去后的状态）\n            if dp[target]:             # 提前凑出 target 直接返回\n                return True\n        return dp[target]",
+      "templates": [
+        "0-1 背包可行性模板：外层物品、内层容量倒序，dp[j] = dp[j] or dp[j-nums[i]]；倒序是『每个物品只用一次』的命门。",
+        "等和/平分类问题的第一步永远是算总和并判奇偶，把原问题改写成『能否凑出 sum/2』再套背包。"
+      ],
+      "companies": [
+        "小米"
+      ],
+      "samples": [
+        {
+          "input": "nums = [1,5,11,5]",
+          "output": "true",
+          "explain": "可分割成 [1,5,5] 和 [11]"
+        },
+        {
+          "input": "nums = [1,2,3,5]",
+          "output": "false",
+          "explain": "总和 11 为奇数，无法平分"
+        }
+      ],
+      "acmCode": "# ACM 模式：完整可运行程序（stdin -> stdout）\n# 输入格式：\n#   第一行：n（数字个数）\n#   第二行：n 个正整数\n# 输出格式：一行 true 或 false，能否分割成两个和相等的子集\nimport sys\n\ndef main():\n    data = sys.stdin.read().split()\n    n = int(data[0])\n    nums = [int(x) for x in data[1:1 + n]]\n    total = sum(nums)\n    if total % 2:                     # 总和为奇数无法平分\n        print('false')\n        return\n    target = total // 2\n    dp = [False] * (target + 1)\n    dp[0] = True\n    for x in nums:\n        for j in range(target, x - 1, -1):   # 倒序：x 只用一次\n            dp[j] = dp[j] or dp[j - x]\n        if dp[target]:\n            break\n    print('true' if dp[target] else 'false')\n\nif __name__ == '__main__':\n    main()",
+      "codeCpp": "class Solution {\npublic:\n    bool canPartition(vector<int>& nums) {\n        // 状态定义：dp[j] = 已遍历的数字中能否选出若干个，使和恰好为 j（0-1 背包可行性）\n        int total = 0;\n        for (int x : nums) total += x;\n        if (total % 2) return false;     // 总和为奇数，无法平分\n        int target = total / 2;\n        vector<bool> dp(target + 1, false);\n        dp[0] = true;                    // 和为 0：一个都不选即可\n        for (int x : nums) {\n            for (int j = target; j >= x; --j) {   // 倒序：保证 x 只被选一次\n                dp[j] = dp[j] || dp[j - x];       // 不选 x（原值）or 选 x（减去后的状态）\n            }\n            if (dp[target]) return true; // 提前凑出 target 直接返回\n        }\n        return dp[target];\n    }\n};",
+      "acmCodeCpp": "// ACM 模式：完整可运行程序（stdin -> stdout）\n// 输入格式：\n//   第一行：n（数字个数）\n//   第二行：n 个正整数\n// 输出格式：一行 true 或 false，能否分割成两个和相等的子集\n#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);   // 关闭同步，读入更快\n    cin.tie(nullptr);\n\n    int n;\n    cin >> n;\n    vector<int> nums(n);\n    for (auto& x : nums) cin >> x;\n    int total = 0;\n    for (int x : nums) total += x;\n    if (total % 2) {               // 总和为奇数无法平分\n        cout << \"false\" << endl;\n        return 0;\n    }\n    int target = total / 2;\n    vector<bool> dp(target + 1, false);\n    dp[0] = true;\n    for (int x : nums) {\n        for (int j = target; j >= x; --j) {   // 倒序：x 只用一次\n            dp[j] = dp[j] || dp[j - x];\n        }\n        if (dp[target]) break;     // 提前凑出 target 直接返回\n    }\n    cout << (dp[target] ? \"true\" : \"false\") << endl;\n    return 0;\n}",
+      "codeJava": "class Solution {\n    public boolean canPartition(int[] nums) {\n        // 状态定义：dp[j] = 已遍历的数字中能否选出若干个，使和恰好为 j（0-1 背包可行性）\n        int total = 0;\n        for (int x : nums) total += x;\n        if (total % 2 != 0) return false;    // 总和为奇数，无法平分\n        int target = total / 2;\n        boolean[] dp = new boolean[target + 1];\n        dp[0] = true;                    // 和为 0：一个都不选即可\n        for (int x : nums) {\n            for (int j = target; j >= x; j--) {   // 倒序：保证 x 只被选一次\n                dp[j] = dp[j] || dp[j - x];       // 不选 x（原值）or 选 x（减去后的状态）\n            }\n            if (dp[target]) return true; // 提前凑出 target 直接返回\n        }\n        return dp[target];\n    }\n}",
+      "codeJs": "/**\n * @param {number[]} nums\n * @return {boolean}\n */\nvar canPartition = function (nums) {\n  // 状态定义：dp[j] = 已遍历的数字中能否选出若干个，使和恰好为 j（0-1 背包可行性）\n  const total = nums.reduce((a, b) => a + b, 0);\n  if (total % 2 !== 0) return false;    // 总和为奇数，无法平分\n  const target = total / 2;\n  const dp = new Array(target + 1).fill(false);\n  dp[0] = true;                         // 和为 0：一个都不选即可\n  for (const x of nums) {\n    for (let j = target; j >= x; j--) { // 倒序：保证 x 只被选一次\n      dp[j] = dp[j] || dp[j - x];       // 不选 x（原值）or 选 x（减去后的状态）\n    }\n    if (dp[target]) return true;        // 提前凑出 target 直接返回\n  }\n  return dp[target];\n};",
+      "codeGo": "func canPartition(nums []int) bool {\n\t// 状态定义：dp[j] = 已遍历的数字中能否选出若干个，使和恰好为 j（0-1 背包可行性）\n\ttotal := 0\n\tfor _, x := range nums {\n\t\ttotal += x\n\t}\n\tif total%2 != 0 {                // 总和为奇数，无法平分\n\t\treturn false\n\t}\n\ttarget := total / 2\n\tdp := make([]bool, target+1)\n\tdp[0] = true                     // 和为 0：一个都不选即可\n\tfor _, x := range nums {\n\t\tfor j := target; j >= x; j-- {   // 倒序：保证 x 只被选一次\n\t\t\tdp[j] = dp[j] || dp[j-x]     // 不选 x（原值）or 选 x（减去后的状态）\n\t\t}\n\t\tif dp[target] {              // 提前凑出 target 直接返回\n\t\t\treturn true\n\t\t}\n\t}\n\treturn dp[target]\n}"
+    },
+    {
+      "id": 518,
+      "title": "Coin Change II",
+      "titleCn": "零钱兑换 II",
+      "difficulty": "medium",
+      "frequency": 4,
+      "question": "给你一个整数数组 coins 表示不同面额的硬币，另给一个整数 amount 表示总金额，请你计算并返回可以凑成总金额的硬币组合数。如果任何硬币组合都无法凑出总金额，返回 0。每一种面额的硬币数量是无限的。题目数据保证结果符合 32 位带符号整数范围。\n\n注意：组合与顺序无关，1+2 和 2+1 视为同一种组合。\n\n示例 1：输入 amount = 5, coins = [1,2,5]，输出 4（5=5 / 5=2+2+1 / 5=2+1+1+1 / 5=1+1+1+1+1）。\n示例 2：输入 amount = 3, coins = [2]，输出 0（只用面额 2 无法凑出 3）。\n示例 3：输入 amount = 10, coins = [10]，输出 1。",
+      "hints": [
+        "审题诀窍：与 322 求『最少硬币数』不同，本题求『组合数』且硬币无限——完全背包计数版；『组合』不区分顺序，1+2 与 2+1 算同一种，这决定了外层必须枚举硬币、内层枚举金额。",
+        "审题诀窍：内层 j 正序允许同一硬币在本轮更新后被再次使用，正是『数量无限』的语义；若外层金额、内层硬币，数出来的将是『排列数』（那是 377 的题意）。",
+        "突破口：dp[0] = 1 是『凑 0 元只有一种方案：什么都不选』的锚点；转移 dp[j] += dp[j-coin] 的直觉是『给每种凑出 j-coin 的组合再放一枚 coin』。",
+        "追问预备：为什么本题外层是硬币、377 组合总和 IV 外层是金额？（组合 vs 排列的语义由循环顺序决定）；若每种硬币只有一枚怎么办？（退化为 416 的 0-1 背包倒序）；如何输出具体组合？（记录转移来源回溯）"
+      ],
+      "keyPoints": [
+        "状态 dp[j]：用已遍历的面额凑出金额 j 的组合数",
+        "完全背包：内层 j 正序（同一面额可重复使用），转移 dp[j] += dp[j-coin]",
+        "外层硬币内层金额数出『组合数』；外层金额内层硬币数出『排列数』，本题必须前者",
+        "边界 dp[0] = 1，答案 dp[amount]"
+      ],
+      "structureTags": [
+        "dp"
+      ],
+      "approaches": [
+        {
+          "name": "记忆化搜索",
+          "idea": "递归 dfs(i, remain) 表示从第 i 种面额开始凑 remain 的组合数：不用第 i 种 → dfs(i+1, remain)，用一枚 → dfs(i, remain-coins[i])（i 不前移，因为还能继续用它）。缓存 (i, remain)。",
+          "complexity": "时间 O(n·amount)，空间 O(n·amount)",
+          "detail": "状态定义：dfs(i, remain) = 从第 i 种面额开始凑出 remain 的组合数。转移推导（第 i 种用不用分类）：不用 → dfs(i+1, remain)；用一枚 → dfs(i, remain-coins[i])——注意 i 不前移，因为同种硬币还能继续用（数量无限）；边界 remain==0 返回 1（凑出一种），remain<0 或 i 越界返回 0。\n\n示例走查：amount=5, coins=[1,2,5]。dfs(0,5)：沿『全用 1』链到 dfs(0,0)=1；用 2/5 的分支各自展开：1+1+1+1+1、2+1+1+1、2+2+1、5，合计 4 ✓。\n\n为什么正确：『从第 i 种开始』限制了面额使用的先后（只增不减），同一组合只被枚举一次，天然去重（1+2 与 2+1 只数其一）。易错点：\n- 用一枚后 i 不前移是『无限量』语义，写成 i+1 就变成 0-1 背包。\n- 缓存键 (i, remain)，漏维度会重复计数。\n- 这是按面额有序的枚举，别写成交换两层循环的搜索。",
+          "code": "def change_memo(amount, coins):\n    n = len(coins)\n    from functools import lru_cache\n    @lru_cache(maxsize=None)\n    def dfs(i, remain):\n        if remain == 0:\n            return 1                  # 凑出一种组合\n        if remain < 0 or i == n:\n            return 0                  # 凑超 / 面额用尽\n        # 不用第 i 种 + 用一枚第 i 种（i 不前移：还能继续用）\n        return dfs(i + 1, remain) + dfs(i, remain - coins[i])\n    return dfs(0, amount)"
+        },
+        {
+          "name": "二维递推 DP",
+          "idea": "dp[i][j] = dp[i-1][j]（不用第 i 种）+ dp[i][j-coins[i-1]]（再用一枚，j 够时），首列 dp[i][0] = 1，答案 dp[n][amount]。",
+          "complexity": "时间 O(n·amount)，空间 O(n·amount)",
+          "detail": "状态定义：dp[i][j] = 用前 i 种面额凑出金额 j 的组合数。转移（第 i 种不用/再用一枚）：dp[i][j] = dp[i-1][j] + dp[i][j-coins[i-1]]（j 够时）——后一项引用同一行，正对应『数量无限』；边界 dp[i][0]=1。\n\n示例走查：amount=5, coins=[1,2,5]。i=1（只用 1）：dp[1][j]=1（j=0..5 各一种）。i=2（加 2）：dp[2][2]=dp[1][2]+dp[2][0]=2、dp[2][5]=dp[1][5]+dp[2][3]=1+2=3。i=3（加 5）：dp[3][5]=dp[2][5]+dp[3][0]=3+1=4 ✓。\n\n为什么正确：『至少再用一枚第 i 种』由同行左格表达，不重不漏地枚举了第 i 种的全部使用枚数；外层物品内层金额保证组合不被数重（面额顺序固定）。易错点：\n- dp[i][j-coins[i-1]] 是同一行 i（完全背包），写成 i-1 就变 0-1 背包。\n- dp[i][0]=1 是『凑 0 元只有什么都不选』的锚点。\n- 循环顺序：外物品内金额，交换会数成排列数。",
+          "code": "def change_table(amount, coins):\n    n = len(coins)\n    dp = [[0] * (amount + 1) for _ in range(n + 1)]\n    for i in range(n + 1):\n        dp[i][0] = 1                  # 凑 0 元：一种方案（什么都不选）\n    for i in range(1, n + 1):\n        c = coins[i - 1]\n        for j in range(1, amount + 1):\n            dp[i][j] = dp[i - 1][j]           # 不用第 i 种\n            if j >= c:\n                dp[i][j] += dp[i][j - c]      # 再用一枚第 i 种（同行=无限量）\n    return dp[n][amount]"
+        },
+        {
+          "name": "一维正序滚动",
+          "idea": "dp[j] += dp[j-coin]，j 从 coin 到 amount 正序枚举；正序意味着本轮刚更新的 dp[j-coin] 可被再次使用，恰好对应『硬币无限』的完全背包语义，空间 O(amount)。",
+          "complexity": "时间 O(n·amount)，空间 O(amount)",
+          "optimal": true,
+          "detail": "状态定义：dp[j] = 用已遍历面额凑出金额 j 的组合数。转移 dp[j] += dp[j-coin]；内层 j 从 coin 到 amount 正序——正序使本轮刚更新的 dp[j-coin] 立即可用，恰好对应『硬币无限』；外层枚举硬币保证只数组合不数排列（1+2 与 2+1 是同一组合）。\n\n示例走查：amount=5, coins=[1,2,5]。coin=1：dp=[1,1,1,1,1,1]；coin=2：dp[2]+=dp[0]=2、dp[3]+=dp[1]=2、dp[4]+=dp[2]=3、dp[5]+=dp[3]=3 → [1,1,2,2,3,3]；coin=5：dp[5]+=dp[0]=4，答案 4 ✓。\n\n为什么正确：与二维表逐格等价（dp[j] 旧=上一行，dp[j-coin] 新=同行左格）；正序是无限量的语义载体。易错点：\n- 外层硬币、内层金额正序；两层交换就是排列数（377 题意），结果会偏大。\n- dp[0]=1 别写成 0，否则所有转移归零。\n- 对比 416 的倒序：倒序=每个物品一次（0-1），正序=无限次（完全），一句话讲清区别是高频追问。",
+          "code": "def change_rolling(amount, coins):\n    dp = [0] * (amount + 1)\n    dp[0] = 1                         # 凑 0 元：什么都不选，一种方案\n    for coin in coins:                # 外层硬币：保证只数组合\n        for j in range(coin, amount + 1):     # 内层正序：硬币可重复用\n            dp[j] += dp[j - coin]     # 给凑出 j-coin 的组合再放一枚 coin\n    return dp[amount]"
+        }
+      ],
+      "code": "class Solution:\n    def change(self, amount: int, coins: List[int]) -> int:\n        # 状态定义：dp[j] = 用已遍历的面额凑出金额 j 的组合数（完全背包计数）\n        dp = [0] * (amount + 1)\n        dp[0] = 1                      # 凑 0 元只有『什么都不选』一种方案\n        for coin in coins:             # 外层硬币：保证只数组合、不数排列\n            for j in range(coin, amount + 1):    # 内层正序：同一硬币可重复使用\n                # 新增方案 = 先前凑出 j-coin 的每种组合再放一枚 coin\n                dp[j] += dp[j - coin]\n        return dp[amount]",
+      "templates": [
+        "完全背包计数模板：外层物品、内层容量正序，dp[j] += dp[j-coin]；『组合数』外层物品内层金额，『排列数』（377）外层金额内层物品——循环顺序即语义。",
+        "0-1 背包（416）倒序、完全背包（518）正序：正/倒序的本质是『本轮刚更新的值能否立刻被再次使用』。"
+      ],
+      "companies": [
+        "美团",
+        "拼多多"
+      ],
+      "samples": [
+        {
+          "input": "amount = 5, coins = [1,2,5]",
+          "output": "4",
+          "explain": "5=5 / 2+2+1 / 2+1+1+1 / 1+1+1+1+1"
+        },
+        {
+          "input": "amount = 3, coins = [2]",
+          "output": "0",
+          "explain": "只用面额 2 无法凑出 3"
+        }
+      ],
+      "acmCode": "# ACM 模式：完整可运行程序（stdin -> stdout）\n# 输入格式：\n#   第一行：n amount（面额种数、总金额）\n#   随后 n 行：每行一个面额（每种数量无限）\n# 输出格式：一行一个整数，凑成总金额的组合数\nimport sys\n\ndef main():\n    data = sys.stdin.read().split()\n    n, amount = int(data[0]), int(data[1])\n    coins = [int(x) for x in data[2:2 + n]]\n    dp = [0] * (amount + 1)\n    dp[0] = 1                         # 凑 0 元：什么都不选\n    for coin in coins:                # 外层硬币：只数组合\n        for j in range(coin, amount + 1):     # 内层正序：无限量\n            dp[j] += dp[j - coin]\n    print(dp[amount])\n\nif __name__ == '__main__':\n    main()",
+      "codeCpp": "class Solution {\npublic:\n    int change(int amount, vector<int>& coins) {\n        // 状态定义：dp[j] = 用已遍历的面额凑出金额 j 的组合数（完全背包计数）\n        vector<long long> dp(amount + 1, 0);   // 组合数可能很大，用 long long 防止溢出\n        dp[0] = 1;                       // 凑 0 元只有『什么都不选』一种方案\n        for (int coin : coins) {         // 外层硬币：保证只数组合、不数排列\n            for (int j = coin; j <= amount; ++j) {   // 内层正序：同一硬币可重复使用\n                // 新增方案 = 先前凑出 j-coin 的每种组合再放一枚 coin\n                dp[j] += dp[j - coin];\n            }\n        }\n        return (int)dp[amount];\n    }\n};",
+      "acmCodeCpp": "// ACM 模式：完整可运行程序（stdin -> stdout）\n// 输入格式：\n//   第一行：n amount（面额种数、总金额）\n//   随后 n 行：每行一个面额（每种数量无限）\n// 输出格式：一行一个整数，凑成总金额的组合数\n#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);   // 关闭同步，读入更快\n    cin.tie(nullptr);\n\n    int n, amount;\n    cin >> n >> amount;\n    vector<int> coins(n);\n    for (auto& c : coins) cin >> c;\n    vector<long long> dp(amount + 1, 0);   // 组合数可能很大，用 long long 防止溢出\n    dp[0] = 1;                       // 凑 0 元：什么都不选\n    for (int coin : coins) {         // 外层硬币：只数组合\n        for (int j = coin; j <= amount; ++j) {   // 内层正序：无限量\n            dp[j] += dp[j - coin];\n        }\n    }\n    cout << dp[amount] << endl;\n    return 0;\n}",
+      "codeJava": "class Solution {\n    public int change(int amount, int[] coins) {\n        // 状态定义：dp[j] = 用已遍历的面额凑出金额 j 的组合数（完全背包计数）\n        long[] dp = new long[amount + 1];   // 组合数可能很大，用 long 防止溢出\n        dp[0] = 1;                       // 凑 0 元只有『什么都不选』一种方案\n        for (int coin : coins) {         // 外层硬币：保证只数组合、不数排列\n            for (int j = coin; j <= amount; j++) {   // 内层正序：同一硬币可重复使用\n                // 新增方案 = 先前凑出 j-coin 的每种组合再放一枚 coin\n                dp[j] += dp[j - coin];\n            }\n        }\n        return (int) dp[amount];\n    }\n}",
+      "codeJs": "/**\n * @param {number} amount\n * @param {number[]} coins\n * @return {number}\n */\nvar change = function (amount, coins) {\n  // 状态定义：dp[j] = 用已遍历的面额凑出金额 j 的组合数（完全背包计数）\n  const dp = new Array(amount + 1).fill(0);\n  dp[0] = 1;                           // 凑 0 元只有『什么都不选』一种方案\n  for (const coin of coins) {          // 外层硬币：保证只数组合、不数排列\n    for (let j = coin; j <= amount; j++) {   // 内层正序：同一硬币可重复使用\n      // 新增方案 = 先前凑出 j-coin 的每种组合再放一枚 coin\n      dp[j] += dp[j - coin];\n    }\n  }\n  return dp[amount];\n};",
+      "codeGo": "func change(amount int, coins []int) int {\n\t// 状态定义：dp[j] = 用已遍历的面额凑出金额 j 的组合数（完全背包计数）\n\tdp := make([]int, amount+1)\n\tdp[0] = 1                       // 凑 0 元只有『什么都不选』一种方案\n\tfor _, coin := range coins {    // 外层硬币：保证只数组合、不数排列\n\t\tfor j := coin; j <= amount; j++ {   // 内层正序：同一硬币可重复使用\n\t\t\t// 新增方案 = 先前凑出 j-coin 的每种组合再放一枚 coin\n\t\t\tdp[j] += dp[j-coin]\n\t\t}\n\t}\n\treturn dp[amount]\n}"
+    },
+    {
+      "id": 309,
+      "title": "Best Time to Buy and Sell Stock with Cooldown",
+      "titleCn": "最佳买卖股票时机含冷冻期",
+      "difficulty": "medium",
+      "frequency": 4,
+      "question": "给定一个整数数组 prices，其中第 prices[i] 表示第 i 天的股票价格。设计一个算法计算出最大利润。在满足以下约束条件下，你可以尽可能地完成更多的交易（多次买卖一支股票）：卖出股票后的第二天你无法买入股票（即冷冻期为 1 天）。注意：你不能同时参与多笔交易（必须在再次购买前出售掉之前的股票）。\n\n示例 1：输入 prices = [1,2,3,0,2]，输出 3（对应的交易状态为：买入、卖出、冷冻期、买入、卖出）。\n示例 2：输入 prices = [1]，输出 0。",
+      "hints": [
+        "审题诀窍：先给『一天的处境』分类再开状态——本题『不持有』要拆成『当天刚卖出』和『其余空仓（含冷冻期）』两类，加上『持有』共三个状态；检验标准是每个状态都能说清今天干了什么、明天能不能买。",
+        "审题诀窍：先画状态转移图再写代码：买入只能从空仓态出发（rest - price），卖出必然从持有态出发（hold + price），冷冻期被空仓态自然吸收——每条边就是一行转移方程。",
+        "突破口：用样例 [1,2,3,0,2] 检验模型：正确状态设计必须允许『卖→隔一天→再买』并推出利润 3；若只得到 2，多半是把买入接到了错误的空仓状态上。",
+        "追问预备：冷冻期改成 2 天怎么做？（rest 再拆层，或多开一个『冷却中』状态数冷冻天数）；不限次数且无冷冻期呢？（122：两个状态足够）；冷冻期叠加手续费呢？（309 的状态图 + 714 的卖出扣 fee）"
+      ],
+      "keyPoints": [
+        "三个状态：hold 当天持有、sold 当天刚卖出、rest 空仓且今天没有卖出动作（冷冻期被自然吸收）",
+        "转移：hold = max(hold, rest - price)，sold = hold + price，rest = max(rest, sold)",
+        "答案 = max(sold, rest)：收官时必须空仓",
+        "滚动变量 + 元组同时赋值（右端全读旧值），空间 O(1)"
+      ],
+      "structureTags": [
+        "dp"
+      ],
+      "approaches": [
+        {
+          "name": "记忆化搜索",
+          "idea": "递归 dfs(i, state) 表示第 i 天末处于 state（持有/刚卖出/空仓）的最大利润，按状态转移图向前递推或从最后一天倒推，缓存 (i, state)，共 3n 个状态。",
+          "complexity": "时间 O(n)，空间 O(n)",
+          "detail": "状态定义：dfs(i, state) = 第 i 天末处于 state（0 持有 / 1 当天刚卖出 / 2 空仓且非当天卖出）的最大利润。转移推导（今天动作分类）：持有 = max(昨天持有不动, 昨天空仓买入 - price)；刚卖出 = 昨天持有 + price；空仓观望 = max(昨天空仓, 昨天刚卖出)——『刚卖出』滑入空仓即冷冻期被状态吸收。\n\n示例走查：prices=[1,2,3,0,2]。第 0 天 (-1, 0, 0)；第 1 天 (-1, 1, 0)；第 2 天 (-1, 2, 1)；第 3 天（价 0）(max(-1,1-0)=1, -1+0=-1, max(1,2)=2)；第 4 天 (max(1,2-2)=1, 1+2=3, max(2,-1)=2)，答案 max(sold=3, rest=2)=3 ✓。\n\n为什么正确：三状态覆盖『今天的处境』全部分类，每个状态都能说清明天能不能买，无后效性成立。易错点：\n- 『不持有』必须拆成两态，合并会把冷冻期约束弄丢。\n- 买入只能从 rest 出发，从 sold 出发等于无视冷冻期。\n- 本写法自顶向下逐天回推，与递推逐格等价；3n 个状态各算一次。",
+          "code": "def max_profit_memo(prices):\n    n = len(prices)\n    from functools import lru_cache\n    HOLD, SOLD, REST = 0, 1, 2        # 持有 / 当天刚卖出 / 空仓观望\n    @lru_cache(maxsize=None)\n    def dfs(i, state):\n        if i == 0:\n            return -prices[0] if state == HOLD else 0   # 首日：买入或空仓\n        p = prices[i]\n        if state == HOLD:\n            # 昨天就持有不动，或昨天空仓（冷冻期已过）今天买入\n            return max(dfs(i - 1, HOLD), dfs(i - 1, REST) - p)\n        if state == SOLD:\n            return dfs(i - 1, HOLD) + p     # 昨天持有今天卖出\n        return max(dfs(i - 1, REST), dfs(i - 1, SOLD))   # 观望 / 昨卖今歇\n    return max(dfs(n - 1, SOLD), dfs(n - 1, REST))   # 收官必须空仓"
+        },
+        {
+          "name": "多状态递推",
+          "idea": "dp[i][0..2] 逐天填表：hold = max(昨天 hold, 昨天 rest - price)，sold = 昨天 hold + price，rest = max(昨天 rest, 昨天 sold)，最后在两个空仓状态中取最大。",
+          "complexity": "时间 O(n)，空间 O(n)",
+          "detail": "状态定义：dp[i][0..2]——dp[i][0] 第 i 天持有、dp[i][1] 第 i 天刚卖出、dp[i][2] 第 i 天空仓且非当天卖出的最大利润。转移（今天动作分类）：dp[i][0]=max(dp[i-1][0], dp[i-1][2]-price)；dp[i][1]=dp[i-1][0]+price；dp[i][2]=max(dp[i-1][2], dp[i-1][1])。初值 dp[0]=(-prices[0], 0, 0)。\n\n示例走查：prices=[1,2,3,0,2]。逐天三列（hold/sold/rest）：(-1,0,0) → (-1,1,0) → (-1,2,1) → (1,-1,2) → (1,3,2)，答案 max(3,2)=3 ✓。\n\n为什么正确：逐天填表时三个新状态都只引用昨天的三列，依赖封闭且无后效性；状态转移图上的每条边对应一行方程。易错点：\n- 更新第 i 天要用第 i-1 天的旧值，用临时变量或整行赋值暂存，否则同行污染。\n- 答案在 max(dp[n-1][1], dp[n-1][2])——持有股票收官必非最优。\n- 冷冻期不用单独开状态：『卖出次日不能买』已由 sold→rest→hold 两步体现。",
+          "code": "def max_profit_table(prices):\n    n = len(prices)\n    dp = [[0] * 3 for _ in range(n)]  # [持有, 当天卖出, 空仓观望]\n    dp[0] = [-prices[0], 0, 0]\n    for i in range(1, n):\n        p = prices[i]\n        prev = dp[i - 1]              # 全部读昨天的旧值\n        dp[i][0] = max(prev[0], prev[2] - p)   # 持有/买入\n        dp[i][1] = prev[0] + p                 # 卖出\n        dp[i][2] = max(prev[2], prev[1])       # 观望/冷冻结束\n    return max(dp[n - 1][1], dp[n - 1][2])"
+        },
+        {
+          "name": "三变量滚动",
+          "idea": "今天只看昨天：用 hold/sold/rest 三个变量并配合元组同时赋值（右端全部使用旧值）滚动更新，空间 O(1)。",
+          "complexity": "时间 O(n)，空间 O(1)",
+          "optimal": true,
+          "detail": "状态定义：hold/sold/rest 三个滚动变量即 dp[i][0..2]，转移方程同上：hold = max(hold, rest - price)、sold = hold + price、rest = max(rest, sold)。冷冻期一天被 rest 吸收——卖出次日记在 rest，再次日才能从 rest 买入。\n\n示例走查：prices=[1,2,3,0,2]。初始 (-1,0,0)；p=2 → (-1,1,0)；p=3 → (-1,2,1)；p=0 → (max(-1,1-0)=1, -1, max(1,2)=2)；p=2 → (max(1,2-2)=1, 1+2=3, max(2,-1)=2)，输出 max(3,2)=3 ✓。\n\n为什么正确：与逐天填表逐格等价；元组同时赋值保证右端三个表达式全部读昨天的旧值。易错点：\n- 必须用元组同时赋值，拆成三行会用到『今天已更新』的值，等于把转移图改错。\n- 初值 hold=-prices[0]（首日买入）、sold=rest=0。\n- 遍历从第 1 天开始（prices[1:]），第 0 天状态由初值表达。",
+          "code": "def max_profit_rolling(prices):\n    hold, sold, rest = -prices[0], 0, 0   # 首日：买入 / 卖出态 / 空仓\n    for price in prices[1:]:\n        # 元组右端全读昨天的旧值，一次性滚动\n        hold, sold, rest = max(hold, rest - price), hold + price, max(rest, sold)\n    return max(sold, rest)            # 收官必须空仓"
+        }
+      ],
+      "code": "class Solution:\n    def maxProfit(self, prices: List[int]) -> int:\n        # 状态定义（滚动自 dp[i][0..2]）：dp[i][0]=持有, dp[i][1]=当天卖出, dp[i][2]=空仓且非当天卖出\n        hold, sold, rest = -prices[0], 0, 0   # 第 0 天：买入 / 卖出态置 0 / 空仓观望\n        for price in prices[1:]:\n            # 元组右端全部读昨天的旧值，一次性滚动到今天\n            # 买入只能从空仓态来；冷冻期一天，被 rest 吸收，不影响次日买入\n            hold, sold, rest = max(hold, rest - price), hold + price, max(rest, sold)\n        return max(sold, rest)                # 收官必须空仓，两个空仓态取最大",
+      "templates": [
+        "股票系列状态机模板：给『持有/卖出/空仓（可再拆冷冻）』各开一个状态，转移 = max(自身不变, 邻状态 ± price)；冷冻期（309）、手续费（714）都只是在状态图的边上做文章。",
+        "元组同时赋值 hold, sold, rest = A, B, C 可避免旧值被覆盖——多状态 DP 滚动时的保命技巧。"
+      ],
+      "companies": [
+        "京东"
+      ],
+      "samples": [
+        {
+          "input": "prices = [1,2,3,0,2]",
+          "output": "3",
+          "explain": "对应的交易状态为：买入、卖出、冷冻期、买入、卖出"
+        },
+        {
+          "input": "prices = [1]",
+          "output": "0",
+          "explain": "只有一天，无法完成一笔交易"
+        }
+      ],
+      "acmCode": "# ACM 模式：完整可运行程序（stdin -> stdout）\n# 输入格式：\n#   第一行：n（天数）\n#   第二行：n 个整数（每天股价）\n# 输出格式：一行一个整数，含 1 天冷冻期的最大利润\nimport sys\n\ndef main():\n    data = sys.stdin.read().split()\n    n = int(data[0])\n    prices = [int(x) for x in data[1:1 + n]]\n    hold, sold, rest = -prices[0], 0, 0   # 首日：买入 / 卖出态 / 空仓\n    for price in prices[1:]:\n        # 元组右端全读昨天的旧值\n        hold, sold, rest = max(hold, rest - price), hold + price, max(rest, sold)\n    print(max(sold, rest))\n\nif __name__ == '__main__':\n    main()",
+      "codeCpp": "class Solution {\npublic:\n    int maxProfit(vector<int>& prices) {\n        // 状态定义（滚动自 dp[i][0..2]）：dp[i][0]=持有, dp[i][1]=当天卖出, dp[i][2]=空仓且非当天卖出\n        // hold/sold/rest 分别对应三个状态的最大利润，持股利润可为负，用 long long 防止溢出\n        long long hold = -prices[0], sold = 0, rest = 0;   // 第 0 天：买入 / 卖出态置 0 / 空仓观望\n        for (int i = 1; i < (int)prices.size(); ++i) {\n            // 临时变量保证右端全读昨天的旧值，一次性滚动到今天；冷冻期一天被 rest 吸收\n            long long newHold = max(hold, rest - prices[i]);   // 买入只能从空仓态来\n            long long newSold = hold + prices[i];              // 今天卖出：昨天的持有 + 今日价\n            long long newRest = max(rest, sold);               // 空仓：继续观望或吸收昨天的卖出\n            hold = newHold; sold = newSold; rest = newRest;\n        }\n        return (int)max(sold, rest);               // 收官必须空仓，两个空仓态取最大\n    }\n};",
+      "acmCodeCpp": "// ACM 模式：完整可运行程序（stdin -> stdout）\n// 输入格式：\n//   第一行：n（天数）\n//   第二行：n 个整数（每天股价）\n// 输出格式：一行一个整数，含 1 天冷冻期的最大利润\n#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);   // 关闭同步，读入更快\n    cin.tie(nullptr);\n\n    int n;\n    cin >> n;\n    vector<int> prices(n);\n    for (auto& x : prices) cin >> x;\n    long long hold = -prices[0], sold = 0, rest = 0;   // 首日：买入 / 卖出态 / 空仓\n    for (int i = 1; i < n; ++i) {\n        // 临时变量保证右端全读昨天的旧值\n        long long newHold = max(hold, rest - prices[i]);\n        long long newSold = hold + prices[i];\n        long long newRest = max(rest, sold);\n        hold = newHold; sold = newSold; rest = newRest;\n    }\n    cout << max(sold, rest) << endl;\n    return 0;\n}",
+      "codeJava": "class Solution {\n    public int maxProfit(int[] prices) {\n        // 状态定义（滚动自 dp[i][0..2]）：dp[i][0]=持有, dp[i][1]=当天卖出, dp[i][2]=空仓且非当天卖出\n        // 持股利润可为负，用 long 防止溢出\n        long hold = -prices[0], sold = 0, rest = 0;   // 第 0 天：买入 / 卖出态置 0 / 空仓观望\n        for (int i = 1; i < prices.length; i++) {\n            // 临时变量保证右端全读昨天的旧值，一次性滚动到今天；冷冻期一天被 rest 吸收\n            long newHold = Math.max(hold, rest - prices[i]);   // 买入只能从空仓态来\n            long newSold = hold + prices[i];                   // 今天卖出：昨天的持有 + 今日价\n            long newRest = Math.max(rest, sold);               // 空仓：继续观望或吸收昨天的卖出\n            hold = newHold; sold = newSold; rest = newRest;\n        }\n        return (int) Math.max(sold, rest);   // 收官必须空仓，两个空仓态取最大\n    }\n}",
+      "codeJs": "/**\n * @param {number[]} prices\n * @return {number}\n */\nvar maxProfit = function (prices) {\n  // 状态定义（滚动自 dp[i][0..2]）：dp[i][0]=持有, dp[i][1]=当天卖出, dp[i][2]=空仓且非当天卖出\n  let hold = -prices[0], sold = 0, rest = 0;   // 第 0 天：买入 / 卖出态置 0 / 空仓观望\n  for (let i = 1; i < prices.length; i++) {\n    // 临时变量保证右端全读昨天的旧值，一次性滚动到今天；冷冻期一天被 rest 吸收\n    const newHold = Math.max(hold, rest - prices[i]);   // 买入只能从空仓态来\n    const newSold = hold + prices[i];                   // 今天卖出：昨天的持有 + 今日价\n    const newRest = Math.max(rest, sold);               // 空仓：继续观望或吸收昨天的卖出\n    hold = newHold; sold = newSold; rest = newRest;\n  }\n  return Math.max(sold, rest);                 // 收官必须空仓，两个空仓态取最大\n};",
+      "codeGo": "func maxProfit(prices []int) int {\n\t// 状态定义（滚动自 dp[i][0..2]）：dp[i][0]=持有, dp[i][1]=当天卖出, dp[i][2]=空仓且非当天卖出\n\thold, sold, rest := -prices[0], 0, 0   // 第 0 天：买入 / 卖出态置 0 / 空仓观望\n\tfor i := 1; i < len(prices); i++ {\n\t\t// 临时变量保证右端全读昨天的旧值，一次性滚动到今天；冷冻期一天被 rest 吸收\n\t\tnewHold := max(hold, rest-prices[i])   // 买入只能从空仓态来\n\t\tnewSold := hold + prices[i]            // 今天卖出：昨天的持有 + 今日价\n\t\tnewRest := max(rest, sold)             // 空仓：继续观望或吸收昨天的卖出\n\t\thold, sold, rest = newHold, newSold, newRest\n\t}\n\treturn max(sold, rest)   // 收官必须空仓，两个空仓态取最大\n}"
+    },
+    {
+      "id": 714,
+      "title": "Best Time to Buy and Sell Stock with Transaction Fee",
+      "titleCn": "买卖股票的最佳时机含手续费",
+      "difficulty": "medium",
+      "frequency": 3,
+      "question": "给定一个整数数组 prices 和一个整数 fee，其中 prices[i] 是第 i 天的股票价格，fee 表示交易股票的手续费用。你可以无限次地完成交易，但是每笔交易都需要付一次手续费。如果你已经购买了一个股票，在卖出它之前你就不能再继续购买股票了。返回获得利润的最大值。\n\n注意：一笔交易指买入并卖出股票的整个过程，每笔交易只需要为支付一次手续费。\n\n示例 1：输入 prices = [1,3,2,8,4,9], fee = 2，输出 8（第 0 天以 1 买入、第 3 天以 8 卖出收益 8-1-2=5；第 4 天以 4 买入、第 5 天以 9 卖出收益 9-4-2=3，总利润 5+3=8）。",
+      "hints": [
+        "审题诀窍：手续费等价于『每笔交易的利润打折一次』——只需在卖出转移里多减一个 fee，状态设计与 122 不限次数交易完全一致，不必新开状态。",
+        "审题诀窍：两个状态足够：hold 持股、cash 空仓；买入从 cash 来（cash - price），卖出回 cash 去（hold + price - fee）。『一笔交易付一次费』在卖出端统一扣除最直观。",
+        "突破口：转移要用昨天的旧值（元组同时赋值），否则先算 cash 再算 hold 会把『当天卖出又当天买入』的假交易混进状态。",
+        "追问预备：fee 加在买入端等价吗？（等价，但只能扣一处，两边都扣就重复计费）；去掉手续费退化成什么？（122：cash = max(cash, hold + price)）；为什么同日买卖不会发生？（元组同时赋值用旧值，假交易被自然排除）"
+      ],
+      "keyPoints": [
+        "状态 cash（空仓最大利润）/ hold（持股最大利润），初始 cash=0、hold=-prices[0]",
+        "转移：cash = max(cash, hold + price - fee)，hold = max(hold, cash - price)",
+        "卖出端统一减 fee，保证每笔交易只扣一次手续费",
+        "元组同时赋值用旧值算新值，答案 cash（收官必空仓），时间 O(n) 空间 O(1)"
+      ],
+      "structureTags": [
+        "dp"
+      ],
+      "approaches": [
+        {
+          "name": "记忆化搜索",
+          "idea": "递归 dfs(i, state) 表示第 i 天处于空仓/持股的最大利润：每天可不动或交易（卖出时扣 fee），缓存 (i, state)，共 2n 个状态。",
+          "complexity": "时间 O(n)，空间 O(n)",
+          "detail": "状态定义：dfs(i, holding) = 从第 i 天起、当前处于空仓（False）/持股（True）能获得的最大利润。转移推导（今天动作分类）：持股 = max(继续持有到明天, 今天卖出 + price - fee)；空仓 = max(继续观望, 今天买入 - price)；fee 在卖出端统一扣一次，一笔交易恰付一次。\n\n示例走查：prices=[1,3,2,8,4,9], fee=2。最优路径：0 天买 1 → 3 天卖 8（赚 5）→ 4 天买 4 → 5 天卖 9（赚 3），合计 8 ✓；中途任何更碎的交易都会多付一次 fee 而变差。\n\n为什么正确：每天只有持股/空仓两种处境，动作分类覆盖；无后效性成立（未来收益只依赖当前处境与日期）；2n 个状态各算一次。易错点：\n- fee 只能扣在一处（卖出端或买入端），两边都扣就重复计费。\n- 收官若仍持股记 -inf 强制卖出，保证答案对应合法完结交易。\n- 递归深度 O(n)，n 大时转递推。",
+          "code": "def max_profit_memo(prices, fee):\n    n = len(prices)\n    from functools import lru_cache\n    @lru_cache(maxsize=None)\n    def dfs(i, holding):\n        if i == n:\n            return 0 if not holding else float('-inf')   # 收官必须空仓\n        p = prices[i]\n        if holding:\n            # 继续持有 or 今天卖出（扣手续费）\n            return max(dfs(i + 1, True), p - fee + dfs(i + 1, False))\n        # 继续空仓 or 今天买入\n        return max(dfs(i + 1, False), -p + dfs(i + 1, True))\n    return dfs(0, False)"
+        },
+        {
+          "name": "二状态递推",
+          "idea": "dp[i][0/1] 逐天填表：空仓 = max(昨天空仓, 昨天持股 + price - fee)，持股 = max(昨天持股, 昨天空仓 - price)，答案 dp[n-1][0]。",
+          "complexity": "时间 O(n)，空间 O(n)",
+          "detail": "状态定义：dp[i][0] 第 i 天空仓的最大利润（cash）、dp[i][1] 第 i 天持股的最大利润（hold）。转移（今天动作分类）：dp[i][0]=max(dp[i-1][0], dp[i-1][1]+price-fee)（不动或卖出扣费）；dp[i][1]=max(dp[i-1][1], dp[i-1][0]-price)（不动或买入）。初值 dp[0]=(0, -prices[0])。\n\n示例走查：prices=[1,3,2,8,4,9], fee=2。逐天 (cash, hold)：(0,-1) → (0,-1) → (0,-1) → (5,-1) → (5,1) → (8,1)，答案 cash=8 ✓（0 买 8 卖 +5，4 买 9 卖 +3）。\n\n为什么正确：逐天填表时两个新状态只引用昨天的两列，依赖封闭、无后效性；卖出端统一减 fee 保证每笔交易只扣一次。易错点：\n- 同行更新要用昨天的旧值，先复制 dp[i-1] 再算，否则先算 cash 会污染 hold 的转移。\n- 答案是 dp[n-1][0]（收官必空仓），不是 max 两列。\n- 状态数不增——手续费只改边上权值，这正是对比 122 的讲法。",
+          "code": "def max_profit_table(prices, fee):\n    n = len(prices)\n    dp = [[0, 0] for _ in range(n)]   # [空仓 cash, 持股 hold]\n    dp[0] = [0, -prices[0]]\n    for i in range(1, n):\n        p = prices[i]\n        prev = dp[i - 1]              # 全部读昨天的旧值\n        dp[i][0] = max(prev[0], prev[1] + p - fee)   # 观望 / 卖出扣费\n        dp[i][1] = max(prev[1], prev[0] - p)         # 持有 / 买入\n    return dp[n - 1][0]               # 收官必须空仓"
+        },
+        {
+          "name": "双变量滚动",
+          "idea": "cash/hold 两个变量元组同时赋值滚动，右端全读旧值，空间 O(1)。",
+          "complexity": "时间 O(n)，空间 O(1)",
+          "optimal": true,
+          "detail": "状态定义：cash/hold 两个滚动变量即 dp[i][0/1]，转移：cash = max(cash, hold + price - fee)、hold = max(hold, cash - price)。元组同时赋值保证右端全读昨天的旧值——若先算 cash 再算 hold，会把『当天卖出又当天买入』的假交易混进状态。\n\n示例走查：prices=[1,3,2,8,4,9], fee=2。初始 (0,-1)；p=3 → (max(0,-1+3-2)=0, max(-1,0-3)=-1)；p=2 → (max(0,-1+2-2)=0, -1)；p=8 → (max(0,-1+8-2)=5, max(-1,0-8)=-1)；p=4 → (max(5,-1+4-2)=5, max(-1,5-4)=1)；p=9 → (max(5,1+9-2)=8, 1)，输出 8 ✓。\n\n为什么正确：与逐天填表逐格等价；用旧值算新值使状态转移图保持原样。易错点：\n- 元组同时赋值是保命技巧，拆两行即引入假交易。\n- 初值 cash=0、hold=-prices[0]，循环从第二天开始。\n- 答案 cash：最优策略收官必然空仓（持股还压着本金）。",
+          "code": "def max_profit_rolling(prices, fee):\n    cash, hold = 0, -prices[0]        # 空仓利润 / 持股利润\n    for price in prices[1:]:\n        # 元组同时赋值保证两边都读昨天的旧值，避免同日先卖再买\n        cash, hold = max(cash, hold + price - fee), max(hold, cash - price)\n    return cash                       # 最优策略收官必然空仓"
+        }
+      ],
+      "code": "class Solution:\n    def maxProfit(self, prices: List[int], fee: int) -> int:\n        # 状态定义（滚动自 dp[i][0..1]）：dp[i][0]=空仓最大利润 cash, dp[i][1]=持股最大利润 hold\n        cash, hold = 0, -prices[0]        # 第 0 天：空仓 0 利润 / 买入首日股票\n        for price in prices[1:]:\n            # 元组同时赋值保证两边都读昨天的旧值，避免同日先卖再买的假交易\n            # 卖出时统一扣手续费，一笔交易只付一次\n            cash, hold = max(cash, hold + price - fee), max(hold, cash - price)\n        return cash                       # 最优策略收官必然空仓",
+      "templates": [
+        "手续费股票 = 122 不限次交易 + 卖出转移多减一个 fee：cash = max(cash, hold + price - fee)；状态数不增，只在边上改权值。",
+        "交易类 DP 的转移顺序要点：用旧值算新值（Python 元组同时赋值），防止同一天完成一买一卖的非法交易。"
+      ],
+      "companies": [
+        "京东"
+      ],
+      "samples": [
+        {
+          "input": "prices = [1,3,2,8,4,9], fee = 2",
+          "output": "8",
+          "explain": "0 买 3 天 8 卖得 5；4 买 5 天 9 卖得 3，共 8"
+        },
+        {
+          "input": "prices = [2,2,2,2], fee = 1",
+          "output": "0",
+          "explain": "每笔交易扣完手续费无利可图，不交易最优"
+        }
+      ],
+      "acmCode": "# ACM 模式：完整可运行程序（stdin -> stdout）\n# 输入格式：\n#   第一行：n fee（天数、每笔交易手续费）\n#   第二行：n 个整数（每天股价）\n# 输出格式：一行一个整数，含手续费的最大利润\nimport sys\n\ndef main():\n    data = sys.stdin.read().split()\n    n, fee = int(data[0]), int(data[1])\n    prices = [int(x) for x in data[2:2 + n]]\n    cash, hold = 0, -prices[0]        # 空仓利润 / 持股利润\n    for price in prices[1:]:\n        # 元组同时赋值：右端全读昨天的旧值\n        cash, hold = max(cash, hold + price - fee), max(hold, cash - price)\n    print(cash)\n\nif __name__ == '__main__':\n    main()",
+      "codeCpp": "class Solution {\npublic:\n    int maxProfit(vector<int>& prices, int fee) {\n        // 状态定义（滚动自 dp[i][0..1]）：cash=空仓最大利润, hold=持股最大利润\n        // 持股利润可为负，用 long long 防止溢出\n        long long cash = 0, hold = -prices[0];   // 第 0 天：空仓 0 利润 / 买入首日股票\n        for (int i = 1; i < (int)prices.size(); ++i) {\n            // 临时变量保证两边都读昨天的旧值，避免同日先卖再买的假交易\n            long long newCash = max(cash, hold + prices[i] - fee);   // 卖出时统一扣手续费\n            long long newHold = max(hold, cash - prices[i]);         // 买入不重复扣费\n            cash = newCash; hold = newHold;\n        }\n        return (int)cash;                    // 最优策略收官必然空仓\n    }\n};",
+      "acmCodeCpp": "// ACM 模式：完整可运行程序（stdin -> stdout）\n// 输入格式：\n//   第一行：n fee（天数、每笔交易手续费）\n//   第二行：n 个整数（每天股价）\n// 输出格式：一行一个整数，含手续费的最大利润\n#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);   // 关闭同步，读入更快\n    cin.tie(nullptr);\n\n    int n, fee;\n    cin >> n >> fee;\n    vector<int> prices(n);\n    for (auto& x : prices) cin >> x;\n    long long cash = 0, hold = -prices[0];   // 空仓利润 / 持股利润\n    for (int i = 1; i < n; ++i) {\n        // 临时变量保证右端全读昨天的旧值\n        long long newCash = max(cash, hold + prices[i] - fee);\n        long long newHold = max(hold, cash - prices[i]);\n        cash = newCash; hold = newHold;\n    }\n    cout << cash << endl;\n    return 0;\n}",
+      "codeJava": "class Solution {\n    public int maxProfit(int[] prices, int fee) {\n        // 状态定义（滚动自 dp[i][0..1]）：cash=空仓最大利润, hold=持股最大利润\n        // 持股利润可为负，用 long 防止溢出\n        long cash = 0, hold = -prices[0];    // 第 0 天：空仓 0 利润 / 买入首日股票\n        for (int i = 1; i < prices.length; i++) {\n            // 临时变量保证两边都读昨天的旧值，避免同日先卖再买的假交易\n            long newCash = Math.max(cash, hold + prices[i] - fee);   // 卖出时统一扣手续费\n            long newHold = Math.max(hold, cash - prices[i]);         // 买入不重复扣费\n            cash = newCash; hold = newHold;\n        }\n        return (int) cash;                   // 最优策略收官必然空仓\n    }\n}",
+      "codeJs": "/**\n * @param {number[]} prices\n * @param {number} fee\n * @return {number}\n */\nvar maxProfit = function (prices, fee) {\n  // 状态定义（滚动自 dp[i][0..1]）：cash=空仓最大利润, hold=持股最大利润\n  let cash = 0, hold = -prices[0];       // 第 0 天：空仓 0 利润 / 买入首日股票\n  for (let i = 1; i < prices.length; i++) {\n    // 临时变量保证两边都读昨天的旧值，避免同日先卖再买的假交易\n    const newCash = Math.max(cash, hold + prices[i] - fee);   // 卖出时统一扣手续费\n    const newHold = Math.max(hold, cash - prices[i]);         // 买入不重复扣费\n    cash = newCash; hold = newHold;\n  }\n  return cash;                           // 最优策略收官必然空仓\n};",
+      "codeGo": "func maxProfit(prices []int, fee int) int {\n\t// 状态定义（滚动自 dp[i][0..1]）：cash=空仓最大利润, hold=持股最大利润\n\tcash, hold := 0, -prices[0]           // 第 0 天：空仓 0 利润 / 买入首日股票\n\tfor i := 1; i < len(prices); i++ {\n\t\t// 临时变量保证两边都读昨天的旧值，避免同日先卖再买的假交易\n\t\tnewCash := max(cash, hold+prices[i]-fee)   // 卖出时统一扣手续费\n\t\tnewHold := max(hold, cash-prices[i])       // 买入不重复扣费\n\t\tcash, hold = newCash, newHold\n\t}\n\treturn cash                            // 最优策略收官必然空仓\n}"
+    },
+    {
+      "id": 1143,
+      "title": "Longest Common Subsequence",
+      "titleCn": "最长公共子序列",
+      "difficulty": "medium",
+      "frequency": 5,
+      "question": "给定两个字符串 text1 和 text2，返回这两个字符串的最长公共子序列的长度。如果不存在公共子序列，返回 0。\n\n一个字符串的子序列是指：由原字符串在不改变字符相对顺序的情况下删除某些字符（也可以不删除任何字符）后组成的新字符串。例如 \"ace\" 是 \"abcde\" 的子序列，但 \"aec\" 不是。两个字符串的公共子序列是这两个字符串共同拥有的子序列。\n\n示例 1：输入 text1 = \"abcde\", text2 = \"ace\"，输出 3（最长公共子序列是 \"ace\"，长度为 3）。\n示例 2：输入 text1 = \"abc\", text2 = \"abc\"，输出 3。\n示例 3：输入 text1 = \"abc\", text2 = \"def\"，输出 0。",
+      "hints": [
+        "审题诀窍：子序列可跳字符但不能换序——比较永远只看末尾：text1[i-1]==text2[j-1] 时这对末字符可配成公共结尾，dp[i][j] = dp[i-1][j-1] + 1；不等时丢掉其中一个末尾，取两种丢法的 max。",
+        "审题诀窍：不相等时为什么不用考虑 dp[i-1][j-1]？它的结果必然不超过 dp[i-1][j] 与 dp[i][j-1]，取两个邻居的 max 已把它覆盖——这是可以严格证明的，不必画蛇添足。",
+        "突破口：LCS 是双序列 DP 的母题：聚合函数从 max 换成 or 得 97 交错字符串，换成计数得 115，换成三邻居 min+1 得 72 编辑距离——一套骨架吃透四道题。",
+        "追问预备：如何输出一个具体的 LCS？（从 dp[m][n] 回溯：相等走对角、否则走向较大邻居）；最长公共子串（连续）怎么做？（相等对角线 +1、不等置 0，取全局 max）；输入是数组而非字符串呢？（完全同构，比较元素即可）"
+      ],
+      "keyPoints": [
+        "状态 dp[i][j]：text1 前 i 个字符与 text2 前 j 个字符的最长公共子序列长度",
+        "末字符相等：dp[i][j] = dp[i-1][j-1] + 1；不等：dp[i][j] = max(dp[i-1][j], dp[i][j-1])",
+        "边界第 0 行/第 0 列全 0（与空串无公共子序列），答案 dp[m][n]",
+        "一维滚动：只依赖上一行与左上角，用 prev 变量保存对角线旧值，空间 O(n)"
+      ],
+      "structureTags": [
+        "dp"
+      ],
+      "approaches": [
+        {
+          "name": "记忆化搜索",
+          "idea": "递归 f(i, j)：i 或 j 为 0 返回 0；末字符相等返回 f(i-1, j-1) + 1，否则返回 max(f(i-1, j), f(i, j-1))。缓存 (i, j) 后共 O(mn) 个状态。",
+          "complexity": "时间 O(mn)，空间 O(mn)",
+          "detail": "状态定义：f(i, j) = text1 前 i 个字符与 text2 前 j 个字符的最长公共子序列长度。转移推导（末尾字符分类）：text1[i-1]==text2[j-1] 时这对末字符可配成公共结尾，f(i,j)=f(i-1,j-1)+1；不等时至少丢掉一个末尾——f(i,j)=max(f(i-1,j), f(i,j-1))。边界 i==0 或 j==0 返回 0（与空串无公共子序列）。\n\n示例走查：text1=\"abcde\", text2=\"ace\"。f(5,3)：e==e → f(4,2)+1；f(4,2)：d≠c → max(f(3,2), f(4,1))；f(3,2)：c==c → f(2,1)+1；f(2,1)：b≠a → max(f(1,1), f(2,0))；f(1,1)：a==a → 1，逐层回加得 3 ✓。\n\n为什么正确：公共子序列的比较可归结为末尾决策，两分支覆盖且无后效性；缓存 O(mn) 状态。易错点：\n- 不相等时不必考虑 f(i-1,j-1)：它的值不会超过 max(f(i-1,j), f(i,j-1))，可严格证明，补上反而冗余。\n- 相等时必须走对角线 +1。\n- 边界 0 是『空串』语义，别初始化成 -1。",
+          "code": "def lcs_memo(text1, text2):\n    m, n = len(text1), len(text2)\n    from functools import lru_cache\n    @lru_cache(maxsize=None)\n    def f(i, j):\n        if i == 0 or j == 0:\n            return 0                  # 与空串无公共子序列\n        if text1[i - 1] == text2[j - 1]:\n            return f(i - 1, j - 1) + 1     # 末字符配成一对\n        return max(f(i - 1, j), f(i, j - 1))   # 丢掉一个末尾\n    return f(m, n)"
+        },
+        {
+          "name": "二维递推 DP",
+          "idea": "标准填表：逐行逐列按『相等配对 +1，不等取上方/左方 max』转移，第 0 行第 0 列全 0，答案 dp[m][n]。",
+          "complexity": "时间 O(mn)，空间 O(mn)",
+          "detail": "状态定义：dp[i][j] = text1 前 i 个与 text2 前 j 个字符的 LCS 长度。转移：相等 → dp[i][j] = dp[i-1][j-1] + 1；不等 → dp[i][j] = max(dp[i-1][j], dp[i][j-1])；边界第 0 行/列全 0。\n\n示例走查：text1=\"abcde\", text2=\"ace\"（行=text1 前缀、列=text2 前缀）。第 1 行（a）：[0,1,1,1]；第 2 行（b）：[0,1,1,1]；第 3 行（c）：[0,1,2,2]；第 4 行（d）：[0,1,2,2]；第 5 行（e）：[0,1,2,3]，答案 dp[5][3]=3 ✓。\n\n为什么正确：逐行逐列填表时左上、上、左三个邻居就绪；转移把『末字符如何处置』作为最后一步分类，覆盖全部对齐方式。易错点：\n- 表开 (m+1)×(n+1)，多出的一行一列是空串锚点。\n- 相等分支只取对角线 +1。\n- 答案 dp[m][n]；若要还原 LCS 内容需另开方向回溯。",
+          "code": "def lcs_table(text1, text2):\n    m, n = len(text1), len(text2)\n    dp = [[0] * (n + 1) for _ in range(m + 1)]   # 第 0 行/列全 0\n    for i in range(1, m + 1):\n        for j in range(1, n + 1):\n            if text1[i - 1] == text2[j - 1]:\n                dp[i][j] = dp[i - 1][j - 1] + 1\n            else:\n                dp[i][j] = max(dp[i - 1][j], dp[i][j - 1])\n    return dp[m][n]"
+        },
+        {
+          "name": "一维滚动 DP",
+          "idea": "一维数组 + prev 暂存左上角对角线旧值：进每行 prev=f[0]，逐列先记 cur=f[j] 再更新，最后 prev=cur，空间从 O(mn) 压到 O(n)。",
+          "complexity": "时间 O(mn)，空间 O(n)",
+          "optimal": true,
+          "detail": "状态定义：f[j] = text1 前 i 个与 text2 前 j 个的 LCS 长度（滚动掉 i 维）。转移推导：相等时 f[j] = 左上角旧值 + 1，不等时 f[j] = max(上方旧值, 左方新值)；左上角会在更新 f[j-1] 时被覆盖，进每行先 prev=f[0]，逐列先记 cur=f[j] 再更新、行末 prev=cur。\n\n示例走查：text1=\"abcde\", text2=\"ace\"。f 初 [0,0,0,0]。i=1（a）：prev=0；j=1 相等 f[1]=1；j=2、j=3 不等取 max → f=[0,1,1,1]。i=2（b）：无相等，f 不变。i=3（c）：prev 逐列传递，j=2 时 prev=1 → f[2]=prev+1=2 → f=[0,1,2,2]。i=4（d）：f 不变 [0,1,2,2]。i=5（e）：j=3 时 prev=2 → f[3]=3，输出 3 ✓。\n\n为什么正确：与二维表逐格等价，prev 链条保住对角线。易错点：\n- prev 每行初值是 f[0]（=0 或第 0 列旧值），行内逐列传递。\n- cur 必须在写 f[j] 之前取出，晚一步就丢了对角线。\n- LCS 是双序列 DP 母题：聚合换 or 是 97、换计数是 115、换三邻居 min+1 是 72。",
+          "code": "def lcs_rolling(text1, text2):\n    m, n = len(text1), len(text2)\n    f = [0] * (n + 1)                 # 第 0 行：与空串的 LCS 为 0\n    for i in range(1, m + 1):\n        prev = 0                      # 行首的左上角 dp[i-1][0] = 0\n        for j in range(1, n + 1):\n            cur = f[j]                # 暂存 dp[i-1][j]，下一列的左上角\n            if text1[i - 1] == text2[j - 1]:\n                f[j] = prev + 1       # 末字符配对：对角线 + 1\n            else:\n                f[j] = max(f[j], f[j - 1])   # 上方 vs 左方\n            prev = cur\n    return f[n]"
+        }
+      ],
+      "code": "class Solution:\n    def longestCommonSubsequence(self, text1: str, text2: str) -> int:\n        # 状态定义：f[j] = text1 前 i 个字符与 text2 前 j 个字符的最长公共子序列长度\n        m, n = len(text1), len(text2)\n        f = [0] * (n + 1)              # 第 0 行：与空串的 LCS 为 0\n        for i in range(1, m + 1):\n            prev = 0                   # prev 记录左上角 dp[i-1][j-1]，每行开头为 dp[i-1][0]=0\n            for j in range(1, n + 1):\n                cur = f[j]             # cur 暂存 dp[i-1][j]，它是下一轮的左上角\n                if text1[i - 1] == text2[j - 1]:\n                    f[j] = prev + 1    # 末字符相等：配成一对，对角线 + 1\n                else:\n                    f[j] = max(f[j], f[j - 1])  # 上方 vs 左方，取更大者\n                prev = cur\n        return f[n]",
+      "templates": [
+        "LCS 是双序列 DP 的母题：末字符相等 → 对角线 +1，不等 → 取上方/左方 max；聚合换成 or 得 97，换成计数得 115，换成三邻居 min+1 得 72。",
+        "一维滚动双序列 DP 通用写法：进每行 prev=左上角初值，逐列先存 cur=f[j] 再更新，行末 prev=cur——保住对角线是压维时最容易翻车的点。"
+      ],
+      "companies": [
+        "美团",
+        "京东"
+      ],
+      "samples": [
+        {
+          "input": "text1 = \"abcde\", text2 = \"ace\"",
+          "output": "3",
+          "explain": "最长公共子序列是 ace"
+        },
+        {
+          "input": "text1 = \"abc\", text2 = \"def\"",
+          "output": "0",
+          "explain": "没有公共字符，LCS 为 0"
+        }
+      ],
+      "acmCode": "# ACM 模式：完整可运行程序（stdin -> stdout）\n# 输入格式：\n#   第一行：text1\n#   第二行：text2\n# 输出格式：一行一个整数，最长公共子序列的长度\nimport sys\n\ndef main():\n    data = sys.stdin.read().split()\n    text1, text2 = data[0], data[1]\n    m, n = len(text1), len(text2)\n    f = [0] * (n + 1)                 # 第 0 行全 0\n    for i in range(1, m + 1):\n        prev = 0                      # 行首左上角\n        for j in range(1, n + 1):\n            cur = f[j]                # 先记 dp[i-1][j]\n            if text1[i - 1] == text2[j - 1]:\n                f[j] = prev + 1       # 配对：对角线 + 1\n            else:\n                f[j] = max(f[j], f[j - 1])\n            prev = cur\n    print(f[n])\n\nif __name__ == '__main__':\n    main()",
+      "codeCpp": "class Solution {\npublic:\n    int longestCommonSubsequence(string text1, string text2) {\n        // 状态定义：f[j] = text1 前 i 个字符与 text2 前 j 个字符的最长公共子序列长度\n        int m = (int)text1.size(), n = (int)text2.size();\n        vector<int> f(n + 1, 0);          // 第 0 行：与空串的 LCS 为 0\n        for (int i = 1; i <= m; ++i) {\n            int prev = 0;                 // prev 记录左上角 dp[i-1][j-1]，每行开头为 dp[i-1][0]=0\n            for (int j = 1; j <= n; ++j) {\n                int cur = f[j];           // cur 暂存 dp[i-1][j]，它是下一轮的左上角\n                if (text1[i - 1] == text2[j - 1]) {\n                    f[j] = prev + 1;      // 末字符相等：配成一对，对角线 + 1\n                } else {\n                    f[j] = max(f[j], f[j - 1]);   // 上方 vs 左方，取更大者\n                }\n                prev = cur;\n            }\n        }\n        return f[n];\n    }\n};",
+      "acmCodeCpp": "// ACM 模式：完整可运行程序（stdin -> stdout）\n// 输入格式：\n//   第一行：text1\n//   第二行：text2\n// 输出格式：一行一个整数，最长公共子序列的长度\n#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);   // 关闭同步，读入更快\n    cin.tie(nullptr);\n\n    string text1, text2;\n    cin >> text1 >> text2;\n    int m = (int)text1.size(), n = (int)text2.size();\n    vector<int> f(n + 1, 0);           // 第 0 行全 0\n    for (int i = 1; i <= m; ++i) {\n        int prev = 0;                  // 行首左上角\n        for (int j = 1; j <= n; ++j) {\n            int cur = f[j];            // 先记 dp[i-1][j]\n            if (text1[i - 1] == text2[j - 1]) {\n                f[j] = prev + 1;       // 配对：对角线 + 1\n            } else {\n                f[j] = max(f[j], f[j - 1]);\n            }\n            prev = cur;\n        }\n    }\n    cout << f[n] << endl;\n    return 0;\n}",
+      "codeJava": "class Solution {\n    public int longestCommonSubsequence(String text1, String text2) {\n        // 状态定义：f[j] = text1 前 i 个字符与 text2 前 j 个字符的最长公共子序列长度\n        int m = text1.length(), n = text2.length();\n        int[] f = new int[n + 1];          // 第 0 行：与空串的 LCS 为 0\n        for (int i = 1; i <= m; i++) {\n            int prev = 0;                  // prev 记录左上角 dp[i-1][j-1]，每行开头为 0\n            for (int j = 1; j <= n; j++) {\n                int cur = f[j];            // cur 暂存 dp[i-1][j]，它是下一轮的左上角\n                if (text1.charAt(i - 1) == text2.charAt(j - 1)) {\n                    f[j] = prev + 1;       // 末字符相等：配成一对，对角线 + 1\n                } else {\n                    f[j] = Math.max(f[j], f[j - 1]);   // 上方 vs 左方，取更大者\n                }\n                prev = cur;\n            }\n        }\n        return f[n];\n    }\n}",
+      "codeJs": "/**\n * @param {string} text1\n * @param {string} text2\n * @return {number}\n */\nvar longestCommonSubsequence = function (text1, text2) {\n  // 状态定义：f[j] = text1 前 i 个字符与 text2 前 j 个字符的最长公共子序列长度\n  const m = text1.length, n = text2.length;\n  const f = new Array(n + 1).fill(0);   // 第 0 行：与空串的 LCS 为 0\n  for (let i = 1; i <= m; i++) {\n    let prev = 0;                       // prev 记录左上角 dp[i-1][j-1]，每行开头为 0\n    for (let j = 1; j <= n; j++) {\n      const cur = f[j];                 // cur 暂存 dp[i-1][j]，它是下一轮的左上角\n      if (text1[i - 1] === text2[j - 1]) {\n        f[j] = prev + 1;                // 末字符相等：配成一对，对角线 + 1\n      } else {\n        f[j] = Math.max(f[j], f[j - 1]);   // 上方 vs 左方，取更大者\n      }\n      prev = cur;\n    }\n  }\n  return f[n];\n};",
+      "codeGo": "func longestCommonSubsequence(text1 string, text2 string) int {\n\t// 状态定义：f[j] = text1 前 i 个字符与 text2 前 j 个字符的最长公共子序列长度\n\tm, n := len(text1), len(text2)\n\tf := make([]int, n+1)                // 第 0 行：与空串的 LCS 为 0\n\tfor i := 1; i <= m; i++ {\n\t\tprev := 0                        // prev 记录左上角 dp[i-1][j-1]，每行开头为 0\n\t\tfor j := 1; j <= n; j++ {\n\t\t\tcur := f[j]                  // cur 暂存 dp[i-1][j]，它是下一轮的左上角\n\t\t\tif text1[i-1] == text2[j-1] {\n\t\t\t\tf[j] = prev + 1          // 末字符相等：配成一对，对角线 + 1\n\t\t\t} else {\n\t\t\t\tf[j] = max(f[j], f[j-1]) // 上方 vs 左方，取更大者\n\t\t\t}\n\t\t\tprev = cur\n\t\t}\n\t}\n\treturn f[n]\n}"
+    }
+  ]
+}

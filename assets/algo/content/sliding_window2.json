@@ -1,0 +1,86 @@
+{
+  "topic": "滑动窗口",
+  "problems": [
+    {
+      "id": 209,
+      "title": "Minimum Size Subarray Sum",
+      "titleCn": "长度最小的子数组",
+      "difficulty": "medium",
+      "frequency": 5,
+      "companies": [
+        "字节跳动",
+        "腾讯",
+        "美团"
+      ],
+      "question": "给定一个含有 n 个正整数的数组 nums 和一个正整数 target。找出该数组中满足其总和大于等于 target 的长度最小的连续子数组 [numsl, numsl+1, ..., numsr-1, numsr]，并返回其长度。如果不存在符合条件的子数组，返回 0。\n\n示例 1：输入 target = 7, nums = [2,3,1,2,4,3]，输出 2（子数组 [4,3] 的和为 7 且长度最小）。\n示例 2：输入 target = 4, nums = [1,4,4]，输出 1。\n示例 3：输入 target = 11, nums = [1,1,1,1,1,1,1,1]，输出 0。\n\n提示：1 <= target <= 10^9，1 <= nums.length <= 10^5，1 <= nums[i] <= 10^5。进阶：如果你已经实现 O(n) 时间复杂度的解法，请尝试设计 O(n log n) 的解法。",
+      "samples": [
+        {
+          "input": "target = 7, nums = [2,3,1,2,4,3]",
+          "output": "2",
+          "explain": "子数组 [4,3] 的和为 7 且长度最小"
+        },
+        {
+          "input": "target = 4, nums = [1,4,4]",
+          "output": "1",
+          "explain": "单个元素 4 就满足"
+        },
+        {
+          "input": "target = 11, nums = [1,1,1,1,1,1,1,1]",
+          "output": "0",
+          "explain": "全数组之和为 8 < 11，不存在符合条件的子数组"
+        }
+      ],
+      "hints": [
+        "审题诀窍：元素全为正整数是滑动窗口可行的前提——窗口和随扩张单调增、随收缩单调减，左右指针都无需回退。",
+        "审题诀窍：本题求『满足条件的最短窗口』，与最长无重复子串方向相反：窗口一旦满足条件就先记答案、再持续收缩，而不是扩张到不满足。",
+        "突破口：右指针逐个纳入元素，窗口和 >= target 时左指针贪婪右移；答案初始化为 n+1 作哨兵，最后判断它有没有被更新过（全数组和不足 target 时返回 0）。",
+        "追问预备：数组含负数怎么办？（窗口和不再单调，滑窗失效——改用前缀和 + 单调队列 O(n)，即 862 和至少为 K 的最短子数组）；为什么找最短窗口是『满足就收缩』而找最长窗口相反？（最短：达标后尽力缩，缩之前记答案；最长：不达标才缩，缩完再记答案）"
+      ],
+      "keyPoints": [
+        "同向双指针：r 负责扩张累加，l 负责收缩扣除",
+        "窗口和 >= target 时进入 while 收缩，期间每个以 r 结尾的合法窗口都用来更新最小长度",
+        "正整数保证窗口和的单调性，l 永不回退 => 每个元素最多进窗、出窗各一次，时间 O(n)",
+        "哨兵 ans = n+1：结束时未被修改说明整体和不足 target，返回 0"
+      ],
+      "structureTags": [
+        "sliding_window",
+        "single_pass"
+      ],
+      "approaches": [
+        {
+          "name": "暴力枚举子数组",
+          "idea": "枚举每个起点，向右累加直到和 >= target 记录长度取最小（借助正数性质，一旦满足即可 break 提前终止）。两层循环，在 10^5 规模下会超时。",
+          "detail": "步骤拆解：\n1. 外层枚举起点 i，total 从 0 开始累加。\n2. 内层 j 从 i 向右累加，一旦 total >= target，j - i + 1 就是该起点的最短合法长度，刷新答案后 break（正数性质：再延长只会更长）。\n\n示例走查：target = 7, nums = [2,3,1,2,4,3]。i=0：2→5→6→8 ≥7，长 4；i=1：3→4→6→10，长 4；i=2：1→3→7，长 3；i=3：2→6→9，长 3；i=4：4→7，长 2；i=5：3 <7 到头无解。答案 2 ✓。\n\n为什么正确：起点枚举覆盖所有可能，元素全为正保证『第一次达标即该起点最优』，可以放心 break。\n\n易错点：\n- break 依赖元素全为正——若含 0 或负数，第一次达标后可能还有更短的，暴力也不成立了。\n- ans 初始化 n+1，最后未更新要返回 0，别直接返回 ans。\n- 10^5 规模下最坏 O(n²) 必超时，仅作基线与对拍。",
+          "complexity": "时间 O(n^2)，空间 O(1)",
+          "code": "def minSubArrayLen_brute(target, nums):\n    n = len(nums)\n    ans = n + 1                  # 哨兵：尚未找到满足条件的窗口\n    for i in range(n):           # 枚举起点\n        total = 0\n        for j in range(i, n):    # 向右累加\n            total += nums[j]\n            if total >= target:  # 借助正数性质，满足即可提前退出\n                ans = min(ans, j - i + 1)\n                break\n    return ans if ans <= n else 0"
+        },
+        {
+          "name": "前缀和 + 二分",
+          "idea": "前缀和数组 P 随下标单调递增（元素全为正），对每个起点 i 二分查找最小的 j 使 P[j] - P[i] >= target。这是题目进阶要求的方向，但复杂度仍高于滑窗。",
+          "detail": "步骤拆解：\n1. pre[0] = 0，pre[i+1] = pre[i] + nums[i]；元素全为正 ⇒ pre 严格递增，可以二分。\n2. 对每个起点 i，找最小的 j 使 pre[j] - pre[i] >= target，即 pre[j] >= pre[i] + target：bisect_left(pre, pre[i] + target, i + 1)。\n3. j <= n 时用 j - i 刷新答案。\n\n示例走查：nums = [2,3,1,2,4,3] → pre = [0,2,5,6,8,12,15]，target = 7。\n- i=0：需要 pre[j] >= 7 → j=4，长 4。\n- i=4：需要 pre[j] >= 15 → j=6，长 2 ✓（对应 [4,3]）。\n最短 2。\n\n为什么正确：子数组和 = 前缀和之差；pre 单调递增使『≥ 某阈值的最小 j』可用二分 O(log n) 定位，覆盖每个起点即不漏。\n\n易错点：\n- 二分下界是 i+1 而不是 0——子数组至少一个元素，且 j 必须在 i 右侧。\n- 元素全为正才有单调性；含 0/负数时 pre 不再递增，二分与滑窗同时失效。\n- 这是题目进阶提的 O(nlogn) 方向，比滑窗慢一档，但『前缀和把区间和变成两点差』的思想更通用。",
+          "complexity": "时间 O(n log n)，空间 O(n)",
+          "code": "def minSubArrayLen_prefix(target, nums):\n    from bisect import bisect_left\n    n = len(nums)\n    pre = [0] * (n + 1)\n    for i in range(n):\n        pre[i + 1] = pre[i] + nums[i]   # 前缀和，元素全为正 ⇒ pre 单调递增\n    ans = n + 1\n    for i in range(n):\n        # 找最小 j > i 使 pre[j] - pre[i] >= target，即 pre[j] >= pre[i] + target\n        j = bisect_left(pre, pre[i] + target, i + 1)\n        if j <= n:\n            ans = min(ans, j - i)\n    return ans if ans <= n else 0"
+        },
+        {
+          "name": "滑动窗口",
+          "idea": "r 扩张累加窗口和；一旦 >= target，while 收缩左端并更新最短长度。收缩后窗口和 < target，r 继续前进，两指针均单调不回退，总位移 O(n)。",
+          "detail": "步骤拆解：\n1. ans = n+1 哨兵，window = 0 是当前窗口 [l, r] 的和，l = 0。\n2. r 逐个扩张：window += nums[r]。\n3. while window >= target：先更新 ans = min(ans, r - l + 1)，再 window -= nums[l]、l += 1 收缩——继续循环判断是否仍达标。\n4. 结束后 ans <= n 才是有效答案，否则返回 0。\n\n示例走查：target = 7, nums = [2,3,1,2,4,3]。\n- r=0..3：window=2,5,6,8 → 8≥7：ans=4，去 2 → 6 <7 停，l=1。\n- r=4：window=10 ≥7：ans=min(4,4)=4，去 3 → 7 仍 ≥7：ans=min(4,3)=3，去 1 → 6 停，l=3。\n- r=5：window=9 ≥7：ans=3，去 2 → 7 仍 ≥7：ans=min(3,2)=2，去 1 → 6 停，l=5。\n返回 2 ✓（对应 [4,3]）。\n\n为什么正确：以 r 结尾的合法窗口中，l 越靠右越短——while 内先记答案再收缩，保证每个 r 的最短合法窗口都被统计；window 随收缩严格减小（正数），退出循环时恰好 < target，为下一个 r 提供干净起点。l、r 都单调不回退，每个元素进窗、出窗各一次，O(n)。\n\n易错点：\n- ans 必须在收缩前（窗口仍满足条件时）更新：先减再记会漏掉刚达标的最短窗口。\n- 哨兵用 n+1 而非 0：0 与『合法长度』冲突，最后用 ans <= n 判断是否找到过。\n- 收缩用 while 不是 if：一次扩张可能需要连缩多步才回到不达标状态。",
+          "complexity": "时间 O(n)，空间 O(1)",
+          "optimal": true,
+          "code": "def minSubArrayLen_window(target, nums):\n    n = len(nums)\n    ans = n + 1                  # 哨兵：尚未找到满足条件的窗口\n    window = 0                   # 当前窗口 [l, r] 的元素和\n    l = 0\n    for r in range(n):\n        window += nums[r]        # 右边界扩张，纳入新元素\n        # 满足条件就尽量收缩左边界，寻找以 r 结尾的最短合法窗口\n        while window >= target:\n            ans = min(ans, r - l + 1)\n            window -= nums[l]    # 移出左端元素\n            l += 1\n    # 全数组之和都达不到 target 时，哨兵未被触碰，返回 0\n    return ans if ans <= n else 0"
+        }
+      ],
+      "code": "class Solution:\n    def minSubArrayLen(self, target: int, nums: List[int]) -> int:\n        n = len(nums)\n        ans = n + 1                  # 哨兵：尚未找到满足条件的窗口\n        window = 0                   # 当前窗口 [l, r] 的元素和\n        l = 0\n        for r in range(n):\n            window += nums[r]        # 右边界扩张，纳入新元素\n            # 满足条件就尽量收缩左边界，寻找以 r 结尾的最短合法窗口\n            while window >= target:\n                ans = min(ans, r - l + 1)\n                window -= nums[l]    # 移出左端元素\n                l += 1\n        # 全数组之和都达不到 target 时，哨兵未被触碰，返回 0\n        return ans if ans <= n else 0",
+      "acmCode": "# ACM 模式：完整可运行程序（stdin -> stdout）\n# 输入格式：\n#   第一行：n 和 target（空格分隔）\n#   第二行：n 个正整数\n# 输出格式：一个整数，最短连续子数组长度（不存在输出 0）\nimport sys\n\n\ndef main():\n    data = sys.stdin.read().split()\n    n, target = int(data[0]), int(data[1])\n    nums = [int(x) for x in data[2:2 + n]]\n\n    ans = n + 1                  # 哨兵：尚未找到满足条件的窗口\n    window = 0                   # 当前窗口 [l, r] 的元素和\n    l = 0\n    for r in range(n):\n        window += nums[r]        # 右边界扩张，纳入新元素\n        # 满足条件就尽量收缩左边界，寻找以 r 结尾的最短合法窗口\n        while window >= target:\n            ans = min(ans, r - l + 1)\n            window -= nums[l]    # 移出左端元素\n            l += 1\n    print(ans if ans <= n else 0)\n\n\nif __name__ == '__main__':\n    main()",
+      "templates": [
+        "『最短窗口』模板：for r: 扩张加入; while 满足条件: 更新最短答案并收缩 l。对比『最长窗口』：while 不满足时收缩，结束后更新最长答案。",
+        "滑窗可行性判断：窗口指标是否随扩张/收缩单调变化。本题靠『元素全为正』；若含负数（如 862 和至少为 K 的最短子数组）需改用单调队列。"
+      ],
+      "codeCpp": "class Solution {\npublic:\n    int minSubArrayLen(int target, vector<int>& nums) {\n        int n = (int)nums.size();\n        int ans = n + 1;        // 哨兵：尚未找到满足条件的窗口\n        long long window = 0;   // 当前窗口 [l, r] 的元素和（long long 防累加溢出）\n        int l = 0;\n        for (int r = 0; r < n; ++r) {\n            window += nums[r];   // 右边界扩张，纳入新元素\n            // 满足条件就尽量收缩左边界，寻找以 r 结尾的最短合法窗口\n            while (window >= target) {\n                ans = min(ans, r - l + 1);\n                window -= nums[l];   // 移出左端元素\n                ++l;\n            }\n        }\n        // 全数组之和都达不到 target 时，哨兵未被触碰，返回 0\n        return ans <= n ? ans : 0;\n    }\n};",
+      "acmCodeCpp": "// ACM 模式：完整可运行程序（stdin -> stdout）\n// 输入格式：\n//   第一行：n 和 target（空格分隔）\n//   第二行：n 个正整数\n// 输出格式：一个整数，最短连续子数组长度（不存在输出 0）\n#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);   // 关闭同步，读入更快\n    cin.tie(nullptr);\n\n    int n, target;\n    cin >> n >> target;\n    vector<int> nums(n);\n    for (auto& x : nums) cin >> x;\n\n    int ans = n + 1;        // 哨兵：尚未找到满足条件的窗口\n    long long window = 0;   // 当前窗口 [l, r] 的元素和（long long 防累加溢出）\n    int l = 0;\n    for (int r = 0; r < n; ++r) {\n        window += nums[r];   // 右边界扩张，纳入新元素\n        // 满足条件就尽量收缩左边界，寻找以 r 结尾的最短合法窗口\n        while (window >= target) {\n            ans = min(ans, r - l + 1);\n            window -= nums[l];   // 移出左端元素\n            ++l;\n        }\n    }\n    cout << (ans <= n ? ans : 0) << endl;\n    return 0;\n}",
+      "codeJava": "class Solution {\n    public int minSubArrayLen(int target, int[] nums) {\n        int n = nums.length;\n        int ans = n + 1;      // 哨兵：尚未找到满足条件的窗口\n        long window = 0;      // 当前窗口 [l, r] 的元素和（long 防累加溢出）\n        int l = 0;\n        for (int r = 0; r < n; r++) {\n            window += nums[r];   // 右边界扩张，纳入新元素\n            // 满足条件就尽量收缩左边界，寻找以 r 结尾的最短合法窗口\n            while (window >= target) {\n                ans = Math.min(ans, r - l + 1);\n                window -= nums[l];   // 移出左端元素\n                l++;\n            }\n        }\n        // 全数组之和都达不到 target 时，哨兵未被触碰，返回 0\n        return ans <= n ? ans : 0;\n    }\n}",
+      "codeJs": "/**\n * @param {number} target\n * @param {number[]} nums\n * @return {number}\n */\nvar minSubArrayLen = function (target, nums) {\n  const n = nums.length;\n  let ans = n + 1;   // 哨兵：尚未找到满足条件的窗口\n  let window = 0;    // 当前窗口 [l, r] 的元素和\n  let l = 0;\n  for (let r = 0; r < n; r++) {\n    window += nums[r];   // 右边界扩张，纳入新元素\n    // 满足条件就尽量收缩左边界，寻找以 r 结尾的最短合法窗口\n    while (window >= target) {\n      ans = Math.min(ans, r - l + 1);\n      window -= nums[l];   // 移出左端元素\n      l++;\n    }\n  }\n  // 全数组之和都达不到 target 时，哨兵未被触碰，返回 0\n  return ans <= n ? ans : 0;\n};",
+      "codeGo": "func minSubArrayLen(target int, nums []int) int {\n\tn := len(nums)\n\tans := n + 1 // 哨兵：尚未找到满足条件的窗口\n\twindow := 0  // 当前窗口 [l, r] 的元素和\n\tl := 0\n\tfor r := 0; r < n; r++ {\n\t\twindow += nums[r] // 右边界扩张，纳入新元素\n\t\t// 满足条件就尽量收缩左边界，寻找以 r 结尾的最短合法窗口\n\t\tfor window >= target {\n\t\t\tif cur := r - l + 1; cur < ans {\n\t\t\t\tans = cur\n\t\t\t}\n\t\t\twindow -= nums[l] // 移出左端元素\n\t\t\tl++\n\t\t}\n\t}\n\t// 全数组之和都达不到 target 时，哨兵未被触碰，返回 0\n\tif ans <= n {\n\t\treturn ans\n\t}\n\treturn 0\n}"
+    }
+  ]
+}

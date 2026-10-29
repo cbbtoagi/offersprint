@@ -1,0 +1,158 @@
+{
+  "topic": "双指针",
+  "problems": [
+    {
+      "id": 125,
+      "title": "Valid Palindrome",
+      "titleCn": "验证回文串",
+      "difficulty": "easy",
+      "frequency": 5,
+      "companies": [
+        "腾讯",
+        "字节跳动",
+        "快手"
+      ],
+      "question": "如果在将所有大写字符转换为小写字符、并移除所有非字母数字字符之后，短语正着读和反着读都一样，则可以认为该短语是一个回文串。字母和数字都属于字母数字字符。给你一个字符串 s，如果它是回文串，返回 true；否则返回 false。\n\n示例 1：输入 s = \"A man, a plan, a canal: Panama\"，输出 true（处理后为 \"amanaplanacanalpanama\"，是回文串）。\n示例 2：输入 s = \"race a car\"，输出 false（处理后为 \"raceacar\"）。",
+      "samples": [
+        {
+          "input": "s = \"A man, a plan, a canal: Panama\"",
+          "output": "true",
+          "explain": "清洗后为 \"amanaplanacanalpanama\"，是回文串"
+        },
+        {
+          "input": "s = \"race a car\"",
+          "output": "false",
+          "explain": "清洗后为 \"raceacar\"，e 与 a 不对称"
+        },
+        {
+          "input": "s = \" \"",
+          "output": "true",
+          "explain": "清洗后为空串，按定义视为回文"
+        }
+      ],
+      "hints": [
+        "审题诀窍：先确认清洗规则——『大小写不敏感 + 忽略非字母数字』；直接对原串做双指针时必须先跳过无效字符再比较，不能默认输入是纯字母。",
+        "审题诀窍：空串、全符号串（如 \".,\"）清洗后为空——按定义视为回文返回 true，这类边界是测试用例的常客。",
+        "突破口：回文的对称性天然对应「首尾对撞双指针」：两指针同步内移，各自跳过非字母数字字符，比较小写后的字符。",
+        "追问预备：最多允许删除一个字符呢（680 验证回文串 II）？（l、r 不匹配时分别尝试跳过 l 或跳过 r，两个分支任一能得到回文即可）；清洗版和双指针版怎么选？（数据大且空间敏感选双指针 O(1)；追求短代码和低出错率选清洗 O(n)）"
+      ],
+      "keyPoints": [
+        "对撞双指针：l 从头、r 从尾，各自先用内层 while 跳过非字母数字字符，再比较 lower() 后的字符",
+        "跳过无效字符必须用 while 且内层保留 l < r 判断，防止连续标点导致指针越界（易错点：写成 if）",
+        "循环条件 l < r：比较不等立即返回 false，直到两指针相遇即回文",
+        "不修改原串、不构造清洗串，空间 O(1)——对比「清洗后反转比较」的 O(n) 空间做法"
+      ],
+      "structureTags": [
+        "two_pointer"
+      ],
+      "approaches": [
+        {
+          "name": "清洗 + 反转比较",
+          "idea": "过滤出所有字母数字并转小写得到新串 t，判断 t == t[::-1]。代码极短，但需要 O(n) 额外空间构造清洗串和反转串。",
+          "detail": "步骤拆解：\n1. 清洗：t = ''.join(ch.lower() for ch in s if ch.isalnum())——先过滤掉非字母数字字符，再把留下的统一转小写。\n2. 判断 t == t[::-1]（与自身反转逐位比较）。\n\n示例走查：s = \"A man, a plan, a canal: Panama\" 清洗后 t = \"amanaplanacanalpanama\"，反转后逐位相同 → true ✓。\ns = \"race a car\" → \"raceacar\"，第 4 位 e 与倒数第 4 位 a 不同 → false ✓。\n\n为什么正确：清洗后回文定义回到最朴素的『正读反读相同』，反转比较是它的直接实现。\n\n易错点：\n- 清洗必须同时做两件事：过滤 + 小写。只过滤不小写，\"Aa\" 会被误判为非回文。\n- 空串清洗后仍是空串，'' == ''[::-1] 成立，按定义返回 true，无需特判。\n- 这个解需要 O(n) 额外空间（清洗串 + 反转串），面试官若强调原地就换双指针。",
+          "complexity": "时间 O(n)，空间 O(n)",
+          "code": "def isPalindrome_clean(s):\n    # 清洗：只留字母数字并统一小写，得到比较用的规范串\n    t = \"\".join(ch.lower() for ch in s if ch.isalnum())\n    return t == t[::-1]              # 与反转串逐位比较"
+        },
+        {
+          "name": "原地对撞双指针",
+          "idea": "l、r 从两端出发：各自跳过非字母数字字符，比较 lower() 后的字符；不等返回 false，相等则同时内移，相遇即回文。全程不构造新串。",
+          "detail": "步骤拆解：\n1. l = 0, r = len(s)-1。\n2. 循环条件 l < r：两侧各自用内层 while 跳过非字母数字字符（内层保留 l < r 防越界）。\n3. 比较 s[l].lower() 与 s[r].lower()，不等返回 false；相等则 l += 1、r -= 1 同步内移。\n\n示例走查：s = \"race a car\"。\n- l=0(r), r=9(r)：相等 → l=1, r=8。\n- l=1(a), r=8(a)：相等 → l=2, r=7。\n- l=2(c), r=7(c)：相等 → l=3, r=6。\n- l=3(e), r=6(a)：不等 → 返回 false ✓。\n再走 s = \" \"：l=0, r=1；内层 while 把 l 推到 1，r 也停在 1，l < r 不成立，循环结束返回 true ✓。\n\n为什么正确：回文的对称性恰好对应首尾配对——每对 (l, r) 位置上的有效字符必须相等；跳过无效字符后剩下的就是清洗串的首尾对称比较，两种做法逐对等价。\n\n易错点：\n- 跳过无效字符必须用 while 且内层带 l < r：写成 if 遇到连续标点（如 \".,\") 会停在非法字符上比较；丢掉 l < r 会在全符号串上越界。\n- 比较前统一 lower()；数字字符 lower() 不变，无需分支特判。\n- 全符号串/空串：两指针在循环内相遇，返回 true，符合定义。",
+          "complexity": "时间 O(n)，空间 O(1)",
+          "optimal": true,
+          "code": "def isPalindrome_tp(s):\n    # 对撞双指针：l 从左向右找「合法字符」，r 从右向左找，逐对比较\n    l, r = 0, len(s) - 1\n    while l < r:\n        # 两侧都要用 while 跳过无效字符，而不是 if——可能连续出现标点空格\n        while l < r and not s[l].isalnum():\n            l += 1\n        while l < r and not s[r].isalnum():\n            r -= 1\n        if s[l].lower() != s[r].lower():   # 统一小写后再比较\n            return False\n        l += 1\n        r -= 1\n    return True    # 空串或全符号串会在循环中相遇，按定义视为回文"
+        }
+      ],
+      "code": "class Solution:\n    def isPalindrome(self, s: str) -> bool:\n        # 对撞双指针：l 从左向右找「合法字符」，r 从右向左找，逐对比较\n        l, r = 0, len(s) - 1\n        while l < r:\n            # 易错点：两侧都要用 while 跳过无效字符，而不是 if——可能连续出现标点空格\n            while l < r and not s[l].isalnum():\n                l += 1\n            while l < r and not s[r].isalnum():\n                r -= 1\n            if s[l].lower() != s[r].lower():   # 统一小写后再比较，数字不受影响\n                return False\n            l += 1\n            r -= 1\n        return True    # 空串或全符号串会在循环中相遇，按定义视为回文",
+      "acmCode": "# ACM 模式：完整可运行程序（stdin -> stdout）\n# 输入格式：一行字符串 s（可含空格、标点、大小写字母与数字）\n# 输出格式：true 或 false\nimport sys\n\n\ndef main():\n    line = sys.stdin.readline()\n    s = line.rstrip(\"\\n\").rstrip(\"\\r\")   # 只去掉行尾换行，保留内容中的空格\n\n    l, r = 0, len(s) - 1\n    ok = True\n    while l < r:\n        # 两侧各自用 while 跳过非字母数字字符，内层保留 l < r 防越界\n        while l < r and not s[l].isalnum():\n            l += 1\n        while l < r and not s[r].isalnum():\n            r -= 1\n        if s[l].lower() != s[r].lower():\n            ok = False\n            break\n        l += 1\n        r -= 1\n    print(\"true\" if ok else \"false\")\n\n\nif __name__ == '__main__':\n    main()",
+      "templates": [
+        "『回文/对称判断』模板：对撞双指针 l、r 同步内移；带过滤条件时两侧各自「先跳过无效、再比较」，内层用 while 并保留 l < r 防越界。167 两数之和 II、680 验证回文串 II 同属此形。",
+        "字符串清洗类题目两个流派：先构造清洗串（好写、O(n) 空间）vs 边扫边过滤（O(1) 空间、细节多），按空间约束与面试要求选择。"
+      ],
+      "codeCpp": "class Solution {\npublic:\n    bool isPalindrome(string s) {\n        // 字符判定：字母或数字（等价 Python 的 isalnum，手动实现不依赖 cctype）\n        auto isAlnum = [](char c) {\n            return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');\n        };\n        // 转小写：大写字母减偏移，其余字符不变\n        auto low = [](char c) {\n            return (c >= 'A' && c <= 'Z') ? (char)(c - 'A' + 'a') : c;\n        };\n        // 对撞双指针：l 从左向右找合法字符，r 从右向左找，逐对比较\n        int l = 0, r = (int)s.size() - 1;\n        while (l < r) {\n            // 易错点：两侧都要用 while 跳过非字母数字字符，而不是 if——可能连续出现标点空格\n            while (l < r && !isAlnum(s[l])) ++l;\n            while (l < r && !isAlnum(s[r])) --r;\n            // 统一转小写后比较；数字字符不受影响\n            if (low(s[l]) != low(s[r])) return false;\n            ++l; --r;   // 相等则同步内移\n        }\n        return true;    // 空串或全符号串会在循环中相遇，按定义视为回文\n    }\n};",
+      "acmCodeCpp": "// ACM 模式：完整可运行程序（stdin -> stdout）\n// 输入格式：一行字符串 s（可含空格、标点、大小写字母与数字）\n// 输出格式：true 或 false\n#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    string s;\n    getline(cin, s);   // 整行读取，保留内容中的空格\n    if (!s.empty() && s.back() == '\\r') s.pop_back();   // 兼容 Windows 换行\n\n    // 字符判定：字母或数字\n    auto isAlnum = [](char c) {\n        return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');\n    };\n    // 转小写：大写字母减偏移，其余字符不变\n    auto low = [](char c) {\n        return (c >= 'A' && c <= 'Z') ? (char)(c - 'A' + 'a') : c;\n    };\n\n    int l = 0, r = (int)s.size() - 1;\n    bool ok = true;\n    while (l < r) {\n        // 两侧各自用 while 跳过非字母数字字符，内层保留 l < r 防越界\n        while (l < r && !isAlnum(s[l])) ++l;\n        while (l < r && !isAlnum(s[r])) --r;\n        // 统一转小写后比较，不等即非回文\n        if (low(s[l]) != low(s[r])) { ok = false; break; }\n        ++l; --r;   // 相等则同步内移\n    }\n    cout << (ok ? \"true\" : \"false\") << endl;\n    return 0;\n}",
+      "codeJava": "class Solution {\n    public boolean isPalindrome(String s) {\n        // 对撞双指针：l 从左向右找合法字符，r 从右向左找，逐对比较\n        int l = 0, r = s.length() - 1;\n        while (l < r) {\n            // 易错点：两侧都要用 while 跳过非字母数字字符，而不是 if——可能连续出现标点空格\n            while (l < r && !Character.isLetterOrDigit(s.charAt(l))) l++;\n            while (l < r && !Character.isLetterOrDigit(s.charAt(r))) r--;\n            // 统一转小写后比较；数字字符不受影响\n            if (Character.toLowerCase(s.charAt(l)) != Character.toLowerCase(s.charAt(r)))\n                return false;\n            l++; r--;   // 相等则同步内移\n        }\n        return true;    // 空串或全符号串会在循环中相遇，按定义视为回文\n    }\n}",
+      "codeJs": "/**\n * @param {string} s\n * @return {boolean}\n */\nvar isPalindrome = function (s) {\n  const isAlnum = (c) => /[a-z0-9]/i.test(c);   // 字母或数字\n  // 对撞双指针：l 从左向右找合法字符，r 从右向左找，逐对比较\n  let l = 0, r = s.length - 1;\n  while (l < r) {\n    // 易错点：两侧都要用 while 跳过无效字符，而不是 if——可能连续出现标点空格\n    while (l < r && !isAlnum(s[l])) l++;\n    while (l < r && !isAlnum(s[r])) r--;\n    // 统一转小写后比较；数字字符不受影响\n    if (s[l].toLowerCase() !== s[r].toLowerCase()) return false;\n    l++; r--;   // 相等则同步内移\n  }\n  return true;  // 空串或全符号串会在循环中相遇，按定义视为回文\n};",
+      "codeGo": "func isPalindrome(s string) bool {\n\tisAlnum := func(c byte) bool { // 字母或数字\n\t\treturn c >= '0' && c <= '9' || c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z'\n\t}\n\tlow := func(c byte) byte { // 转小写：大写字母减偏移，其余不变\n\t\tif c >= 'A' && c <= 'Z' {\n\t\t\treturn c - 'A' + 'a'\n\t\t}\n\t\treturn c\n\t}\n\t// 对撞双指针：l 从左向右找合法字符，r 从右向左找，逐对比较\n\tl, r := 0, len(s)-1\n\tfor l < r {\n\t\t// 易错点：两侧都要用 while 跳过非字母数字字符，而不是 if——可能连续出现标点空格\n\t\tfor l < r && !isAlnum(s[l]) {\n\t\t\tl++\n\t\t}\n\t\tfor l < r && !isAlnum(s[r]) {\n\t\t\tr--\n\t\t}\n\t\t// 统一转小写后比较；数字字符不受影响\n\t\tif low(s[l]) != low(s[r]) {\n\t\t\treturn false\n\t\t}\n\t\tl++ // 相等则同步内移\n\t\tr--\n\t}\n\treturn true // 空串或全符号串会在循环中相遇，按定义视为回文\n}"
+    },
+    {
+      "id": 167,
+      "title": "Two Sum II - Input Array Is Sorted",
+      "titleCn": "两数之和 II - 输入有序数组",
+      "difficulty": "medium",
+      "frequency": 4,
+      "companies": [
+        "腾讯",
+        "阿里巴巴",
+        "美团"
+      ],
+      "question": "给你一个下标从 1 开始的整数数组 numbers，该数组已按非递减顺序排列。请从数组中找出满足相加之和等于目标数 target 的两个数，并返回它们的下标（下标从 1 开始）。你可以假设每个输入只对应唯一的答案，而且你不可以重复使用相同的元素。你所设计的算法必须只使用常量级的额外空间。\n\n示例 1：输入 numbers = [2,7,11,15], target = 9，输出 [1,2]（2 + 7 = 9）。\n示例 2：输入 numbers = [2,3,4], target = 6，输出 [1,3]。",
+      "samples": [
+        {
+          "input": "numbers = [2,7,11,15], target = 9",
+          "output": "[1,2]",
+          "explain": "2 + 7 = 9，下标从 1 开始计数"
+        },
+        {
+          "input": "numbers = [2,3,4], target = 6",
+          "output": "[1,3]",
+          "explain": "2 + 4 = 6；不能重复使用同一元素"
+        },
+        {
+          "input": "numbers = [-1,0], target = -1",
+          "output": "[1,2]",
+          "explain": "数组可含负数，双指针判据同样成立"
+        }
+      ],
+      "hints": [
+        "审题诀窍：与第 1 题两数之和的两个关键差异——数组「已排序」、要求「常量级额外空间」；哈希表法虽是 O(n) 但空间 O(n)，在本题被明确禁止。",
+        "突破口：有序 + 两数之和 ⇒ 对撞双指针。和偏大时只有右指针能救（r--），偏小时只有左指针能救（l++），每一步都能安全排除一个位置。",
+        "审题诀窍：注意下标从 1 开始，返回 [l+1, r+1]；答案唯一且不允许重复使用同一元素，l < r 的循环条件天然契合。",
+        "追问预备：若数组未排序怎么办？（先排序会破坏下标对应，需带原下标排序 O(nlogn)，或退回哈希表 O(n) 空间——这正是本题设『已排序 + 常量空间』条件的原因）；为什么不会漏解？（每步淘汰的是『与剩余任何元素都不可能配对』的那个，归纳可证最优搭档始终留在 [l, r] 内）"
+      ],
+      "keyPoints": [
+        "对撞双指针：l=0、r=n-1；和 < target 时 l++，和 > target 时 r--，相等即答案",
+        "正确性论证：有序性保证——固定一侧时，另一侧的最优搭档是唯一的；和偏大则当前 r 不可能是任何剩余左元素的搭档，安全淘汰，反之亦然，因此不会漏解",
+        "返回下标要 +1（题目从 1 计数），最常见的丢分点",
+        "对比哈希表法：O(n)/O(n) 与 O(n)/O(1) 的取舍由「有序 + 空间约束」决定——审题时先看空间要求再选武器"
+      ],
+      "structureTags": [
+        "two_pointer"
+      ],
+      "approaches": [
+        {
+          "name": "哈希表（第 1 题解法直接套用）",
+          "idea": "一遍遍历，查 target - x 是否已出现过。通用且 O(n)，但没有利用「已排序」的信息，且需要 O(n) 空间，被本题的常量空间约束排除。",
+          "detail": "步骤拆解：\n1. seen = {} 记录『值 → 下标』，一遍扫描：对每个 x 先查 target - x 是否在 seen。\n2. 在则返回 [seen[y]+1, i+1]（本题下标从 1 开始）；不在则登记 seen[x] = i。\n\n示例走查：numbers = [2,7,11,15], target = 9。i=0, x=2：y=7 不在 seen → 存 {2:0}；i=1, x=7：y=2 在 seen → 返回 [1, 2] ✓。\n\n为什么正确：与第 1 题两数之和完全相同的『先查后存』配对逻辑，答案唯一时必然命中。\n\n易错点：\n- 本题明确要求常量级额外空间，哈希表 O(n) 空间不满足约束——面试中应先指出这一点，再给双指针。\n- 返回下标统一 +1，别忘。\n- 未利用『已排序』信息是思路层面的失分点，哈希法只是对照答案。",
+          "complexity": "时间 O(n)，空间 O(n)",
+          "code": "def twoSum_hash(numbers, target):\n    seen = {}                        # 值 -> 下标（0-based）\n    for i, x in enumerate(numbers):\n        y = target - x\n        if y in seen:                # 先查：配对数已出现过\n            return [seen[y] + 1, i + 1]   # 题目下标从 1 开始\n        seen[x] = i                  # 后存：留给后面的数配对\n    return []"
+        },
+        {
+          "name": "逐元素二分",
+          "idea": "对每个 x，在右侧区间二分查找 target - x。用上了有序性，但仍是 O(nlogn)，比线性扫描慢一档。",
+          "detail": "步骤拆解：\n1. 对每个下标 i，need = target - numbers[i]，在右侧区间 [i+1, n-1] 上做标准二分查找。\n2. 命中返回 [i+1, mid+1]，未命中继续下一个 i。\n\n示例走查：numbers = [2,3,4], target = 6。i=0：need=4，在 [1,2] 二分：mid=1 值 3 < 4 → lo=2；mid=2 值 4 命中 → 返回 [1, 3] ✓。\n\n为什么正确：有序性保证右侧区间内二分正确；答案唯一，逐个 i 检查必然覆盖它。\n\n易错点：\n- 二分区间必须从 i+1 开始，把查找限制在 i 右侧，否则可能配到自己（target = 2x 的情形）。\n- 用 lo <= hi 的闭区间二分模板，边界加减要配套。\n- O(nlogn) 比双指针慢一档，属于『用上有序但没用满』的中间解。",
+          "complexity": "时间 O(nlogn)，空间 O(1)",
+          "code": "def twoSum_binary(numbers, target):\n    n = len(numbers)\n    for i in range(n):\n        need = target - numbers[i]\n        # 在 i 右侧 [i+1, n-1] 二分查找 need，避免配到自己\n        lo, hi = i + 1, n - 1\n        while lo <= hi:\n            mid = (lo + hi) // 2\n            if numbers[mid] == need:\n                return [i + 1, mid + 1]   # 下标从 1 开始\n            if numbers[mid] < need:\n                lo = mid + 1\n            else:\n                hi = mid - 1\n    return []"
+        },
+        {
+          "name": "对撞双指针",
+          "idea": "l、r 从两端出发：和小于 target 说明需要更大的数，l++；和大于 target 说明需要更小的数，r--。每一步安全淘汰一个元素，恰好一次线性扫描。",
+          "detail": "步骤拆解：\n1. l = 0, r = n-1。\n2. 循环 l < r：s = numbers[l] + numbers[r]；s == target → 返回 [l+1, r+1]；s < target → l += 1；s > target → r -= 1。\n\n示例走查：numbers = [2,7,11,15], target = 9。l=0, r=3：s=17 > 9 → r=2；s=13 > 9 → r=1；s=9 == 9 → 返回 [1, 2] ✓。\nnumbers = [2,3,4], target = 6：l=0, r=2：s=6 → 直接返回 [1, 3] ✓。\n\n为什么正确：有序性给出单调判据——s < target 时，固定 r，任何比当前 l 更小的左元素只会让和更小，所以 l 不可能与当前 r 或任何更右元素配对，淘汰 l 安全；s > target 时同理淘汰 r。每步淘汰一个，恰好一次线性扫描且不漏解。\n\n易错点：\n- 返回 [l+1, r+1]：题目下标从 1 开始，最经典的丢分点。\n- 别用哈希表——本题以『常量空间』为约束考双指针，选错武器正中下怀。\n- 数组非递减允许相等值（[2,3,4]），判据基于和而不是值相等，天然兼容重复元素。",
+          "complexity": "时间 O(n)，空间 O(1)",
+          "optimal": true,
+          "code": "def twoSum_tp(numbers, target):\n    # 有序数组找两数之和：对撞双指针，每一步安全淘汰一个不可能的数\n    l, r = 0, len(numbers) - 1\n    while l < r:\n        s = numbers[l] + numbers[r]\n        if s == target:\n            return [l + 1, r + 1]   # 易错点：题目下标从 1 开始，要 +1\n        if s < target:\n            l += 1      # 和偏小：固定 r 时只有更大的 l 可能达标\n        else:\n            r -= 1      # 和偏大：固定 l 时只有更小的 r 可能达标\n    return []           # 题目保证有解，此行仅为语法完整"
+        }
+      ],
+      "code": "class Solution:\n    def twoSum(self, numbers: List[int], target: int) -> List[int]:\n        # 有序数组找两数之和：对撞双指针，每一步安全淘汰一个不可能的数\n        l, r = 0, len(numbers) - 1\n        while l < r:\n            s = numbers[l] + numbers[r]\n            if s == target:\n                return [l + 1, r + 1]   # 易错点：题目下标从 1 开始，要 +1\n            if s < target:\n                l += 1      # 和偏小：固定 r 时只有更大的 l 可能达标，r 已是 l 的最优搭档\n            else:\n                r -= 1      # 和偏大：固定 l 时只有更小的 r 可能达标\n        return []           # 题目保证有解，此行仅为语法完整",
+      "acmCode": "# ACM 模式：完整可运行程序（stdin -> stdout）\n# 输入格式：\n#   第一行：n（数组长度）\n#   第二行：n 个整数（非递减有序）\n#   第三行：target\n# 输出格式：一行两个下标（从 1 开始），空格分隔\nimport sys\n\n\ndef main():\n    data = sys.stdin.read().split()\n    n = int(data[0])\n    numbers = [int(x) for x in data[1:1 + n]]\n    target = int(data[1 + n])\n\n    l, r = 0, n - 1\n    ans = []\n    while l < r:\n        s = numbers[l] + numbers[r]\n        if s == target:\n            ans = [l + 1, r + 1]     # 题目下标从 1 开始，要 +1\n            break\n        if s < target:\n            l += 1                   # 和偏小，只有更大的 l 可能达标\n        else:\n            r -= 1                   # 和偏大，只有更小的 r 可能达标\n    print(ans[0], ans[1])\n\n\nif __name__ == '__main__':\n    main()",
+      "templates": [
+        "『有序数组两数之和』模板：对撞双指针，s<target → l++，s>target → r--，s==target → 返回；可推广到三数之和（外层固定一个数 + 内层对撞）与四数之和（两层固定 + 对撞）。",
+        "双指针的适用信号：结构有序（数组有序/可排序/链表）+ 需要配对或对称 + 要求 O(1) 空间；满足得越多，越应优先双指针而非哈希表。"
+      ],
+      "codeCpp": "class Solution {\npublic:\n    vector<int> twoSum(vector<int>& numbers, int target) {\n        // 有序数组找两数之和：对撞双指针，每一步安全淘汰一个不可能的数\n        int l = 0, r = (int)numbers.size() - 1;\n        while (l < r) {\n            int s = numbers[l] + numbers[r];\n            if (s == target)\n                return {l + 1, r + 1};   // 易错点：题目下标从 1 开始，要 +1\n            if (s < target)\n                ++l;   // 和偏小：固定 r 时只有更大的 l 可能达标\n            else\n                --r;   // 和偏大：固定 l 时只有更小的 r 可能达标\n        }\n        return {};   // 题目保证有解，此行仅为语法完整\n    }\n};",
+      "acmCodeCpp": "// ACM 模式：完整可运行程序（stdin -> stdout）\n// 输入格式：\n//   第一行：n（数组长度）\n//   第二行：n 个整数（非递减有序）\n//   第三行：target\n// 输出格式：一行两个下标（从 1 开始），空格分隔\n#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);   // 关闭同步，读入更快\n    cin.tie(nullptr);\n\n    int n;\n    cin >> n;\n    vector<int> numbers(n);\n    for (auto& x : numbers) cin >> x;\n    int target;\n    cin >> target;\n\n    int l = 0, r = n - 1;   // 对撞双指针：每一步安全淘汰一个不可能的数\n    while (l < r) {\n        int s = numbers[l] + numbers[r];\n        if (s == target) {   // 命中：输出下标（从 1 开始）\n            cout << l + 1 << \" \" << r + 1 << endl;\n            return 0;\n        }\n        if (s < target)\n            ++l;   // 和偏小，只有更大的 l 可能达标\n        else\n            --r;   // 和偏大，只有更小的 r 可能达标\n    }\n    return 0;\n}",
+      "codeJava": "class Solution {\n    public int[] twoSum(int[] numbers, int target) {\n        // 有序数组找两数之和：对撞双指针，每一步安全淘汰一个不可能的数\n        int l = 0, r = numbers.length - 1;\n        while (l < r) {\n            int s = numbers[l] + numbers[r];\n            if (s == target)\n                return new int[]{l + 1, r + 1};   // 易错点：题目下标从 1 开始，要 +1\n            if (s < target)\n                l++;    // 和偏小：固定 r 时只有更大的 l 可能达标\n            else\n                r--;    // 和偏大：固定 l 时只有更小的 r 可能达标\n        }\n        return new int[0];   // 题目保证有解，此行仅为语法完整\n    }\n}",
+      "codeJs": "/**\n * @param {number[]} numbers\n * @param {number} target\n * @return {number[]}\n */\nvar twoSum = function (numbers, target) {\n  // 有序数组找两数之和：对撞双指针，每一步安全淘汰一个不可能的数\n  let l = 0, r = numbers.length - 1;\n  while (l < r) {\n    const s = numbers[l] + numbers[r];\n    if (s === target) return [l + 1, r + 1];  // 易错点：题目下标从 1 开始，要 +1\n    if (s < target) l++;   // 和偏小：固定 r 时只有更大的 l 可能达标\n    else r--;              // 和偏大：固定 l 时只有更小的 r 可能达标\n  }\n  return [];   // 题目保证有解，此行仅为语法完整\n};",
+      "codeGo": "func twoSum(numbers []int, target int) []int {\n\t// 有序数组找两数之和：对撞双指针，每一步安全淘汰一个不可能的数\n\tl, r := 0, len(numbers)-1\n\tfor l < r {\n\t\ts := numbers[l] + numbers[r]\n\t\tif s == target {\n\t\t\treturn []int{l + 1, r + 1} // 易错点：题目下标从 1 开始，要 +1\n\t\t}\n\t\tif s < target {\n\t\t\tl++ // 和偏小：固定 r 时只有更大的 l 可能达标\n\t\t} else {\n\t\t\tr-- // 和偏大：固定 l 时只有更小的 r 可能达标\n\t\t}\n\t}\n\treturn []int{} // 题目保证有解，此行仅为语法完整\n}"
+    }
+  ]
+}

@@ -1,0 +1,289 @@
+{
+  "topic": "堆",
+  "problems": [
+    {
+      "id": 215,
+      "title": "Kth Largest Element in an Array",
+      "titleCn": "数组中的第K个最大元素",
+      "difficulty": "medium",
+      "frequency": 5,
+      "companies": [
+        "字节跳动",
+        "腾讯",
+        "美团",
+        "京东"
+      ],
+      "question": "给定整数数组 nums 和整数 k，请返回数组中第 k 个最大的元素。\n\n请注意，你需要找的是数组排序后的第 k 个最大的元素，而不是第 k 个不同的元素。\n\n进阶：你能不把整个数组完整排序（O(n log n)）就解决它吗？如果数据是持续到来的数据流、且只能用 O(k) 的额外空间呢？\n\n示例 1：输入 nums = [3,2,1,5,6,4], k = 2，输出 5。\n示例 2：输入 nums = [3,2,3,1,2,4,5,5,6], k = 4，输出 4。",
+      "samples": [
+        {
+          "input": "nums = [3,2,1,5,6,4], k = 2",
+          "output": "5"
+        },
+        {
+          "input": "nums = [3,2,3,1,2,4,5,5,6], k = 4",
+          "output": "4"
+        }
+      ],
+      "hints": [
+        "审题诀窍：『第 k 大』只需要维护住前 k 大的候选集合，不需要给整个数组排序——k 通常远小于 n，这就是优化空间。",
+        "审题诀窍：用最小堆维护『当前最大的 k 个数』：堆顶恰好是这 k 个数中最小的，也就是第 k 大；堆顶反而是答案，这一点容易想反。",
+        "突破口：堆的大小始终不超过 k，新数比堆顶大才有资格入堆，入堆时弹出堆顶淘汰最小候选；扫完数组堆顶即答案。",
+        "追问预备：数据流场景只能用 O(k) 空间怎么办？（本题的堆解法天然满足）；如果要求最坏情况线性时间呢？（BFPRT 五分组中位数选主元的快速选择）；如果 n 很小而查询次数很多呢？（直接全排序后 O(1) 查询）"
+      ],
+      "keyPoints": [
+        "维护大小为 k 的最小堆，堆顶就是第 k 大元素",
+        "新元素大于堆顶时才入堆，同时弹出堆顶淘汰当前最小的候选",
+        "Python 的 heapq 是最小堆，先用前 k 个元素 heapify 建堆",
+        "复杂度 O(n log k)、空间 O(k)，优于全排序，且天然适合数据流"
+      ],
+      "structureTags": [
+        "heap"
+      ],
+      "approaches": [
+        {
+          "name": "全量排序",
+          "idea": "把数组降序排序后直接取下标 k-1 的元素。一行代码最好写，但没有利用『只要第 k 大』这个信息，做了大量无用的全局排序。",
+          "detail": "步骤拆解：\n1. nums.sort(reverse=True) 降序排序（或升序排序后取 nums[n-k]）。\n2. 直接返回 nums[k-1]。\n\n示例走查：nums=[3,2,1,5,6,4], k=2。降序排序得 [6,5,4,3,2,1]，下标 1 的元素是 5，即第 2 大。\n\n为什么正确：排序后『第 k 大』与固定下标一一对应，降序第 k-1 位（0 起）就是第 k 大，正确性显然。\n\n易错点：\n- 求第 k 大：降序取 k-1，或升序取 n-k，两种下标换算别写混。\n- 有重复元素时『第 k 大』按位置计而非按不同值计，题目明确说明不要去重。\n- 面试先给这个基线再优化，并主动指出它做了大量无用功——k 通常远小于 n，这就是优化空间。",
+          "complexity": "时间 O(n log n)，空间 O(log n)（排序递归栈）",
+          "code": "def findKthLargest_sort(nums, k):\n    nums = sorted(nums, reverse=True)  # 降序排序（不修改入参）\n    return nums[k - 1]                 # 第 k 大即下标 k-1"
+        },
+        {
+          "name": "大小为 k 的最小堆",
+          "idea": "保持一个大小为 k 的最小堆：先用前 k 个数建堆；之后每个数只要大于堆顶就通过 heapreplace 替换堆顶（一次完成弹出最小并压入新数）。堆中始终是当前最大的 k 个数，扫描结束后堆顶即第 k 大。空间只有 O(k)，适合大数据量与数据流场景。",
+          "detail": "步骤拆解：\n1. heap = nums[:k]，heapify 原地建最小堆（O(k)）。\n2. 遍历 nums[k:]：x > heap[0] 时 heapreplace(heap, x)——一步完成弹出堆顶并压入 x；否则跳过，x 连当前第 k 大都进不了。\n3. 返回 heap[0]：堆中恰是已扫描元素里最大的 k 个，堆顶是其中最小者，即第 k 大。\n\n示例走查：nums=[3,2,1,5,6,4], k=2。建堆后为 [1,2]（堆顶 1）。x=3：3>1 → replace 得 [2,3]。x=5：5>2 → [3,5]。x=6：6>3 → [5,6]。x=4：4>5 否则跳过。堆顶 5 即答案。\n\n为什么正确：不变式『堆中 = 当前已扫描元素里最大的 k 个』始终成立——比堆顶小的数不可能属于前 k 大，比堆顶大的数替换堆顶后不变式依然保持；扫描结束不变式直接给出答案。\n\n易错点：\n- 求第 k 大用最小堆、求第 k 小用最大堆（Python 里存负数模拟），方向别搞反——堆顶反而是答案。\n- heapreplace 是『先弹后压』的一步版，等价于 heappop + heappush 但少一次堆调整。\n- x 与堆顶相等时不必替换：替换结果也对，但白做一次 O(log k)。",
+          "complexity": "时间 O(n log k)，空间 O(k)",
+          "optimal": true,
+          "code": "import heapq\n\ndef findKthLargest_heap(nums, k):\n    heap = nums[:k]                    # 前 k 个元素建最小堆\n    heapq.heapify(heap)\n    for x in nums[k:]:\n        if x > heap[0]:                # 有资格进入前 k 大才替换\n            heapq.heapreplace(heap, x) # 弹出最小候选并压入 x\n    return heap[0]                     # 堆顶 = 前 k 大中最小 = 第 k 大"
+        },
+        {
+          "name": "快速选择",
+          "idea": "借鉴快速排序的 partition：随机选基准把数组分成两部分，根据第 k 大落在哪一侧只递归处理那一侧。平均 O(n)、原地交换空间 O(1)，但会修改原数组、最坏单次 O(n²)（随机化后期望 O(n)），也不适合数据流场景。",
+          "detail": "步骤拆解：\n1. 目标下标 target = n - k（升序数组中第 k 大的位置）。\n2. partition：随机选 pivot（nums[random.randint(l, r)]，防退化），用相向双指针 i、j 把区间分成 <= pivot 与 >= pivot 两段。\n3. 划分后 j < i：[l..j] 全 <= pivot、[i..r] 全 >= pivot。target <= j 则收缩右端 r = j；target >= i 则收缩左端 l = i；否则 target 落在中间相等段，直接返回 nums[target]。\n\n示例走查：nums=[3,2,1,5,6,4], k=2，target=4。设 pivot=4：划分后 [3,2,1,4,6,5]，j=2、i=4；target=4 >= i → 处理右段 [6,5]。再设 pivot=6：划分后 [5,6]，j=4、i=5；target=4 <= j → 处理左段 [5]。再划分后 target 落在中间相等段，返回 5。\n\n为什么正确：每次划分保证 pivot 左侧都 <= 它、右侧都 >= 它，target 所在侧的所有候选仍构成原数组的同名次集合；规模期望每次减半，T(n) = n + n/2 + ... = O(n)。\n\n易错点：\n- 固定取最左元素做 pivot 会被构造数据卡成 O(n²)，必须随机化（或三数取中）。\n- target = n - k（升序），写成 k-1 求的是第 k 小。\n- 快速选择会原地打乱数组：调用方要求 nums 不变需先拷贝；且它是离线算法，不适合数据流场景。",
+          "complexity": "时间平均 O(n)、最坏 O(n²)，空间 O(1)",
+          "code": "import random\n\ndef findKthLargest_quickselect(nums, k):\n    nums = list(nums)                  # 快速选择会打乱数组，先拷贝\n    target = len(nums) - k             # 升序下第 k 大的下标\n    l, r = 0, len(nums) - 1\n    while True:\n        pivot = nums[random.randint(l, r)]   # 随机选基准，防退化\n        i, j = l, r\n        while i <= j:                  # 相向双指针划分\n            while nums[i] < pivot:\n                i += 1\n            while nums[j] > pivot:\n                j -= 1\n            if i <= j:\n                nums[i], nums[j] = nums[j], nums[i]\n                i += 1\n                j -= 1\n        if target <= j:                # 目标落在左段\n            r = j\n        elif target >= i:              # 目标落在右段\n            l = i\n        else:\n            return nums[target]        # target 恰为 pivot 落位\n"
+        }
+      ],
+      "code": "import heapq\n\nclass Solution:\n    def findKthLargest(self, nums: List[int], k: int) -> int:\n        # 用最小堆维护『当前最大的 k 个数』，堆顶即第 k 大\n        heap = nums[:k]\n        heapq.heapify(heap)              # O(k) 原地建堆\n        for x in nums[k:]:\n            if x > heap[0]:              # 比 k 个候选中最小的还大，才有资格入选\n                heapq.heapreplace(heap, x)   # 弹出堆顶并压入 x，一次堆操作完成\n        return heap[0]                   # 堆顶 = 前 k 大中最小的 = 第 k 大",
+      "acmCode": "# ACM 模式：完整可运行程序（stdin -> stdout）\n# 输入格式：\n#   第一行：n（数组长度）\n#   第二行：n 个整数\n#   第三行：k\n# 输出格式：一行一个整数，第 k 大的元素\nimport sys\nimport heapq\n\ndef main():\n    data = sys.stdin.read().split()\n    n = int(data[0])\n    nums = [int(x) for x in data[1:1 + n]]\n    k = int(data[1 + n])\n    heap = nums[:k]                    # 前 k 个数建最小堆\n    heapq.heapify(heap)                # O(k) 原地建堆\n    for x in nums[k:]:\n        if x > heap[0]:                # 比当前第 k 大的候选大才入堆\n            heapq.heapreplace(heap, x) # 弹出堆顶并压入 x\n    print(heap[0])                     # 堆顶即第 k 大\n\nif __name__ == '__main__':\n    main()",
+      "templates": [
+        "Top-K 模板：求第 k 大用『大小为 k 的最小堆』（堆顶即答案）；求第 k 小用『大小为 k 的最大堆』（Python 里存负数模拟）",
+        "k 远小于 n 或数据流场景下，堆解法 O(n log k)、空间 O(k) 通常优于全排序 O(n log n)"
+      ],
+      "codeCpp": "class Solution {\npublic:\n    int findKthLargest(vector<int>& nums, int k) {\n        // 用最小堆维护『当前最大的 k 个数』，堆顶即第 k 大\n        priority_queue<int, vector<int>, greater<int>> heap;\n        for (int x : nums) {\n            if ((int)heap.size() < k) {\n                heap.push(x);              // 前 k 个直接入堆\n            } else if (x > heap.top()) {\n                heap.pop();                // 比当前第 k 大的候选大才入堆\n                heap.push(x);              // 弹出最小候选并压入 x\n            }\n        }\n        return heap.top();                 // 堆顶 = 前 k 大中最小 = 第 k 大\n    }\n};",
+      "acmCodeCpp": "// ACM 模式：完整可运行程序（stdin -> stdout）\n// 输入格式：\n//   第一行：n（数组长度）\n//   第二行：n 个整数\n//   第三行：k\n// 输出格式：一行一个整数，第 k 大的元素\n#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);\n    cin.tie(nullptr);\n\n    int n;\n    cin >> n;\n    vector<int> nums(n);\n    for (auto& x : nums) cin >> x;\n    int k;\n    cin >> k;\n\n    priority_queue<int, vector<int>, greater<int>> heap;   // 大小为 k 的最小堆\n    for (int x : nums) {\n        if ((int)heap.size() < k) {\n            heap.push(x);              // 前 k 个直接入堆\n        } else if (x > heap.top()) {\n            heap.pop();                // 比当前第 k 大的候选大才入堆\n            heap.push(x);              // 弹出最小候选并压入 x\n        }\n    }\n    cout << heap.top() << endl;        // 堆顶即第 k 大\n    return 0;\n}",
+      "codeJava": "class Solution {\n    public int findKthLargest(int[] nums, int k) {\n        // 用最小堆维护『当前最大的 k 个数』，堆顶即第 k 大\n        PriorityQueue<Integer> heap = new PriorityQueue<>();\n        for (int x : nums) {\n            if (heap.size() < k) {\n                heap.offer(x);         // 前 k 个直接入堆\n            } else if (x > heap.peek()) {\n                heap.poll();           // 比当前第 k 大的候选大才入堆\n                heap.offer(x);         // 弹出最小候选并压入 x\n            }\n        }\n        return heap.peek();            // 堆顶 = 前 k 大中最小 = 第 k 大\n    }\n}",
+      "codeJs": "/**\n * @param {number[]} nums\n * @param {number} k\n * @return {number}\n */\nvar findKthLargest = function (nums, k) {\n  // 手写大小为 k 的最小堆（JS 无内置堆），堆顶是 k 个候选中最小的，即第 k 大\n  const heap = [];\n  const push = (x) => {\n    heap.push(x);                // 新元素先放到堆底\n    let i = heap.length - 1;\n    while (i > 0) {              // 上浮：比父节点小就交换\n      const p = (i - 1) >> 1;\n      if (heap[i] >= heap[p]) break;\n      [heap[i], heap[p]] = [heap[p], heap[i]];\n      i = p;\n    }\n  };\n  const pop = () => {\n    const top = heap[0];         // 弹出堆顶（最小候选）\n    const last = heap.pop();\n    if (heap.length) {\n      heap[0] = last;            // 末尾元素补到堆顶\n      let i = 0;\n      for (;;) {                 // 下沉：与较小的孩子交换\n        const l = 2 * i + 1, r = 2 * i + 2;\n        let m = i;\n        if (l < heap.length && heap[l] < heap[m]) m = l;\n        if (r < heap.length && heap[r] < heap[m]) m = r;\n        if (m === i) break;\n        [heap[i], heap[m]] = [heap[m], heap[i]];\n        i = m;\n      }\n    }\n    return top;\n  };\n\n  for (const x of nums) {\n    if (heap.length < k) {\n      push(x);                   // 前 k 个直接入堆\n    } else if (x > heap[0]) {\n      pop();                     // 比当前第 k 大的候选大才替换\n      push(x);\n    }\n  }\n  return heap[0];                // 堆顶 = 前 k 大中最小 = 第 k 大\n};",
+      "codeGo": "func findKthLargest(nums []int, k int) int {\n\t// 手写大小为 k 的最小堆（上浮/下沉两个 sift 操作），堆顶即第 k 大\n\theap := make([]int, 0, k)\n\tpush := func(x int) {\n\t\theap = append(heap, x) // 新元素先放到堆底\n\t\ti := len(heap) - 1\n\t\tfor i > 0 { // 上浮：比父节点小就交换\n\t\t\tp := (i - 1) / 2\n\t\t\tif heap[i] >= heap[p] {\n\t\t\t\tbreak\n\t\t\t}\n\t\t\theap[i], heap[p] = heap[p], heap[i]\n\t\t\ti = p\n\t\t}\n\t}\n\tpop := func() int {\n\t\ttop := heap[0]              // 弹出堆顶（最小候选）\n\t\theap[0] = heap[len(heap)-1] // 末尾元素补到堆顶\n\t\theap = heap[:len(heap)-1]\n\t\ti, sz := 0, len(heap)\n\t\tfor { // 下沉：与较小的孩子交换\n\t\t\tl, r, m := 2*i+1, 2*i+2, i\n\t\t\tif l < sz && heap[l] < heap[m] {\n\t\t\t\tm = l\n\t\t\t}\n\t\t\tif r < sz && heap[r] < heap[m] {\n\t\t\t\tm = r\n\t\t\t}\n\t\t\tif m == i {\n\t\t\t\tbreak\n\t\t\t}\n\t\t\theap[i], heap[m] = heap[m], heap[i]\n\t\t\ti = m\n\t\t}\n\t\treturn top\n\t}\n\n\tfor _, x := range nums {\n\t\tif len(heap) < k {\n\t\t\tpush(x) // 前 k 个直接入堆\n\t\t} else if x > heap[0] {\n\t\t\tpop() // 比当前第 k 大的候选大才替换\n\t\t\tpush(x)\n\t\t}\n\t}\n\treturn heap[0] // 堆顶 = 前 k 大中最小 = 第 k 大\n}"
+    },
+    {
+      "id": 347,
+      "title": "Top K Frequent Elements",
+      "titleCn": "前 K 个高频元素",
+      "difficulty": "medium",
+      "frequency": 5,
+      "companies": [
+        "字节跳动",
+        "美团"
+      ],
+      "question": "给你一个整数数组 nums 和一个整数 k，请你返回其中出现频率前 k 高的元素。你可以按任意顺序返回答案。题目数据保证答案唯一。\n\n进阶：你所设计算法的时间复杂度必须优于 O(n log n)，其中 n 是数组的大小。\n\n示例 1：输入 nums = [1,1,1,2,2,3], k = 2，输出 [1,2]（1 出现 3 次，2 出现 2 次）。\n示例 2：输入 nums = [1], k = 1，输出 [1]。",
+      "samples": [
+        {
+          "input": "nums = [1,1,1,2,2,3], k = 2",
+          "output": "[1,2]",
+          "explain": "1 出现 3 次，2 出现 2 次"
+        },
+        {
+          "input": "nums = [1], k = 1",
+          "output": "[1]"
+        }
+      ],
+      "hints": [
+        "审题诀窍：先用哈希表统计频率，问题转化为『在 m 个 (元素, 频率) 对中取频率前 k 大』；注意 m 是不同元素的个数，通常远小于 n。",
+        "审题诀窍：用大小为 k 的最小堆按『频率』比较：频率低于堆顶（当前第 k 高频）的没资格入选，最终留在堆里的就是前 k 高频元素。",
+        "突破口：堆里存 (频率, 元素) 元组即可让 heapq 自动按频率比较，不必手写比较器。",
+        "追问预备：要求严格 O(n) 又不许开桶呢？（快速选择按频率划分，平均 O(n)）；数据流式到来且 k 已知呢？（本题堆解法天然在线）；前 k 高频单词且同频按字典序呢？（最小堆存 (频率, 倒转串) 或自定义比较器处理双关键字）"
+      ],
+      "keyPoints": [
+        "第一步：用哈希表（defaultdict）统计每个元素的出现频率",
+        "第二步：维护大小为 k 的最小堆，按频率比较，堆顶是当前第 k 高频",
+        "频率大于堆顶才用 heapreplace 替换，堆未满时直接 heappush",
+        "最后堆中剩余的元素就是答案，整体 O(n log k)，满足优于 O(n log n)"
+      ],
+      "structureTags": [
+        "hashmap",
+        "heap"
+      ],
+      "approaches": [
+        {
+          "name": "统计 + 全量排序",
+          "idea": "哈希表统计频率后，把所有 (频率, 元素) 对按频率降序排序，取前 k 个。实现简单直观，但排序 O(m log m)，最坏（元素全不同时 m = n）O(n log n)，不满足进阶要求。",
+          "detail": "步骤拆解：\n1. freq = defaultdict(int)，遍历 nums 统计每个元素的出现次数。\n2. pairs = sorted(freq.items(), key=lambda kv: kv[1], reverse=True) 按频率降序排序。\n3. 取前 k 个键返回。\n\n示例走查：nums=[1,1,1,2,2,3], k=2。freq={1:3, 2:2, 3:1}；降序排 [(1,3),(2,2),(3,1)]，取前两个键得 [1,2]。\n\n为什么正确：频率统计把『前 k 高频』化为『m 个候选中按频率取前 k』；全量排序后前 k 个必然是频率最高的 k 个（题目保证答案唯一，无并列歧义）。\n\n易错点：\n- 复杂度是 O(n + m log m)，元素全不同时 m=n，退化为 O(n log n)，不满足题目『优于 O(n log n)』的进阶要求。\n- 排序键必须指定按频率（kv[1]），默认按键排序会输出前 k 小的元素。\n- 频率并列时题目保证答案唯一，无需自定义 tie-break，但要能口述如何处理。",
+          "complexity": "时间 O(n log n)，空间 O(n)",
+          "code": "from collections import defaultdict\n\ndef topKFrequent_sort(nums, k):\n    freq = defaultdict(int)\n    for x in nums:                     # 第一步：统计频率\n        freq[x] += 1\n    pairs = sorted(freq.items(), key=lambda kv: kv[1], reverse=True)\n    return [key for key, _ in pairs[:k]]   # 第二步：按频率降序取前 k"
+        },
+        {
+          "name": "哈希 + 大小为 k 的最小堆",
+          "idea": "统计频率后，用最小堆维护频率最高的 k 个 (频率, 元素) 对：堆未满直接放入；堆满后当前频率高于堆顶才替换。每个不同元素至多一次 O(log k) 堆操作，总复杂度 O(n log k)，优于 O(n log n)。",
+          "detail": "步骤拆解：\n1. freq 统计频率，O(n)。\n2. heap = []；遍历 freq.items() 的 (key, cnt)：堆未满（len < k）直接 heappush((cnt, key))；堆满且 cnt > heap[0][0] 时 heapreplace 换掉频率最低的候选。\n3. 结束后堆中即前 k 高频元素，返回 [key for _, key in heap]。\n\n示例走查：nums=[1,1,1,2,2,3], k=2。堆依次进入 (3,1)、(2,2)；遇到 (1,3)：1 > 2 否，跳过。堆中剩 {(2,2),(3,1)}，答案 [1,2]（顺序任意）。\n\n为什么正确：最小堆顶是当前 k 个候选中频率最低者，即当前第 k 高频；新候选频率不高于堆顶就不可能进前 k，高于堆顶则替换后不变式保持。每个不同元素至多一次 O(log k) 堆操作，总复杂度 O(n log k)。\n\n易错点：\n- 堆元素必须写成 (cnt, key)：写成 (key, cnt) 会按元素值比较而非频率，结果错。\n- cnt == heap[0][0] 时不替换：题目保证答案唯一，严格 > 的条件逻辑最清晰。\n- 返回顺序是堆内部顺序，LeetCode 允许任意顺序，笔试对拍前先排序。",
+          "complexity": "时间 O(n log k)，空间 O(n)（频率表 + 堆）",
+          "optimal": true,
+          "code": "import heapq\nfrom collections import defaultdict\n\ndef topKFrequent_heap(nums, k):\n    freq = defaultdict(int)\n    for x in nums:                     # 统计频率\n        freq[x] += 1\n    heap = []                          # (频率, 元素) 最小堆，堆顶频率最低\n    for key, cnt in freq.items():\n        if len(heap) < k:\n            heapq.heappush(heap, (cnt, key))\n        elif cnt > heap[0][0]:         # 高于当前第 k 高频才替换\n            heapq.heapreplace(heap, (cnt, key))\n    return [key for _, key in heap]"
+        },
+        {
+          "name": "桶排序",
+          "idea": "进阶补充：频率的范围是 1..n，可以开 n+1 个桶，把每个元素放进『下标等于其频率』的桶里，再从高频到低频收集元素，严格 O(n)。适合追求极限的场景，代价是 O(n) 的桶空间，面试可作为加分项口头补充。",
+          "detail": "步骤拆解：\n1. freq 统计频率；开 buckets = [[] for _ in range(n + 1)]，下标为频率。\n2. 遍历 freq.items()：buckets[cnt].append(key)。\n3. 从 cnt = n 到 1 倒序收集桶内元素，凑满 k 个即停。\n\n示例走查：nums=[1,1,1,2,2,3], n=6。buckets[3]=[1]、buckets[2]=[2]、buckets[1]=[3]。倒序收集：cnt=3 取 1，cnt=2 取 2，已满 k=2，返回 [1,2]。\n\n为什么正确：频率的取值范围是 1..n，把『按频率排序』变成『按下标访问桶』，倒序扫桶天然得到频率降序，整体严格 O(n)，是进阶要求的最优解。\n\n易错点：\n- 桶数是 n+1（频率最大为 n），开 n 个会越界。\n- 同频元素可能多个，收集满 k 个就 break；题目保证答案唯一，同频不会跨在 k 边界上。\n- 不同元素个数 m 可能远小于 n，收集循环里用结果长度判断终止，别假设每个桶非空。",
+          "complexity": "时间 O(n)，空间 O(n)",
+          "code": "from collections import defaultdict\n\ndef topKFrequent_bucket(nums, k):\n    n = len(nums)\n    freq = defaultdict(int)\n    for x in nums:\n        freq[x] += 1\n    buckets = [[] for _ in range(n + 1)]   # 下标 = 频率（1..n）\n    for key, cnt in freq.items():\n        buckets[cnt].append(key)\n    ans = []\n    for cnt in range(n, 0, -1):        # 从高频到低频收集\n        for key in buckets[cnt]:\n            ans.append(key)\n            if len(ans) == k:\n                return ans\n    return ans"
+        }
+      ],
+      "code": "import heapq\nfrom collections import defaultdict\n\nclass Solution:\n    def topKFrequent(self, nums: List[int], k: int) -> List[int]:\n        # 第一步：哈希表统计每个元素的出现频率\n        freq = defaultdict(int)\n        for x in nums:\n            freq[x] += 1\n        # 第二步：用大小为 k 的最小堆维护频率最高的 k 个元素\n        # 堆中存 (频率, 元素) 元组，heapq 自动按第一个分量（频率）比较\n        heap = []\n        for key, cnt in freq.items():\n            if len(heap) < k:\n                heapq.heappush(heap, (cnt, key))   # 堆未满，直接放入候选\n            elif cnt > heap[0][0]:\n                # 当前频率高于堆顶（k 个候选中最低的），替换堆顶淘汰旧候选\n                heapq.heapreplace(heap, (cnt, key))\n        # 第三步：堆里剩下的就是前 k 高频元素\n        return [key for _, key in heap]",
+      "acmCode": "# ACM 模式：完整可运行程序（stdin -> stdout）\n# 输入格式：\n#   第一行：n（数组长度）\n#   第二行：n 个整数\n#   第三行：k\n# 输出格式：一行 k 个整数（频率前 k 高的元素，按元素值升序输出；题目允许任意顺序）\nimport sys\nimport heapq\nfrom collections import defaultdict\n\ndef main():\n    data = sys.stdin.read().split()\n    n = int(data[0])\n    nums = [int(x) for x in data[1:1 + n]]\n    k = int(data[1 + n])\n    freq = defaultdict(int)\n    for x in nums:\n        freq[x] += 1\n    heap = []                          # (频率, 元素) 的最小堆\n    for key, cnt in freq.items():\n        if len(heap) < k:\n            heapq.heappush(heap, (cnt, key))    # 堆未满直接放入\n        elif cnt > heap[0][0]:\n            heapq.heapreplace(heap, (cnt, key)) # 高于第 k 高频才替换\n    ans = sorted(key for _, key in heap)        # 升序输出便于对拍\n    print(' '.join(map(str, ans)))\n\nif __name__ == '__main__':\n    main()",
+      "templates": [
+        "频率统计 + Top-K 模板：dict/defaultdict 统计频率 -> 大小为 k 的最小堆按频率比较，堆顶淘汰制",
+        "要求优于 O(n log n) 的 Top-K：优先想 O(n log k) 的堆、O(n) 的桶排序或平均 O(n) 的快速选择"
+      ],
+      "codeCpp": "class Solution {\npublic:\n    vector<int> topKFrequent(vector<int>& nums, int k) {\n        // 第一步：哈希表统计每个元素的出现频率\n        unordered_map<int, int> freq;\n        for (int x : nums) ++freq[x];\n        // 第二步：用大小为 k 的最小堆维护频率最高的 k 个 (频率, 元素) 对\n        priority_queue<pair<int, int>, vector<pair<int, int>>, greater<pair<int, int>>> heap;\n        for (const auto& [val, cnt] : freq) {\n            if ((int)heap.size() < k) {\n                heap.push({cnt, val});          // 堆未满，直接放入候选\n            } else if (cnt > heap.top().first) {\n                heap.pop();                     // 高于当前第 k 高频才替换\n                heap.push({cnt, val});\n            }\n        }\n        // 第三步：堆里剩下的就是前 k 高频元素\n        vector<int> ans;\n        while (!heap.empty()) {\n            ans.push_back(heap.top().second);   // 取出元素值\n            heap.pop();\n        }\n        return ans;\n    }\n};",
+      "acmCodeCpp": "// ACM 模式：完整可运行程序（stdin -> stdout）\n// 输入格式：\n//   第一行：n（数组长度）\n//   第二行：n 个整数\n//   第三行：k\n// 输出格式：一行 k 个整数（频率前 k 高的元素，按元素值升序输出；题目允许任意顺序）\n#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);\n    cin.tie(nullptr);\n\n    int n;\n    cin >> n;\n    vector<int> nums(n);\n    for (auto& x : nums) cin >> x;\n    int k;\n    cin >> k;\n\n    unordered_map<int, int> freq;               // 第一步：统计频率\n    for (int x : nums) ++freq[x];\n    priority_queue<pair<int, int>, vector<pair<int, int>>, greater<pair<int, int>>> heap;\n    for (const auto& [val, cnt] : freq) {       // 第二步：(频率, 元素) 最小堆\n        if ((int)heap.size() < k) {\n            heap.push({cnt, val});              // 堆未满直接放入\n        } else if (cnt > heap.top().first) {\n            heap.pop();                         // 高于第 k 高频才替换\n            heap.push({cnt, val});\n        }\n    }\n    vector<int> ans;                            // 第三步：收集堆中元素\n    while (!heap.empty()) {\n        ans.push_back(heap.top().second);\n        heap.pop();\n    }\n    sort(ans.begin(), ans.end());               // 升序输出便于对拍\n    for (int i = 0; i < (int)ans.size(); ++i) {\n        if (i) cout << ' ';\n        cout << ans[i];\n    }\n    cout << endl;\n    return 0;\n}",
+      "codeJava": "class Solution {\n    public int[] topKFrequent(int[] nums, int k) {\n        // 第一步：哈希表统计每个元素的出现频率\n        Map<Integer, Integer> freq = new HashMap<>();\n        for (int x : nums)\n            freq.put(x, freq.getOrDefault(x, 0) + 1);\n        // 第二步：用大小为 k 的最小堆维护频率最高的 k 个 (频率, 元素) 对\n        PriorityQueue<int[]> heap = new PriorityQueue<>((a, b) -> a[0] - b[0]);\n        for (Map.Entry<Integer, Integer> e : freq.entrySet()) {\n            int val = e.getKey(), cnt = e.getValue();\n            if (heap.size() < k) {\n                heap.offer(new int[]{cnt, val});   // 堆未满，直接放入候选\n            } else if (cnt > heap.peek()[0]) {\n                heap.poll();                       // 高于当前第 k 高频才替换\n                heap.offer(new int[]{cnt, val});\n            }\n        }\n        // 第三步：堆里剩下的就是前 k 高频元素\n        int[] ans = new int[heap.size()];\n        for (int i = 0; i < ans.length; i++)\n            ans[i] = heap.poll()[1];\n        return ans;\n    }\n}",
+      "codeJs": "/**\n * @param {number[]} nums\n * @param {number} k\n * @return {number[]}\n */\nvar topKFrequent = function (nums, k) {\n  // 第一步：哈希表统计每个元素的出现频率\n  const freq = new Map();\n  for (const x of nums) freq.set(x, (freq.get(x) || 0) + 1);\n\n  // 第二步：大小为 k 的最小堆（元素是 [频率, 值]，按频率比较）\n  const heap = [];\n  const push = (p) => {\n    heap.push(p);                // 新元素先放到堆底\n    let i = heap.length - 1;\n    while (i > 0) {              // 上浮：频率比父节点小就交换\n      const par = (i - 1) >> 1;\n      if (heap[i][0] >= heap[par][0]) break;\n      [heap[i], heap[par]] = [heap[par], heap[i]];\n      i = par;\n    }\n  };\n  const pop = () => {\n    const top = heap[0];         // 弹出频率最低的候选\n    const last = heap.pop();\n    if (heap.length) {\n      heap[0] = last;            // 末尾元素补到堆顶\n      let i = 0;\n      for (;;) {                 // 下沉：与频率较小的孩子交换\n        const l = 2 * i + 1, r = 2 * i + 2;\n        let m = i;\n        if (l < heap.length && heap[l][0] < heap[m][0]) m = l;\n        if (r < heap.length && heap[r][0] < heap[m][0]) m = r;\n        if (m === i) break;\n        [heap[i], heap[m]] = [heap[m], heap[i]];\n        i = m;\n      }\n    }\n    return top;\n  };\n\n  for (const [val, cnt] of freq) {\n    if (heap.length < k) {\n      push([cnt, val]);          // 堆未满，直接放入候选\n    } else if (cnt > heap[0][0]) {\n      pop();                     // 高于当前第 k 高频才替换\n      push([cnt, val]);\n    }\n  }\n  // 第三步：堆里剩下的就是前 k 高频元素\n  return heap.map(([, val]) => val);\n};",
+      "codeGo": "func topKFrequent(nums []int, k int) []int {\n\t// 第一步：哈希表统计每个元素的出现频率\n\tfreq := map[int]int{}\n\tfor _, x := range nums {\n\t\tfreq[x]++\n\t}\n\ttype pair struct {\n\t\tcnt int // 频率\n\t\tval int // 元素\n\t}\n\t// 第二步：大小为 k 的最小堆（按频率比较），手写 sift 不依赖标准库\n\theap := []pair{}\n\tpush := func(p pair) {\n\t\theap = append(heap, p) // 新元素先放到堆底\n\t\ti := len(heap) - 1\n\t\tfor i > 0 { // 上浮：频率比父节点小就交换\n\t\t\tpar := (i - 1) / 2\n\t\t\tif heap[i].cnt >= heap[par].cnt {\n\t\t\t\tbreak\n\t\t\t}\n\t\t\theap[i], heap[par] = heap[par], heap[i]\n\t\t\ti = par\n\t\t}\n\t}\n\tpop := func() pair {\n\t\ttop := heap[0] // 弹出频率最低的候选\n\t\tlast := heap[len(heap)-1]\n\t\theap = heap[:len(heap)-1]\n\t\tif len(heap) > 0 {\n\t\t\theap[0] = last // 末尾元素补到堆顶\n\t\t\ti, sz := 0, len(heap)\n\t\t\tfor { // 下沉：与频率较小的孩子交换\n\t\t\t\tl, r, m := 2*i+1, 2*i+2, i\n\t\t\t\tif l < sz && heap[l].cnt < heap[m].cnt {\n\t\t\t\t\tm = l\n\t\t\t\t}\n\t\t\t\tif r < sz && heap[r].cnt < heap[m].cnt {\n\t\t\t\t\tm = r\n\t\t\t\t}\n\t\t\t\tif m == i {\n\t\t\t\t\tbreak\n\t\t\t\t}\n\t\t\t\theap[i], heap[m] = heap[m], heap[i]\n\t\t\t\ti = m\n\t\t\t}\n\t\t}\n\t\treturn top\n\t}\n\n\tfor val, cnt := range freq {\n\t\tif len(heap) < k {\n\t\t\tpush(pair{cnt, val}) // 堆未满，直接放入候选\n\t\t} else if cnt > heap[0].cnt {\n\t\t\tpop() // 高于当前第 k 高频才替换\n\t\t\tpush(pair{cnt, val})\n\t\t}\n\t}\n\t// 第三步：堆里剩下的就是前 k 高频元素\n\tans := make([]int, 0, len(heap))\n\tfor _, p := range heap {\n\t\tans = append(ans, p.val)\n\t}\n\treturn ans\n}"
+    },
+    {
+      "id": 295,
+      "title": "Find Median from Data Stream",
+      "titleCn": "数据流的中位数",
+      "difficulty": "hard",
+      "frequency": 5,
+      "companies": [
+        "字节跳动",
+        "美团"
+      ],
+      "question": "中位数是有序整数列表中的中间值。如果列表长度为偶数，中位数则是中间两个值的平均值。\n\n例如，[2,3,4] 的中位数是 3；[2,3] 的中位数是 (2 + 3) / 2 = 2.5。\n\n设计一个支持以下两种操作的数据结构：void addNum(int num) 从数据流中添加一个整数到数据结构中；double findMedian() 返回目前所有元素的中位数。\n\n示例：输入 [\"MedianFinder\",\"addNum\",\"addNum\",\"findMedian\",\"addNum\",\"findMedian\"]，[[],[1],[2],[],[3],[]]，输出 [null,null,null,1.50000,null,2.00000]。",
+      "samples": [
+        {
+          "input": "[\"MedianFinder\",\"addNum\",\"addNum\",\"findMedian\",\"addNum\",\"findMedian\"] 与 [[],[1],[2],[],[3],[]]",
+          "output": "[null,null,null,1.50000,null,2.00000]",
+          "explain": "addNum(1)、addNum(2) 后中位数 (1+2)/2=1.5；addNum(3) 后中位数 2.0"
+        },
+        {
+          "input": "依次 addNum(2)、addNum(3)、addNum(4) 后查询",
+          "output": "3.00000",
+          "explain": "有序后为 [2,3,4]，中位数 3"
+        }
+      ],
+      "hints": [
+        "审题诀窍：中位数只关心『排序后的中间位置』，两侧内部元素的顺序无关紧要——把数据切成『较小的一半』和『较大的一半』就够了，不必维护全有序。",
+        "审题诀窍：较小的一半用最大堆（Python 中把元素取负存进最小堆模拟），较大的一半用最小堆——两个堆顶恰好就是中间的一个或两个数。",
+        "突破口：每次插入后维持两堆大小平衡，约定 len(small) 比 len(large) 最多多 1；查询时直接由两堆顶（或其一）O(1) 得出中位数。",
+        "追问预备：如何推广到求任意分位数 p？（按比例切分两堆：小侧占比 p，插入后向目标侧倾倒并再平衡）；滑动窗口中位数呢？（对顶堆 + 延迟删除，或平衡树）；数值范围很小呢？（计数数组 + 累计定位第 k 个）"
+      ],
+      "keyPoints": [
+        "small 用取负的最小堆模拟最大堆，存较小的一半；large 用最小堆，存较大的一半",
+        "新数先压入 small，再把 small 的最大值（取负还原）挪到 large，保证 small 的所有数都不超过 large 的所有数",
+        "平衡条件：len(small) 与 len(large) 相等，或 small 恰好多 1",
+        "奇数个元素时中位数 = -small[0]；偶数个时 = (-small[0] + large[0]) / 2.0"
+      ],
+      "structureTags": [
+        "heap"
+      ],
+      "approaches": [
+        {
+          "name": "有序数组 + 二分插入",
+          "idea": "维护一个有序数组：插入时用二分查找找到位置 O(log n)，但列表插入需要整体挪动元素，实际是 O(n)；findMedian 直接按下标取，O(1)。数据量大、插入频繁时成为瓶颈。",
+          "detail": "步骤拆解：\n1. 维持列表 arr 始终有序；addNum 用 bisect.insort(arr, num) 插入——二分找位是 O(log n)，但列表插入要整体挪动元素，实际是 O(n)。\n2. findMedian：n 为奇数返回 arr[n // 2]；偶数返回 (arr[n // 2 - 1] + arr[n // 2]) / 2。\n\n示例走查：依次加 1、2、3。arr 演化为 [1] → [1,2] → [1,2,3]。n=2 时查询 (arr[0]+arr[1])/2 = 1.5；n=3 时 arr[1] = 2。\n\n为什么正确：数组全程有序，中位数就是中间下标的元素，直接读取 O(1)；二分保证定位快，代价全部在挪动上。\n\n易错点：\n- 复杂度最容易答错：addNum 应答 O(n) 而不是 O(log n)——bisect 只优化了找位，插入挪动才是大头。\n- 偶数长度时中位数是两数平均值，记得用 / 2.0 做浮点除，整数除法会丢精度。\n- 若先 insert 再重新 sort 就退化为每次 O(n log n)，比 insort 更差。",
+          "complexity": "时间 addNum O(n)、findMedian O(1)，空间 O(n)",
+          "code": "import bisect\n\nclass MedianFinderArray:\n    def __init__(self):\n        self.arr = []                      # 始终有序的数组\n\n    def addNum(self, num):\n        bisect.insort(self.arr, num)       # 二分定位 O(log n) + 插入挪动 O(n)\n\n    def findMedian(self):\n        n = len(self.arr)\n        if n % 2 == 1:\n            return float(self.arr[n // 2])  # 奇数取正中\n        return (self.arr[n // 2 - 1] + self.arr[n // 2]) / 2.0  # 偶数取平均"
+        },
+        {
+          "name": "对顶堆",
+          "idea": "用两个堆把数据流切成两半：small 是存负数的最大堆（较小一半），large 是最小堆（较大一半）。每次插入先压入 small，再把 small 堆顶挪给 large；若 large 比 small 大，再把 large 堆顶挪回 small，从而同时保证『有序切分』与『大小平衡（small 最多多 1）』。插入 O(log n)，查询 O(1)。",
+          "detail": "步骤拆解：\n1. small：存较小一半，元素取负入 heapq 模拟最大堆；large：存较大一半，最小堆。不变式：max(small) <= min(large)，且 len(small) - len(large) ∈ {0, 1}。\n2. addNum：先 heappush(small, -num)；再把 small 堆顶弹出送入 large（保证跨堆有序）；若 len(large) > len(small)，把 large 堆顶送回 small（恢复平衡）。\n3. findMedian：len(small) > len(large) 返回 -small[0]；否则返回 (-small[0] + large[0]) / 2。\n\n示例走查：依次加 1、2、3。加 1：small=[-1] → 1 进 large → large 偏大 → 弹回 small=[-1]，large=[]，中位数 1。加 2：small=[-2,-1] → 2 进 large=[2]，small=[-1]，两堆各 1 个，中位数 (1+2)/2=1.5。加 3：small=[-3,-1] → 3 进 large=[2,3]，small=[-1] → 2 弹回 small=[-2,-1]，large=[3]，中位数 2。\n\n为什么正确：两次『挪堆顶』同时维护两个不变式——第一步保证 small 的最大值 <= large 的最小值（有序切分），第二步保证两堆大小差不超过 1（平衡）；于是中位数只由两堆顶决定，查询 O(1)、插入 O(log n)。\n\n易错点：\n- small 里存的是负数，所有读写都要带负号还原，漏一个负号结果全错。\n- 平衡约定要固定（small 最多多 1），findMedian 的奇偶分支必须与之配套。\n- 用『比较两边堆顶决定新数进哪边』的写法也能对，但平衡分支更多、更容易漏，推荐本题的『先压 small 再挪』三步式。",
+          "complexity": "时间 addNum O(log n)、findMedian O(1)，空间 O(n)",
+          "optimal": true,
+          "code": "import heapq\n\nclass MedianFinderHeaps:\n    def __init__(self):\n        self.small = []   # 存负数：较小一半的最大堆\n        self.large = []   # 较大一半的最小堆\n\n    def addNum(self, num):\n        heapq.heappush(self.small, -num)             # 先进较小一半\n        heapq.heappush(self.large, -heapq.heappop(self.small))  # 最大值挪给 large\n        if len(self.large) > len(self.small):        # 平衡：small 最多多 1\n            heapq.heappush(self.small, -heapq.heappop(self.large))\n\n    def findMedian(self):\n        if len(self.small) > len(self.large):\n            return float(-self.small[0])             # 奇数：small 堆顶\n        return (-self.small[0] + self.large[0]) / 2.0  # 偶数：两堆顶平均"
+        }
+      ],
+      "code": "import heapq\n\nclass MedianFinder:\n    def __init__(self):\n        self.small = []   # 最大堆（存负数）：较小的一半，堆顶是这一半的最大值\n        self.large = []   # 最小堆：较大的一半，堆顶是这一半的最小值\n\n    def addNum(self, num: int) -> None:\n        # 先放进较小的一半，再把 small 的最大值挪给 large，保证 small 全部 <= large\n        heapq.heappush(self.small, -num)\n        heapq.heappush(self.large, -heapq.heappop(self.small))\n        # 维持大小平衡：约定 small 可以比 large 多一个元素\n        if len(self.large) > len(self.small):\n            # large 多了一个，把它的最小值挪回 small\n            heapq.heappush(self.small, -heapq.heappop(self.large))\n\n    def findMedian(self) -> float:\n        if len(self.small) > len(self.large):\n            # 总数为奇数：中位数就是较小一半的最大值（记得负号还原）\n            return float(-self.small[0])\n        # 总数为偶数：中间两个数取平均\n        return (-self.small[0] + self.large[0]) / 2.0",
+      "acmCode": "# ACM 模式：完整可运行程序（stdin -> stdout）\n# 输入格式：\n#   第一行：n（addNum 的调用次数）\n#   第二行：n 个整数，依次为 addNum 的参数；每加入一个数即输出一次当前中位数\n# 输出格式：n 行，每行一个保留 5 位小数的中位数\nimport sys\nimport heapq\n\ndef main():\n    data = sys.stdin.read().split()\n    n = int(data[0])\n    nums = [int(x) for x in data[1:1 + n]]\n    small = []     # 取负的最小堆 => 最大堆，存较小一半\n    large = []     # 最小堆，存较大一半\n    out = []\n    for x in nums:\n        heapq.heappush(small, -x)                       # 先进较小一半\n        heapq.heappush(large, -heapq.heappop(small))    # 最大值挪给 large\n        if len(large) > len(small):                     # 平衡：small 最多多 1\n            heapq.heappush(small, -heapq.heappop(large))\n        if len(small) > len(large):                     # 奇数个元素\n            out.append(\"%.5f\" % float(-small[0]))\n        else:                                           # 偶数个元素\n            out.append(\"%.5f\" % ((-small[0] + large[0]) / 2.0))\n    print('\\n'.join(out))\n\nif __name__ == '__main__':\n    main()",
+      "templates": [
+        "对顶堆模板：small = 取负最大堆（较小半），large = 最小堆（较大半）；插入后通过『挪堆顶』保证 small 全部 <= large 且 |两堆大小差| <= 1",
+        "动态数据流的中位数/分位数问题：对顶堆插入 O(log n)、查询 O(1)；求任意分位数可推广为按比例切分两堆"
+      ],
+      "codeCpp": "class MedianFinder {\npublic:\n    MedianFinder() {}\n\n    void addNum(int num) {\n        small.push(num);              // 先放进较小的一半\n        large.push(small.top());      // small 的最大值挪给 large，保证跨堆有序\n        small.pop();\n        if (large.size() > small.size()) {   // 平衡：约定 small 最多多 1\n            small.push(large.top());         // large 多了一个，把它的最小值挪回 small\n            large.pop();\n        }\n    }\n\n    double findMedian() {\n        if (small.size() > large.size())\n            return (double)small.top();    // 总数为奇数：较小一半的最大值\n        // 总数为偶数：中间两个数取平均\n        return ((double)small.top() + large.top()) / 2.0;\n    }\n\nprivate:\n    priority_queue<int> small;                             // 大根堆：较小的一半\n    priority_queue<int, vector<int>, greater<int>> large;  // 小根堆：较大的一半\n};",
+      "acmCodeCpp": "// ACM 模式：完整可运行程序（stdin -> stdout）\n// 输入格式：\n//   第一行：n（addNum 的调用次数）\n//   第二行：n 个整数，依次为 addNum 的参数；每加入一个数即输出一次当前中位数\n// 输出格式：n 行，每行一个保留 5 位小数的中位数\n#include <bits/stdc++.h>\n#include <cstdio>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);\n    cin.tie(nullptr);\n\n    int n;\n    cin >> n;\n    priority_queue<int> small;                             // 大根堆：较小的一半\n    priority_queue<int, vector<int>, greater<int>> large;  // 小根堆：较大的一半\n    for (int i = 0; i < n; ++i) {\n        int x;\n        cin >> x;\n        small.push(x);                // 先放进较小的一半\n        large.push(small.top());      // 最大值挪给 large，保证跨堆有序\n        small.pop();\n        if (large.size() > small.size()) {   // 平衡：约定 small 最多多 1\n            small.push(large.top());\n            large.pop();\n        }\n        double med = (small.size() > large.size())\n                         ? (double)small.top()                      // 奇数个元素\n                         : ((double)small.top() + large.top()) / 2.0;  // 偶数个元素\n        printf(\"%.5f\\n\", med);\n    }\n    return 0;\n}",
+      "codeJava": "class MedianFinder {\n    private final PriorityQueue<Integer> small =\n            new PriorityQueue<>(Collections.reverseOrder());  // 大根堆：较小的一半\n    private final PriorityQueue<Integer> large = new PriorityQueue<>();  // 小根堆：较大的一半\n\n    public MedianFinder() {}\n\n    public void addNum(int num) {\n        small.offer(num);            // 先放进较小的一半\n        large.offer(small.poll());   // small 的最大值挪给 large，保证跨堆有序\n        if (large.size() > small.size()) {   // 平衡：约定 small 最多多 1\n            small.offer(large.poll());       // large 多了一个，把它的最小值挪回 small\n        }\n    }\n\n    public double findMedian() {\n        if (small.size() > large.size())\n            return (double) small.peek();    // 总数为奇数：较小一半的最大值\n        // 总数为偶数：中间两个数取平均\n        return ((double) small.peek() + large.peek()) / 2.0;\n    }\n}",
+      "codeJs": "// 最小堆的两个辅助操作（最大堆通过存负数模拟）\nfunction heapPush(heap, x) {\n  heap.push(x);                  // 新元素先放到堆底\n  let i = heap.length - 1;\n  while (i > 0) {                // 上浮：比父节点小就交换\n    const p = (i - 1) >> 1;\n    if (heap[i] >= heap[p]) break;\n    [heap[i], heap[p]] = [heap[p], heap[i]];\n    i = p;\n  }\n}\n\nfunction heapPop(heap) {\n  const top = heap[0];           // 弹出堆顶\n  const last = heap.pop();\n  if (heap.length) {\n    heap[0] = last;              // 末尾元素补到堆顶\n    let i = 0;\n    for (;;) {                   // 下沉：与较小的孩子交换\n      const l = 2 * i + 1, r = 2 * i + 2;\n      let m = i;\n      if (l < heap.length && heap[l] < heap[m]) m = l;\n      if (r < heap.length && heap[r] < heap[m]) m = r;\n      if (m === i) break;\n      [heap[i], heap[m]] = [heap[m], heap[i]];\n      i = m;\n    }\n  }\n  return top;\n}\n\n/**\n * 数据流中位数：对顶堆，small 存较小一半（负数模拟大根堆），large 存较大一半\n */\nvar MedianFinder = function () {\n  this.small = [];  // 最大堆（存负数）：堆顶是较小一半的最大值\n  this.large = [];  // 最小堆：堆顶是较大一半的最小值\n};\n\n/**\n * @param {number} num\n * @return {void}\n */\nMedianFinder.prototype.addNum = function (num) {\n  heapPush(this.small, -num);                 // 先放进较小的一半（存负数模拟最大堆）\n  heapPush(this.large, -heapPop(this.small)); // small 的最大值挪给 large，保证跨堆有序\n  if (this.large.length > this.small.length)  // 平衡：约定 small 最多多 1\n    heapPush(this.small, -heapPop(this.large)); // large 多了一个，最小值挪回 small\n};\n\n/**\n * @return {number}\n */\nMedianFinder.prototype.findMedian = function () {\n  if (this.small.length > this.large.length)\n    return -this.small[0];                    // 总数为奇数：较小一半的最大值（负号还原）\n  return (-this.small[0] + this.large[0]) / 2;  // 总数为偶数：中间两个数取平均\n};",
+      "codeGo": "type MedianFinder struct {\n\tsmall []int // 存负数：较小一半的最大堆（最小堆存负数模拟）\n\tlarge []int // 较大一半的最小堆\n}\n\n// heapPush 向最小堆压入元素（上浮）\nfunc heapPush(h *[]int, x int) {\n\t*h = append(*h, x) // 新元素先放到堆底\n\ti := len(*h) - 1\n\tfor i > 0 { // 上浮：比父节点小就交换\n\t\tp := (i - 1) / 2\n\t\tif (*h)[i] >= (*h)[p] {\n\t\t\tbreak\n\t\t}\n\t\t(*h)[i], (*h)[p] = (*h)[p], (*h)[i]\n\t\ti = p\n\t}\n}\n\n// heapPop 弹出最小堆堆顶（下沉）\nfunc heapPop(h *[]int) int {\n\thp := *h\n\ttop := hp[0] // 弹出堆顶\n\t*h = hp[:len(hp)-1]\n\tif len(*h) > 0 {\n\t\t(*h)[0] = hp[len(hp)-1] // 末尾元素补到堆顶\n\t\ti, sz := 0, len(*h)\n\t\tfor { // 下沉：与较小的孩子交换\n\t\t\tl, r, m := 2*i+1, 2*i+2, i\n\t\t\tif l < sz && (*h)[l] < (*h)[m] {\n\t\t\t\tm = l\n\t\t\t}\n\t\t\tif r < sz && (*h)[r] < (*h)[m] {\n\t\t\t\tm = r\n\t\t\t}\n\t\t\tif m == i {\n\t\t\t\tbreak\n\t\t\t}\n\t\t\t(*h)[i], (*h)[m] = (*h)[m], (*h)[i]\n\t\t\ti = m\n\t\t}\n\t}\n\treturn top\n}\n\nfunc MedianFinderConstructor() MedianFinder {\n\treturn MedianFinder{}\n}\n\nfunc (mf *MedianFinder) AddNum(num int) {\n\theapPush(&mf.small, -num)                // 先放进较小的一半（存负数模拟最大堆）\n\theapPush(&mf.large, -heapPop(&mf.small)) // small 的最大值挪给 large，保证跨堆有序\n\tif len(mf.large) > len(mf.small) {       // 平衡：约定 small 最多多 1\n\t\theapPush(&mf.small, -heapPop(&mf.large)) // large 多了一个，最小值挪回 small\n\t}\n}\n\nfunc (mf *MedianFinder) FindMedian() float64 {\n\tif len(mf.small) > len(mf.large) {\n\t\treturn float64(-mf.small[0]) // 总数为奇数：较小一半的最大值\n\t}\n\t// 总数为偶数：中间两个数取平均\n\treturn float64(-mf.small[0]+mf.large[0]) / 2.0\n}"
+    },
+    {
+      "id": 502,
+      "title": "IPO",
+      "titleCn": "IPO",
+      "difficulty": "hard",
+      "frequency": 3,
+      "companies": [
+        "字节跳动",
+        "腾讯"
+      ],
+      "question": "假设力扣（LeetCode）即将开始 IPO。为了以更高的价格将股票卖给风险投资公司，力扣希望在 IPO 之前开展多个项目以增加资本。由于资源有限，它只能在 IPO 之前完成最多 k 个不同的项目。请帮助力扣设计完成最多 k 个不同项目后得到最大总资本的方式。\n\n给你 n 个项目。对于每个项目 i，它都有一个纯利润 profits[i]，和启动该项目需要的最小资本 capital[i]。初始时你的资本为 w。当你完成一个项目时，你将获得纯利润，且利润将被添加到你的总资本中。总而言之，从给定项目中选择最多 k 个不同项目的列表，以最大化最终资本，并输出最终可获得的最大资本。答案保证在 32 位有符号整数范围内。\n\n示例 1：输入 k = 2, w = 0, profits = [1,2,3], capital = [0,1,1]，输出 4（先做下标 0 的项目，获得利润 1，资本变为 1；再做下标 2 的项目，获得利润 3，资本变为 4）。\n示例 2：输入 k = 3, w = 0, profits = [1,2,3], capital = [0,1,2]，输出 6（三个项目全部做完）。",
+      "samples": [
+        {
+          "input": "k = 2, w = 0, profits = [1,2,3], capital = [0,1,1]",
+          "output": "4",
+          "explain": "先做下标 0 的项目得利润 1，资本变 1；再做下标 2 的项目得利润 3，资本变 4"
+        },
+        {
+          "input": "k = 3, w = 0, profits = [1,2,3], capital = [0,1,2]",
+          "output": "6",
+          "explain": "三个项目依次全部完成"
+        }
+      ],
+      "hints": [
+        "审题诀窍：每一轮的选择只与『当前资本 w 能启动哪些项目』有关，且完成项目只会让 w 增加不会减少——所以每轮做『可做项目中利润最大』的那个是安全的贪心。",
+        "审题诀窍：w 单调不减，意味着可启动的项目集合只会越来越大——按 capital 排序后用指针增量地把新解锁项目压入堆，不必每轮全量扫描。",
+        "突破口：维护一个按利润组织的最大堆（Python 里利润取负入最小堆）；每轮先把 capital <= w 的项目全部压入，再弹堆顶利润累加到 w，重复 k 次。",
+        "追问预备：利润可能为负还能这样贪心吗？（不能，w 不再单调、可做集合不再只增不减，需改搜索/DP）；要输出选了哪些项目呢？（项目入堆时携带下标，出堆时记录）；k >= n 时呢？（能做的全做，堆空提前 break）"
+      ],
+      "keyPoints": [
+        "项目按 capital 升序排序，指针 j 指向第一个尚未入堆的项目",
+        "每轮开始时，把所有 capital <= w 的项目（利润取负）压入堆，指针只前进不回退",
+        "弹出堆顶即当前可做项目中利润最大的，w += 利润；堆空说明无项目可做，提前结束",
+        "排序 O(n log n)，之后最多 k 次堆操作 O(k log n)，每个项目至多入堆一次"
+      ],
+      "structureTags": [
+        "heap",
+        "greedy",
+        "sort"
+      ],
+      "approaches": [
+        {
+          "name": "暴力轮询",
+          "idea": "重复至多 k 轮：每轮线性扫描所有未完成且 capital <= w 的项目，选利润最大的执行并累加利润。逻辑直白，但每轮 O(n)，n、k 达 10⁵ 时 O(nk) 超时。",
+          "detail": "步骤拆解：\n1. 重复至多 k 轮：每轮线性扫描全部项目，在 capital[i] <= w 且未完成的项目中找利润最大者。\n2. 执行后 w += profits[i] 并标记 done[i] = True；若某轮一个可做项目都没有，提前结束。\n\n示例走查：示例 1。轮 1：可做 {项目 0（capital 0）}，做它 w=1。轮 2：可做 {1, 2}，利润最大的是项目 2（利润 3），w=4。k=2 轮结束，输出 4。\n\n为什么正确：每一轮『做可做项目中利润最大的』是局部最优；由于 w 只增不减、可做集合单调扩张，用交换论证（把最优解的第一步换成当前利润最大者不会更差）可得全局最优。\n\n易错点：\n- 每轮全扫是 O(nk)，n、k 到 1e5 时约 1e10 次运算必超时——这是必须引出堆优化的原因。\n- 『未完成』标记别忘：同一个项目不能重复做。\n- 某轮无可做项目时直接 break，别空转剩余轮次。",
+          "complexity": "时间 O(nk)，空间 O(1)",
+          "code": "def findMaximizedCapital_brute(k, w, profits, capital):\n    n = len(profits)\n    done = [False] * n                    # 项目是否已完成\n    for _ in range(k):                    # 最多做 k 个项目\n        best = -1                         # 可做项目中利润最大者\n        for i in range(n):\n            if not done[i] and capital[i] <= w:\n                if best == -1 or profits[i] > profits[best]:\n                    best = i\n        if best == -1:                    # 没有可做的项目\n            break\n        done[best] = True\n        w += profits[best]                # 利润累加进资本\n    return w"
+        },
+        {
+          "name": "排序 + 利润最大堆",
+          "idea": "把项目按 capital 升序排序；每轮先用指针把所有 capital <= 当前 w 的项目压入按利润组织的大根堆（Python 存负利润），再弹出堆顶执行、利润累加进 w。因为 w 单调不减，指针只前进，每个项目至多入堆一次；共 k 轮、每轮一次出堆。贪心正确性来自『利润只增不减，当前能做的先做利润最大的不会更差』。",
+          "detail": "步骤拆解：\n1. projects = sorted(zip(capital, profits)) 按启动资本升序；j = 0 指向第一个未入堆的项目；heap 为存负利润的大根堆。\n2. 每轮（共至多 k 轮）：先 while j < n and projects[j][0] <= w 把新解锁项目的负利润压入堆、j += 1；若堆空则 break；否则 w += -heappop(heap) 执行利润最大的项目。\n\n示例走查：示例 1，projects=[(0,1),(1,2),(1,3)]。轮 1：w=0 解锁 (0,1)，堆中 {1}；做它 w=1。轮 2：解锁 (1,2)、(1,3)，堆中 {2,3}；做利润 3 的，w=4。输出 4。\n\n为什么正确：核心是贪心 + 堆——w 单调不减使得可做集合只增不减，按 capital 排序后指针只前进、每个项目至多入堆一次；在可做集合中选利润最大者执行，交换论证保证不劣；堆把『找最大』从 O(n) 降到 O(log n)，总复杂度 O(n log n + k log n)。\n\n易错点：\n- 解锁条件是 projects[j][0] <= w，写成 < 会漏掉资本恰好够的项目。\n- 堆空要 break 而不是 continue：w 未变、指针不再前进，后续轮次也不会有新项目解锁。\n- 指针 j 只前进的前提是 w 不减：本题纯利润 >= 0 才成立，若利润可为负整个贪心崩塌。\n- zip(capital, profits) 同 capital 时会按 profits 比较排序，对正确性无影响，但要心里有数。",
+          "complexity": "时间 O(n log n)（排序）+ O(k log n)（堆操作），空间 O(n)",
+          "optimal": true,
+          "code": "import heapq\n\ndef findMaximizedCapital_heap(k, w, profits, capital):\n    projects = sorted(zip(capital, profits))  # 按启动资本升序\n    heap = []                                 # 存负利润的大根堆\n    j, n = 0, len(projects)\n    for _ in range(k):                        # 最多做 k 个项目\n        while j < n and projects[j][0] <= w:  # 解锁所有资本够的项目\n            heapq.heappush(heap, -projects[j][1])\n            j += 1\n        if not heap:                          # 无项目可做\n            break\n        w += -heapq.heappop(heap)             # 做利润最大的可做项目\n    return w"
+        }
+      ],
+      "code": "import heapq\n\nclass Solution:\n    def findMaximizedCapital(self, k: int, w: int, profits: List[int], capital: List[int]) -> int:\n        # 按『启动所需资本』升序排序，便于用指针增量解锁可做的项目\n        projects = sorted(zip(capital, profits))\n        heap = []      # 大根堆（存负利润）：装当前资本 w 能启动的所有项目\n        j = 0          # 指向第一个还没入堆的项目；w 只增不减，指针不会回头\n        for _ in range(k):                # 最多做 k 个项目\n            while j < len(projects) and projects[j][0] <= w:\n                # 资本够了，项目解锁，把利润（取负）压入堆\n                heapq.heappush(heap, -projects[j][1])\n                j += 1\n            if not heap:                  # 没有任何可做的项目，提前结束\n                break\n            w += -heapq.heappop(heap)     # 贪心：做当前可做项目中利润最大的\n        return w",
+      "acmCode": "# ACM 模式：完整可运行程序（stdin -> stdout）\n# 输入格式：\n#   第一行：k w n（最多做 k 个项目、初始资本 w、项目数 n）\n#   第二行：n 个整数 profits\n#   第三行：n 个整数 capital\n# 输出格式：一行一个整数，最终最大资本\nimport sys\nimport heapq\n\ndef main():\n    data = sys.stdin.read().split()\n    k, w, n = int(data[0]), int(data[1]), int(data[2])\n    profits = [int(x) for x in data[3:3 + n]]\n    capital = [int(x) for x in data[3 + n:3 + 2 * n]]\n    projects = sorted(zip(capital, profits))    # 按启动资本升序\n    heap = []                                   # 大根堆（存负利润）\n    j = 0                                       # 第一个尚未入堆的项目\n    for _ in range(k):\n        while j < n and projects[j][0] <= w:    # 解锁所有资本够的项目\n            heapq.heappush(heap, -projects[j][1])\n            j += 1\n        if not heap:                            # 无项目可做，提前结束\n            break\n        w += -heapq.heappop(heap)               # 做当前可做项目中利润最大的\n    print(w)\n\nif __name__ == '__main__':\n    main()",
+      "templates": [
+        "贪心 + 堆模板：按门槛（capital）排序，指针把满足条件的新元素增量入堆，每步取堆顶最优并更新门槛",
+        "『每轮在可选项中取最优』且可选项集合只增不减时：排序 + 指针 + 堆，从 O(nk) 降到 O(n log n)"
+      ],
+      "codeCpp": "class Solution {\npublic:\n    int findMaximizedCapital(int k, int w, vector<int>& profits, vector<int>& capital) {\n        int n = (int)profits.size();\n        vector<pair<int, int>> projects(n);   // (启动资本, 利润)\n        for (int i = 0; i < n; ++i)\n            projects[i] = {capital[i], profits[i]};\n        // 按『启动所需资本』升序排序，便于用指针增量解锁可做的项目\n        sort(projects.begin(), projects.end());\n        priority_queue<int> heap;   // 大根堆：装当前资本 w 能启动的所有项目（存利润）\n        int j = 0;                  // 指向第一个还没入堆的项目；w 只增不减，指针不会回头\n        for (int round = 0; round < k; ++round) {   // 最多做 k 个项目\n            while (j < n && projects[j].first <= w) {\n                heap.push(projects[j].second);   // 资本够了，项目解锁，利润压入堆\n                ++j;\n            }\n            if (heap.empty()) break;   // 没有任何可做的项目，提前结束\n            w += heap.top();           // 贪心：做当前可做项目中利润最大的\n            heap.pop();\n        }\n        return w;\n    }\n};",
+      "acmCodeCpp": "// ACM 模式：完整可运行程序（stdin -> stdout）\n// 输入格式：\n//   第一行：k w n（最多做 k 个项目、初始资本 w、项目数 n）\n//   第二行：n 个整数 profits\n//   第三行：n 个整数 capital\n// 输出格式：一行一个整数，最终最大资本\n#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);\n    cin.tie(nullptr);\n\n    int k, w, n;\n    cin >> k >> w >> n;\n    vector<int> profits(n), capital(n);\n    for (auto& x : profits) cin >> x;\n    for (auto& x : capital) cin >> x;\n\n    vector<pair<int, int>> projects(n);   // (启动资本, 利润)\n    for (int i = 0; i < n; ++i)\n        projects[i] = {capital[i], profits[i]};\n    sort(projects.begin(), projects.end());   // 按启动资本升序\n    priority_queue<int> heap;                 // 大根堆（存利润）\n    int j = 0;                                // 第一个尚未入堆的项目\n    for (int round = 0; round < k; ++round) {\n        while (j < n && projects[j].first <= w) {   // 解锁所有资本够的项目\n            heap.push(projects[j].second);\n            ++j;\n        }\n        if (heap.empty()) break;   // 无项目可做，提前结束\n        w += heap.top();           // 做当前可做项目中利润最大的\n        heap.pop();\n    }\n    cout << w << endl;\n    return 0;\n}",
+      "codeJava": "class Solution {\n    public int findMaximizedCapital(int k, int w, int[] profits, int[] capital) {\n        int n = profits.length;\n        int[][] projects = new int[n][2];   // projects[i] = {启动资本, 利润}\n        for (int i = 0; i < n; i++) {\n            projects[i][0] = capital[i];\n            projects[i][1] = profits[i];\n        }\n        // 按『启动所需资本』升序排序，便于用指针增量解锁可做的项目\n        Arrays.sort(projects, (a, b) -> Integer.compare(a[0], b[0]));\n        // 大根堆：装当前资本 w 能启动的所有项目（存利润）\n        PriorityQueue<Integer> heap = new PriorityQueue<>(Collections.reverseOrder());\n        int j = 0;   // 指向第一个还没入堆的项目；w 只增不减，指针不会回头\n        for (int round = 0; round < k; round++) {   // 最多做 k 个项目\n            while (j < n && projects[j][0] <= w) {\n                heap.offer(projects[j][1]);   // 资本够了，项目解锁，利润压入堆\n                j++;\n            }\n            if (heap.isEmpty()) break;   // 没有任何可做的项目，提前结束\n            w += heap.poll();            // 贪心：做当前可做项目中利润最大的\n        }\n        return w;\n    }\n}",
+      "codeJs": "/**\n * @param {number} k\n * @param {number} w\n * @param {number[]} profits\n * @param {number[]} capital\n * @return {number}\n */\nvar findMaximizedCapital = function (k, w, profits, capital) {\n  // 按『启动所需资本』升序排序，便于用指针增量解锁可做的项目\n  const projects = capital\n    .map((c, i) => [c, profits[i]])\n    .sort((a, b) => a[0] - b[0]);\n\n  // 大根堆：存负利润的最小堆，堆顶即当前可做项目中利润最大的\n  const heap = [];\n  const push = (x) => {\n    heap.push(x);              // 新元素先放到堆底\n    let i = heap.length - 1;\n    while (i > 0) {            // 上浮：比父节点小就交换\n      const p = (i - 1) >> 1;\n      if (heap[i] >= heap[p]) break;\n      [heap[i], heap[p]] = [heap[p], heap[i]];\n      i = p;\n    }\n  };\n  const pop = () => {\n    const top = heap[0];       // 弹出堆顶（当前最大利润）\n    const last = heap.pop();\n    if (heap.length) {\n      heap[0] = last;          // 末尾元素补到堆顶\n      let i = 0;\n      for (;;) {               // 下沉：与较小的孩子交换\n        const l = 2 * i + 1, r = 2 * i + 2;\n        let m = i;\n        if (l < heap.length && heap[l] < heap[m]) m = l;\n        if (r < heap.length && heap[r] < heap[m]) m = r;\n        if (m === i) break;\n        [heap[i], heap[m]] = [heap[m], heap[i]];\n        i = m;\n      }\n    }\n    return top;\n  };\n\n  let j = 0;   // 指向第一个还没入堆的项目；w 只增不减，指针不会回头\n  for (let round = 0; round < k; round++) {   // 最多做 k 个项目\n    while (j < projects.length && projects[j][0] <= w) {\n      push(-projects[j][1]);   // 资本够了，项目解锁，负利润入堆\n      j++;\n    }\n    if (!heap.length) break;   // 没有任何可做的项目，提前结束\n    w += -pop();               // 贪心：做当前可做项目中利润最大的\n  }\n  return w;\n};",
+      "codeGo": "func findMaximizedCapital(k int, w int, profits []int, capital []int) int {\n\tn := len(profits)\n\ttype project struct {\n\t\tcap int // 启动资本\n\t\tpro int // 利润\n\t}\n\tprojects := make([]project, n)\n\tfor i := 0; i < n; i++ {\n\t\tprojects[i] = project{capital[i], profits[i]}\n\t}\n\t// 按『启动所需资本』升序排序，便于用指针增量解锁可做的项目\n\tsort.Slice(projects, func(i, j int) bool { return projects[i].cap < projects[j].cap })\n\n\t// 大根堆：存负利润的最小堆，堆顶即当前可做项目中利润最大的\n\theap := []int{}\n\tpush := func(x int) {\n\t\theap = append(heap, x) // 新元素先放到堆底\n\t\ti := len(heap) - 1\n\t\tfor i > 0 { // 上浮：比父节点小就交换\n\t\t\tp := (i - 1) / 2\n\t\t\tif heap[i] >= heap[p] {\n\t\t\t\tbreak\n\t\t\t}\n\t\t\theap[i], heap[p] = heap[p], heap[i]\n\t\t\ti = p\n\t\t}\n\t}\n\tpop := func() int {\n\t\ttop := heap[0] // 弹出堆顶（当前最大利润的负值）\n\t\theap[0] = heap[len(heap)-1]\n\t\theap = heap[:len(heap)-1]\n\t\ti, sz := 0, len(heap)\n\t\tfor { // 下沉：与较小的孩子交换\n\t\t\tl, r, m := 2*i+1, 2*i+2, i\n\t\t\tif l < sz && heap[l] < heap[m] {\n\t\t\t\tm = l\n\t\t\t}\n\t\t\tif r < sz && heap[r] < heap[m] {\n\t\t\t\tm = r\n\t\t\t}\n\t\t\tif m == i {\n\t\t\t\tbreak\n\t\t\t}\n\t\t\theap[i], heap[m] = heap[m], heap[i]\n\t\t\ti = m\n\t\t}\n\t\treturn top\n\t}\n\n\tj := 0 // 指向第一个还没入堆的项目；w 只增不减，指针不会回头\n\tfor round := 0; round < k; round++ { // 最多做 k 个项目\n\t\tfor j < n && projects[j].cap <= w {\n\t\t\tpush(-projects[j].pro) // 资本够了，项目解锁，负利润入堆\n\t\t\tj++\n\t\t}\n\t\tif len(heap) == 0 { // 没有任何可做的项目，提前结束\n\t\t\tbreak\n\t\t}\n\t\tw += -pop() // 贪心：做当前可做项目中利润最大的\n\t}\n\treturn w\n}"
+    }
+  ]
+}

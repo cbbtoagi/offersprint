@@ -1,0 +1,79 @@
+{
+  "topic": "滑动窗口",
+  "problems": [
+    {
+      "id": 3,
+      "title": "Longest Substring Without Repeating Characters",
+      "titleCn": "无重复字符的最长子串",
+      "difficulty": "medium",
+      "frequency": 5,
+      "companies": [
+        "字节跳动",
+        "腾讯",
+        "美团",
+        "阿里巴巴"
+      ],
+      "question": "给定一个字符串 s，请你找出其中不含有重复字符的最长子串的长度。\n\n示例 1：输入 s = \"abcabcbb\"，输出 3（最长无重复子串是 \"abc\"）。\n示例 2：输入 s = \"bbbbb\"，输出 1（最长是 \"b\"）。",
+      "samples": [
+        {
+          "input": "s = \"abcabcbb\"",
+          "output": "3",
+          "explain": "最长无重复子串是 \"abc\"，注意 \"abca\" 含重复的 a"
+        },
+        {
+          "input": "s = \"bbbbb\"",
+          "output": "1",
+          "explain": "最长是 \"b\""
+        },
+        {
+          "input": "s = \"pwwkew\"",
+          "output": "3",
+          "explain": "最长是 \"wke\"；答案必须是子串（连续），\"pwke\" 是子序列不算"
+        }
+      ],
+      "hints": [
+        "审题诀窍：子串 = 连续。这排除了子序列的做法，指向滑动窗口。",
+        "突破口：右指针扩张遇到重复字符时，左边界只能单调右移——左指针永不回退，这是 O(n) 的来源。",
+        "细节：字符集是什么？ASCII 128 内，用定长数组或哈希记录『字符 -> 最近下标』都可以。",
+        "追问预备：『至多包含 k 个不同字符的最长子串』（340）怎么做？（dict 维护字符计数，不同字符数超过 k 时收缩左端，模板与本题主线一致）；为什么要区分子串与子序列？（子串必须连续才能滑动窗口，子序列如 \"pwke\" 要换 DP/贪心思路）"
+      ],
+      "keyPoints": [
+        "识别『连续子串 + 约束』→ 滑动窗口",
+        "窗口维护：右扩，遇重复时左边界收缩到重复位置之后",
+        "哈希表记录字符最近出现下标，实现 O(1) 判断重复",
+        "每步用窗口长度 r - l + 1 更新答案"
+      ],
+      "structureTags": [
+        "sliding_window",
+        "hashmap"
+      ],
+      "approaches": [
+        {
+          "name": "暴力 + 哈希集合",
+          "idea": "枚举每个起点，向右扩展直到遇到重复。O(n²)，可作思维基线。",
+          "detail": "步骤拆解：\n1. 外层枚举起点 i，内层用全新 seen 集合 + 指针 j 从 i 向右扩展。\n2. 只要 s[j] 不在 seen 就收进来（seen.add，j += 1）；遇到重复字符或到头停。\n3. [i, j) 是以 i 开头的最长无重复子串，用 j - i 刷新答案。\n\n示例走查：s = \"abcabcbb\"。i=0：a,b,c 收进，j=3 遇 a 停 → 长 3；i=1：b,c,a → 长 3；……每个起点最多收 3 个，答案 3 ✓。\ns = \"bbbbb\"：每个起点只能收一个 b，答案 1 ✓。\n\n为什么正确：无重复子串必以某下标为起点，枚举全部起点并以『第一个重复字符』为右边界，保证每个起点的最长无重复子串都被统计。\n\n易错点：\n- 每个起点必须用全新集合：seen 不清空就会污染下一个起点的统计（这也是它慢的原因）。\n- 答案是 j - i（左闭右开区间长度），别写成 j - i + 1。\n- 时间 O(n²)（每起点扩展至多字符集大小），大数据会超时，是引出滑窗的思维基线。",
+          "complexity": "时间 O(n²)，空间 O(min(n, 字符集))",
+          "code": "def lengthOfLongestSubstring_brute(s):\n    n = len(s)\n    ans = 0\n    for i in range(n):               # 枚举起点\n        seen = set()                 # 每个起点都用全新集合\n        j = i\n        while j < n and s[j] not in seen:   # 向右扩展到第一个重复字符\n            seen.add(s[j])\n            j += 1\n        ans = max(ans, j - i)        # [i, j) 是无重复子串\n    return ans"
+        },
+        {
+          "name": "滑动窗口 + 哈希",
+          "idea": "右指针逐字符扩张；若新字符已出现过且下标在窗口内，把左指针直接跳到『重复位置 + 1』；全程维护最大窗口长度。",
+          "detail": "步骤拆解：\n1. last = {} 记录每个字符最近出现的下标；l = 0 是窗口左边界；ans = 0。\n2. r 逐字符扩张：若 c 上次出现的下标 last[c] >= l（重复字符在当前窗口内），则 l = last[c] + 1，左边界直接跳到重复位置之后。\n3. 更新 last[c] = r，并用 r - l + 1 刷新 ans。\n\n示例走查：s = \"abcabcbb\"。\n- r=0(a)：无重复，ans=1；r=1(b)：ans=2；r=2(c)：ans=3，窗口 [0,2]。\n- r=3(a)：last[a]=0 >= l=0 → l=1，窗口 [1,3] 长 3。\n- r=4(b)：last[b]=1 >= l=1 → l=2；r=5(c)：last[c]=2 >= l=2 → l=3，窗口 [3,5] 长 3。\n- r=6(b)：last[b]=4 >= l=3 → l=5；r=7(b)：last[b]=6 >= l=5 → l=7，窗口长 1。\n答案 3 ✓。\n\n为什么正确：last 记录『最近出现下标』使重复判断 O(1)；l 只会右移，每个字符进出窗口至多一次，时间 O(n)。不变量是『窗口 [l, r] 内无重复字符』，r - l + 1 即以 r 结尾的最长无重复子串，逐 r 取最大就是全局答案。\n\n易错点：\n- 判断重复必须带 last[c] >= l：上次出现可能在窗口左侧之外，此时不算重复（只更新下标即可），漏判会把 l 错误后移。\n- l = last[c] + 1 是跳到重复位置之后，不是 l += 1——逐步 +1 也对但绕远，且容易忘记同步更新 last。\n- 空串返回 0（循环不执行，ans 初始 0 天然正确）。",
+          "complexity": "时间 O(n)，空间 O(min(n, 字符集))",
+          "optimal": true,
+          "code": "def lengthOfLongestSubstring_window(s):\n    last = {}          # 字符 -> 最近一次出现的下标\n    ans = l = 0\n    for r, c in enumerate(s):\n        # c 上次出现的位置若在窗口内，左边界必须跳到它后面\n        if c in last and last[c] >= l:\n            l = last[c] + 1\n        last[c] = r                # 记录/更新最近下标\n        ans = max(ans, r - l + 1)  # [l, r] 是当前无重复窗口\n    return ans"
+        }
+      ],
+      "code": "class Solution:\n    def lengthOfLongestSubstring(self, s: str) -> int:\n        last = {}          # 字符 -> 最近一次出现的下标\n        ans = l = 0\n        for r, c in enumerate(s):\n            # c 上次出现的位置若在窗口内，左边界必须跳到它后面\n            if c in last and last[c] >= l:\n                l = last[c] + 1\n            last[c] = r                # 记录/更新最近下标\n            ans = max(ans, r - l + 1)  # [l, r] 是当前无重复窗口\n        return ans",
+      "acmCode": "# ACM 模式：完整可运行程序（stdin -> stdout）\n# 输入格式：一行字符串 s（可能为空行）\n# 输出格式：一个整数，无重复字符最长子串的长度\nimport sys\n\n\ndef main():\n    data = sys.stdin.read().split(\"\\n\")\n    s = data[0].rstrip(\"\\r\") if data else \"\"\n\n    last = {}          # 字符 -> 最近一次出现的下标\n    ans = l = 0\n    for r, c in enumerate(s):\n        # c 上次出现的位置若还在窗口内，左边界跳到重复位置之后\n        if c in last and last[c] >= l:\n            l = last[c] + 1\n        last[c] = r                # 记录/更新最近下标\n        ans = max(ans, r - l + 1)  # [l, r] 是当前无重复窗口\n    print(ans)\n\n\nif __name__ == '__main__':\n    main()",
+      "templates": [
+        "不定长滑动窗口模板：for r in range(n): 加入 s[r]; while 窗口非法: 移出 s[l]; l+=1; 更新答案"
+      ],
+      "codeCpp": "class Solution {\npublic:\n    int lengthOfLongestSubstring(string s) {\n        // last: 字符 -> 最近一次出现的下标（哈希表把重复判断降到 O(1)）\n        unordered_map<char, int> last;\n        int ans = 0, l = 0;   // l 是窗口左边界\n        for (int r = 0; r < (int)s.size(); ++r) {\n            char c = s[r];\n            // c 上次出现的位置若还在窗口内，左边界必须跳到重复位置之后\n            auto it = last.find(c);\n            if (it != last.end() && it->second >= l) l = it->second + 1;\n            last[c] = r;                 // 记录/更新最近下标\n            ans = max(ans, r - l + 1);   // [l, r] 是当前无重复窗口\n        }\n        return ans;   // 空串时循环不执行，ans 初始 0 天然正确\n    }\n};",
+      "acmCodeCpp": "// ACM 模式：完整可运行程序（stdin -> stdout）\n// 输入格式：一行字符串 s（可能为空行）\n// 输出格式：一个整数，无重复字符最长子串的长度\n#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    string s;\n    getline(cin, s);   // 整行读取，允许空串\n    if (!s.empty() && s.back() == '\\r') s.pop_back();   // 兼容 Windows 换行\n\n    // last: 字符 -> 最近一次出现的下标\n    unordered_map<char, int> last;\n    int ans = 0, l = 0;   // l 是窗口左边界\n    for (int r = 0; r < (int)s.size(); ++r) {\n        char c = s[r];\n        // c 上次出现的位置若还在窗口内，左边界跳到重复位置之后\n        auto it = last.find(c);\n        if (it != last.end() && it->second >= l) l = it->second + 1;\n        last[c] = r;                 // 记录/更新最近下标\n        ans = max(ans, r - l + 1);   // [l, r] 是当前无重复窗口\n    }\n    cout << ans << endl;\n    return 0;\n}",
+      "codeJava": "class Solution {\n    public int lengthOfLongestSubstring(String s) {\n        // last: 字符 -> 最近一次出现的下标（哈希表把重复判断降到 O(1)）\n        Map<Character, Integer> last = new HashMap<>();\n        int ans = 0, l = 0;   // l 是窗口左边界\n        for (int r = 0; r < s.length(); r++) {\n            char c = s.charAt(r);\n            // c 上次出现的位置若还在窗口内，左边界必须跳到重复位置之后\n            if (last.containsKey(c) && last.get(c) >= l) {\n                l = last.get(c) + 1;\n            }\n            last.put(c, r);                   // 记录/更新最近下标\n            ans = Math.max(ans, r - l + 1);   // [l, r] 是当前无重复窗口\n        }\n        return ans;   // 空串时循环不执行，ans 初始 0 天然正确\n    }\n}",
+      "codeJs": "/**\n * @param {string} s\n * @return {number}\n */\nvar lengthOfLongestSubstring = function (s) {\n  const last = new Map();   // 字符 -> 最近一次出现的下标\n  let ans = 0, l = 0;       // l 是窗口左边界\n  for (let r = 0; r < s.length; r++) {\n    const c = s[r];\n    // c 上次出现的位置若还在窗口内，左边界必须跳到重复位置之后\n    if (last.has(c) && last.get(c) >= l) l = last.get(c) + 1;\n    last.set(c, r);                  // 记录/更新最近下标\n    ans = Math.max(ans, r - l + 1);  // [l, r] 是当前无重复窗口\n  }\n  return ans;   // 空串时循环不执行，ans 初始 0 天然正确\n};",
+      "codeGo": "func lengthOfLongestSubstring(s string) int {\n\tlast := map[byte]int{} // 字符 -> 最近一次出现的下标\n\tans, l := 0, 0         // l 是窗口左边界\n\tfor r := 0; r < len(s); r++ {\n\t\tc := s[r]\n\t\t// c 上次出现的位置若还在窗口内，左边界必须跳到重复位置之后\n\t\tif idx, ok := last[c]; ok && idx >= l {\n\t\t\tl = idx + 1\n\t\t}\n\t\tlast[c] = r // 记录/更新最近下标\n\t\tif cur := r - l + 1; cur > ans { // [l, r] 是当前无重复窗口\n\t\t\tans = cur\n\t\t}\n\t}\n\treturn ans // 空串时循环不执行，ans 初始 0 天然正确\n}"
+    }
+  ]
+}

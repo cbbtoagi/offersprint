@@ -1,0 +1,664 @@
+{
+  "topic": "动态规划",
+  "problems": [
+    {
+      "id": 70,
+      "title": "Climbing Stairs",
+      "titleCn": "爬楼梯",
+      "difficulty": "easy",
+      "frequency": 4,
+      "question": "假设你正在爬楼梯。需要 n 阶你才能到达楼顶。\n\n每次你可以爬 1 或 2 个台阶。你有多少种不同的方法可以爬到楼顶呢？\n\n示例 1：输入 n = 2，输出 2（两种爬法：1 阶 + 1 阶，或直接爬 2 阶）。\n示例 2：输入 n = 3，输出 3（1+1+1、1+2、2+1 三种爬法）。\n\n提示：1 <= n <= 45，答案保证在 32 位整数范围内。",
+      "hints": [
+        "审题诀窍：先问『最后一步怎么走』——到达第 n 阶的最后一步只有从 n-1 走 1 阶或从 n-2 走 2 阶两种，这两类方案互不重叠且覆盖全部情况，所以方法数可以直接相加。",
+        "审题诀窍：由上可得状态定义 dp[i] = 爬到第 i 阶的方法数，转移方程 dp[i] = dp[i-1] + dp[i-2]——这正是斐波那契数列；边界 dp[1]=1、dp[2]=2。",
+        "审题诀窍：n 为 1、2 时递推还没启动，注意别让循环或数组越界；写完自问一句『无后效性成立吗』——当前状态只依赖前两阶，成立。",
+        "追问预备：若允许一次爬 1/2/3 阶怎么推广？（dp[i] = dp[i-1]+dp[i-2]+dp[i-3]）；若某些台阶不能踩怎么做？（先把禁用阶的 dp 置 0 再递推）；n 很大要取模怎么办？（每步对 1e9+7 取模，滚动变量照常工作）"
+      ],
+      "keyPoints": [
+        "状态定义：dp[i] = 爬到第 i 阶的方法数；『最后一步怎么走』分类讨论是找转移方程的通用起手式",
+        "转移方程：dp[i] = dp[i-1] + dp[i-2]，边界 dp[1]=1、dp[2]=2，本质是斐波那契数列",
+        "空间优化：dp[i] 只依赖前两项，用两个滚动变量即可把空间降到 O(1)"
+      ],
+      "structureTags": [
+        "dp"
+      ],
+      "approaches": [
+        {
+          "name": "暴力递归",
+          "idea": "直接按转移方程递归：f(n) = f(n-1) + f(n-2)，边界 f(1)=1、f(2)=2。同一子问题（如 f(3)）会被反复展开计算，调用树节点数随 n 指数增长，n=45 就会超时。",
+          "complexity": "时间 O(2^n)，空间 O(n)",
+          "detail": "状态定义：f(n) = 爬到第 n 阶的方法数。转移推导（最后一步分类）：到达第 n 阶的最后一步只有两种——从第 n-1 阶跨 1 步，或从第 n-2 阶跨 2 步；这两类方案互不重叠且覆盖全部可能，故 f(n) = f(n-1) + f(n-2)，边界 f(1)=1、f(2)=2。\n\n示例走查：n=5 时调用树 f(5) 展开 → f(4)+f(3)；f(4) → f(3)+f(2)；其中 f(3) 被计算 2 次、f(2) 被计算 3 次，n 越大重复越多，调用树节点数随 n 指数增长（约 O(2^n)）。\n\n为什么它是思维基线：递归式就是转移方程本身，先把『最后一步怎么走』讲清楚，面试官才认可你理解了问题结构，也才能自然引出记忆化。易错点：\n- 边界必须先于递归判断，漏写 f(1)/f(2) 会无限递归爆栈。\n- n=45 时 2^45 次调用在 Python 下必然超时，这是必须优化的信号。\n- 递归深度 O(n)，n 很大时还要注意栈溢出。",
+          "code": "def climb_stairs_brute(n):\n    # f(n) = f(n-1) + f(n-2)：最后一步跨 1 阶或跨 2 阶，两类方案相加\n    if n <= 2:\n        return n                      # 边界：f(1)=1, f(2)=2\n    return climb_stairs_brute(n - 1) + climb_stairs_brute(n - 2)"
+        },
+        {
+          "name": "递归记忆化",
+          "idea": "在暴力递归基础上加 memo 数组：每个 f(i) 第一次算出后缓存，之后直接查表。子问题只有 n 个，每个 O(1) 转移，是自顶向下的动态规划。",
+          "complexity": "时间 O(n)，空间 O(n)",
+          "detail": "状态定义：f(i) = 爬到第 i 阶的方法数，与暴力递归一致，只是加了 memo 缓存。转移推导不变：最后一步跨 1 阶来自 f(i-1)，跨 2 阶来自 f(i-2)，两类相加。\n\n示例走查：n=5。f(5) → f(4)+f(3)；f(4) → f(3)+f(2)，算出 f(3)=3 并缓存；回到 f(5) 的 f(3) 分支直接查表得 3，不再展开。每个 f(i) 只真正计算一次，共 n 个子问题、每次 O(1) 转移。\n\n为什么正确：子问题 f(1)..f(n) 构成有向无环依赖，缓存保证每个状态只算一次，等价于自底向上 DP，只是方向相反（自顶向下）。易错点：\n- memo 用长度 n+1 的数组（下标 1..n）比 dict 更省心，注意 n<=2 的边界要在递归入口先返回。\n- 递归深度仍为 O(n)，n 达到 10^5 量级会爆栈，需改成递推。\n- 面试时说清『记忆化 = 自顶向下的 DP，与递推等价』是加分项。",
+          "code": "def climb_stairs_memo(n):\n    memo = {}                         # memo[i] 缓存 f(i)，避免重复展开\n    def f(i):\n        if i <= 2:\n            return i                  # 边界：f(1)=1, f(2)=2\n        if i not in memo:\n            memo[i] = f(i - 1) + f(i - 2)   # 先算再缓存，之后直接查表\n        return memo[i]\n    return f(n)"
+        },
+        {
+          "name": "递推迭代 + 滚动变量",
+          "idea": "自底向上从 dp[1]、dp[2] 递推到 dp[n]。由于 dp[i] 只依赖前两项，用两个变量滚动前进即可，免去整个数组，也避免递归栈开销。",
+          "complexity": "时间 O(n)，空间 O(1)",
+          "optimal": true,
+          "detail": "状态定义：dp[i] = 爬到第 i 阶的方法数；转移方程 dp[i] = dp[i-1] + dp[i-2]（最后一步跨 1 阶/跨 2 阶两类来源相加），边界 dp[1]=1、dp[2]=2。\n\n示例走查：n=5。dp[1]=1 → dp[2]=2 → dp[3]=dp[2]+dp[1]=3 → dp[4]=dp[3]+dp[2]=5 → dp[5]=dp[4]+dp[3]=8。滚动变量版本：prev2、prev1 依次保存 (1,2)→(2,3)→(3,5)→(5,8)，循环结束 prev1=8 即答案。\n\n为什么正确：每个 dp[i] 的方案按『最后一步』分成互不重叠、覆盖全部的两类，加法原理保证不重不漏；dp[i] 只依赖前两项，滚动变量不丢任何信息。易错点：\n- 循环从 3 到 n+1，n<=2 直接返回 n，否则循环或数组越界。\n- Python 多重赋值 prev2, prev1 = prev1, prev1 + prev2 右端先整体求值，拆成两行赋值会先用污染后的 prev2。\n- 遍历顺序天然从左到右（小 i 到大 i），因为大状态依赖小状态；这是递推型 DP 的拓扑序。",
+          "code": "def climb_stairs_iter(n):\n    if n <= 2:\n        return n                      # 边界：dp[1]=1, dp[2]=2\n    prev2, prev1 = 1, 2               # 滚动变量：prev2=dp[i-2], prev1=dp[i-1]\n    for _ in range(3, n + 1):\n        prev2, prev1 = prev1, prev1 + prev2   # 右端用旧值整体右移一位\n    return prev1                      # 循环结束时 prev1 即 dp[n]"
+        }
+      ],
+      "code": "class Solution:\n    def climbStairs(self, n: int) -> int:\n        # 状态定义：dp[i] 表示爬到第 i 阶的方法数\n        # 转移方程：dp[i] = dp[i-1] + dp[i-2]\n        #   到第 i 阶的最后一步只有两种：从 i-1 走 1 阶，或从 i-2 走 2 阶，\n        #   两个来源互不重叠、覆盖全部方案，故直接相加（即斐波那契数列）\n        if n <= 2:\n            return n                    # 边界：dp[1]=1, dp[2]=2\n        prev2, prev1 = 1, 2             # 滚动变量：prev2=dp[i-2], prev1=dp[i-1]\n        for _ in range(3, n + 1):\n            prev2, prev1 = prev1, prev1 + prev2   # 递推出 dp[i]，整体右移一位\n        return prev1                    # 循环结束时 prev1 即 dp[n]",
+      "templates": [
+        "「计数型 DP」模板：问『有多少种方案/方法』时，状态定义为『到达某位置的方法数』，转移 = 所有最后一步来源相加，来源必须不重不漏。爬楼梯（斐波那契）是此模板的原型。",
+        "空间优化通用口诀：dp[i] 只依赖前 k 项时，用 k 个滚动变量替代数组，时间不变、空间 O(n) 降为 O(1)；Python 里用多重赋值 a, b = b, a + b 避免临时变量。"
+      ],
+      "companies": [
+        "华为",
+        "网易"
+      ],
+      "samples": [
+        {
+          "input": "n = 2",
+          "output": "2",
+          "explain": "两种爬法：1 阶 + 1 阶，或直接爬 2 阶"
+        },
+        {
+          "input": "n = 3",
+          "output": "3",
+          "explain": "1+1+1、1+2、2+1 三种爬法"
+        }
+      ],
+      "acmCode": "# ACM 模式：完整可运行程序（stdin -> stdout）\n# 输入格式：\n#   第一行：n（楼梯阶数，1 <= n <= 45）\n# 输出格式：一行一个整数，爬到楼顶的方法数\nimport sys\n\ndef main():\n    n = int(sys.stdin.read().split()[0])   # 读入阶数 n\n    if n <= 2:\n        print(n)                           # 边界：dp[1]=1, dp[2]=2\n        return\n    prev2, prev1 = 1, 2                    # 滚动变量：dp[i-2], dp[i-1]\n    for _ in range(3, n + 1):\n        prev2, prev1 = prev1, prev1 + prev2\n    print(prev1)\n\nif __name__ == '__main__':\n    main()",
+      "codeCpp": "class Solution {\npublic:\n    int climbStairs(int n) {\n        // 状态定义：dp[i] 表示爬到第 i 阶的方法数\n        // 转移方程：dp[i] = dp[i-1] + dp[i-2]，最后一步要么跨 1 阶要么跨 2 阶，\n        //   两种来源互斥且覆盖全部方案，故直接相加（即斐波那契数列）\n        if (n <= 2) return n;          // 边界：dp[1]=1, dp[2]=2\n        int prev2 = 1, prev1 = 2;      // 滚动变量：prev2=dp[i-2], prev1=dp[i-1]\n        for (int i = 3; i <= n; ++i) {\n            int cur = prev1 + prev2;   // 递推出 dp[i]\n            prev2 = prev1;             // 整体右移一位\n            prev1 = cur;\n        }\n        return prev1;                  // 循环结束时 prev1 即 dp[n]\n    }\n};",
+      "acmCodeCpp": "// ACM 模式：完整可运行程序（stdin -> stdout）\n// 输入格式：\n//   第一行：n（楼梯阶数，1 <= n <= 45）\n// 输出格式：一行一个整数，爬到楼顶的方法数\n#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);   // 关闭同步，读入更快\n    cin.tie(nullptr);\n\n    int n;\n    cin >> n;                      // 读入阶数 n\n    if (n <= 2) {                  // 边界：dp[1]=1, dp[2]=2\n        cout << n << endl;\n        return 0;\n    }\n    int prev2 = 1, prev1 = 2;      // 滚动变量：dp[i-2], dp[i-1]\n    for (int i = 3; i <= n; ++i) {\n        int cur = prev1 + prev2;   // dp[i] = dp[i-1] + dp[i-2]\n        prev2 = prev1;             // 整体右移一位\n        prev1 = cur;\n    }\n    cout << prev1 << endl;\n    return 0;\n}",
+      "codeJava": "class Solution {\n    public int climbStairs(int n) {\n        // 状态定义：dp[i] 表示爬到第 i 阶的方法数\n        // 转移方程：dp[i] = dp[i-1] + dp[i-2]，即斐波那契数列\n        if (n <= 2) return n;            // 边界：dp[1]=1, dp[2]=2\n        int prev2 = 1, prev1 = 2;        // 滚动变量：dp[i-2], dp[i-1]\n        for (int i = 3; i <= n; i++) {\n            int cur = prev1 + prev2;     // 递推出 dp[i]\n            prev2 = prev1;               // 整体右移一位\n            prev1 = cur;\n        }\n        return prev1;                    // 循环结束时 prev1 即 dp[n]\n    }\n}",
+      "codeJs": "/**\n * @param {number} n\n * @return {number}\n */\nvar climbStairs = function (n) {\n  // 状态定义：dp[i] 为爬到第 i 阶的方法数\n  // 转移方程：dp[i] = dp[i-1] + dp[i-2]，最后一步要么跨 1 阶要么跨 2 阶\n  if (n <= 2) return n;         // 边界：dp[1]=1, dp[2]=2\n  let prev2 = 1, prev1 = 2;     // 滚动变量：dp[i-2], dp[i-1]\n  for (let i = 3; i <= n; i++) {\n    const cur = prev1 + prev2;  // 递推出 dp[i]\n    prev2 = prev1;              // 整体右移一位\n    prev1 = cur;\n  }\n  return prev1;                 // 循环结束时 prev1 即 dp[n]\n};",
+      "codeGo": "func climbStairs(n int) int {\n\t// 状态定义：dp[i] 为爬到第 i 阶的方法数\n\t// 转移方程：dp[i] = dp[i-1] + dp[i-2]，即斐波那契数列\n\tif n <= 2 {\n\t\treturn n // 边界：dp[1]=1, dp[2]=2\n\t}\n\tprev2, prev1 := 1, 2              // 滚动变量：dp[i-2], dp[i-1]\n\tfor i := 3; i <= n; i++ {\n\t\tprev2, prev1 = prev1, prev1+prev2 // 同时右移，递推出 dp[i]\n\t}\n\treturn prev1 // 循环结束时 prev1 即 dp[n]\n}"
+    },
+    {
+      "id": 118,
+      "title": "Pascal's Triangle",
+      "titleCn": "杨辉三角",
+      "difficulty": "easy",
+      "frequency": 2,
+      "question": "给定一个非负整数 numRows，生成「杨辉三角」的前 numRows 行。\n\n在「杨辉三角」中，每个数是它左上方和右上方的数之和。\n\n示例 1：输入 numRows = 5，输出 [[1],[1,1],[1,2,1],[1,3,3,1],[1,4,6,4,1]]。\n示例 2：输入 numRows = 1，输出 [[1]]。\n\n提示：1 <= numRows <= 30。",
+      "hints": [
+        "审题诀窍：先手动写出前 4 行找规律——每个数 = 上一行左上 + 右上，且每行两端恒为 1；把『行号 i、列号 j』对齐到 0 起下标后，递推式自然浮现。",
+        "审题诀窍：状态定义 dp[i][j] = 第 i 行第 j 个数，转移 dp[i][j] = dp[i-1][j-1] + dp[i-1][j]；第 i 行恰好有 i+1 个数，中间元素的下标 j 从 1 到 i-1。",
+        "审题诀窍：它就是组合数 C(i,j)——若面试官追问『只输出某一行』，可顺势引出 O(k) 空间原地更新（杨辉三角 II），从右往左覆盖防止丢上一行的值。",
+        "追问预备：只输出第 k 行怎么做？（119 题：一维数组从右往左原地更新，O(k) 空间）；如何 O(1) 求单个 C(i,j)？（连乘 i!/(j!(i-j)!) 或边乘边除）；杨辉三角有哪些组合数恒等式？（每行左右对称、第 i 行和为 2^i）"
+      ],
+      "keyPoints": [
+        "状态定义：dp[i][j] = 第 i 行第 j 个数；转移 dp[i][j] = dp[i-1][j-1] + dp[i-1][j]",
+        "边界：每行两端恒为 1，中间元素才需要递推",
+        "逐行生成即可：当前行只依赖上一行，不必保留整张二维表",
+        "杨辉三角即组合数 C(i,j)，可顺势推出单行 O(k) 空间解法（杨辉三角 II）"
+      ],
+      "structureTags": [
+        "dp"
+      ],
+      "approaches": [
+        {
+          "name": "递归记忆化（组合数）",
+          "idea": "利用恒等式 C(i,j) = C(i-1,j-1) + C(i-1,j)：对每个 (i,j) 记忆化递归求值，缓存避免重复展开。逻辑与递推一致，只是自顶向下。",
+          "complexity": "时间 O(n²)，空间 O(n²)",
+          "detail": "状态定义：C(i, j) 表示杨辉三角第 i 行第 j 个数（0 起下标，即组合数 C(i,j)）。转移推导（最后一步分类）：第 i 行第 j 个数由上一行的两个『父节点』相加而来——C(i,j) = C(i-1,j-1) + C(i-1,j)；边界 C(i,0)=C(i,i)=1（每行两端恒为 1）。\n\n示例走查：numRows=3。C(2,0)、C(2,2) 命中边界返回 1；C(2,1) = C(1,0)+C(1,1) = 1+1 = 2 → 第三行 [1,2,1]。不加缓存时同一个 C(i,j) 会被兄弟路径重复展开（指数级），缓存 (i,j) 后每个格子只算一次。\n\n为什么正确：递归式与题面定义『左上+右上』同构，边界先行保证递归收敛；O(n²) 个状态各算一次。易错点：\n- j<0 或 j>i 要返回 0（越界视为空格子，配合加法不产生贡献），漏掉会 IndexError 或算错。\n- 递归深度 O(n)，numRows=30 安全；用 functools.lru_cache 可少写缓存代码。\n- 这是自顶向下版本，与递推填表结果逐格相同。",
+          "code": "from functools import lru_cache\n\ndef pascal_memo(numRows):\n    @lru_cache(maxsize=None)\n    def C(i, j):\n        if j == 0 or j == i:\n            return 1                  # 每行两端恒为 1\n        if j < 0 or j > i:\n            return 0                  # 越界视为空格子，配合加法\n        return C(i - 1, j - 1) + C(i - 1, j)\n    return [[C(i, j) for j in range(i + 1)] for i in range(numRows)]"
+        },
+        {
+          "name": "二维递推 dp 表",
+          "idea": "开 numRows 行的二维数组按行填表：两端置 1，中间取上一行相邻两数之和。最直观的『填表式 DP』，适合建立二维递推的手感。",
+          "complexity": "时间 O(n²)，空间 O(n²)",
+          "detail": "状态定义：dp[i][j] = 第 i 行第 j 个数。转移推导：格子 (i,j) 的『父节点』只有上一行左上 (i-1,j-1) 和正上 (i-1,j) 两个，故 dp[i][j] = dp[i-1][j-1] + dp[i-1][j]；边界 dp[i][0] = dp[i][i] = 1。\n\n示例走查：numRows=4。第 0 行 [1]；第 1 行 [1,1]；第 2 行先置 [1,?,1]，中间 dp[2][1]=dp[1][0]+dp[1][1]=2 → [1,2,1]；第 3 行 dp[3][1]=dp[2][0]+dp[2][1]=3、dp[3][2]=dp[2][1]+dp[2][2]=3 → [1,3,3,1]。\n\n为什么正确：『每个数是左上与右上之和』正是题面定义的递推化；按行号从上到下填表保证依赖的上一行已就绪。易错点：\n- 内层只递推 j=1..i-1 的中间列，先整行置 1 可省去两端特判。\n- 外层必须按行递增（从上到下），倒序会让还没生成的上一行被引用。\n- dp 表开 numRows 行、第 i 行恰好 i+1 列，别用统一列宽把三角变矩形（错也不错，但浪费且易混）。",
+          "code": "def pascal_table(numRows):\n    dp = [[0] * (i + 1) for i in range(numRows)]   # 完整二维表，第 i 行 i+1 列\n    for i in range(numRows):\n        dp[i][0] = dp[i][i] = 1       # 边界：每行两端恒为 1\n        for j in range(1, i):         # 只递推中间列\n            dp[i][j] = dp[i - 1][j - 1] + dp[i - 1][j]\n    return dp"
+        },
+        {
+          "name": "逐行生成（滚动一行）",
+          "idea": "生成第 i 行时只依赖第 i-1 行，因此逐行构造并 append 到结果即可，无需额外保留整张表，额外空间仅当前行。",
+          "complexity": "时间 O(n²)，空间 O(1)（不计输出）",
+          "optimal": true,
+          "detail": "状态定义：row[j] 表示当前行第 j 个数，转移 row[j] = 上一行[j-1] + 上一行[j]，两端恒为 1——与二维表一致，只是不再额外保留整张历史表。\n\n示例走查：numRows=5 时依次产出 [1] → [1,1] → [1,2,1] → [1,3,3,1] → [1,4,6,4,1]；每轮只用刚生成的上一行，append 到结果后它自动成为下一轮的『上一行』。\n\n为什么正确：第 i 行只依赖第 i-1 行，逐行构造与填整张表逐格等价；输出的行本身就是表，额外空间只有当前行。易错点：\n- 结果列表兼作『上一行』，append 之后不要再回改旧行。\n- 若被追问『只要第 k 行』（119 题），不能照抄本写法——要在单行上从右往左原地更新，防止左边被提前覆盖；本题主问全部行，逐行生成即最优。\n- 行长递增，第 i 行共 i+1 个数，range 边界别写错。",
+          "code": "def pascal_rows(numRows):\n    dp = []\n    for i in range(numRows):\n        row = [1] * (i + 1)           # 第 i 行共 i+1 个数，两端保持 1\n        for j in range(1, i):         # 只递推中间列\n            row[j] = dp[i - 1][j - 1] + dp[i - 1][j]\n        dp.append(row)                # 当前行即下一行的『上一行』\n    return dp"
+        }
+      ],
+      "code": "class Solution:\n    def generate(self, numRows: int) -> List[List[int]]:\n        # 状态定义：dp[i][j] 表示杨辉三角第 i 行第 j 个数（0 起下标）\n        # 转移方程：dp[i][j] = dp[i-1][j-1] + dp[i-1][j]\n        # 边界：dp[i][0] = dp[i][i] = 1（每行两端恒为 1）\n        dp = []\n        for i in range(numRows):\n            row = [1] * (i + 1)          # 第 i 行共 i+1 个数，先全部置 1\n            for j in range(1, i):        # 两端保持 1，只递推中间 j=1..i-1\n                row[j] = dp[i - 1][j - 1] + dp[i - 1][j]\n            dp.append(row)               # 当前行存入，成为下一行的『上一行』\n        return dp",
+      "templates": [
+        "「二维递推（填表）」模板：格子 (i,j) 的值只由上一行/左边少数格子决定。先定边界（首行、首列），再按行主序双重循环填表。杨辉三角、最小路径和、不同路径皆是此原型。"
+      ],
+      "companies": [
+        "华为",
+        "京东"
+      ],
+      "samples": [
+        {
+          "input": "numRows = 5",
+          "output": "[[1],[1,1],[1,2,1],[1,3,3,1],[1,4,6,4,1]]",
+          "explain": "每个数等于上一行左上与右上两数之和"
+        },
+        {
+          "input": "numRows = 1",
+          "output": "[[1]]"
+        }
+      ],
+      "acmCode": "# ACM 模式：完整可运行程序（stdin -> stdout）\n# 输入格式：\n#   第一行：numRows（行数，1 <= numRows <= 30）\n# 输出格式：numRows 行，第 i 行为杨辉三角第 i 行的 i 个数，空格分隔\nimport sys\n\ndef main():\n    numRows = int(sys.stdin.read().split()[0])\n    dp = []\n    for i in range(numRows):\n        row = [1] * (i + 1)           # 两端恒为 1\n        for j in range(1, i):\n            row[j] = dp[i - 1][j - 1] + dp[i - 1][j]\n        dp.append(row)\n    print('\\n'.join(' '.join(map(str, row)) for row in dp))\n\nif __name__ == '__main__':\n    main()",
+      "codeCpp": "class Solution {\npublic:\n    vector<vector<int>> generate(int numRows) {\n        // 状态定义：dp[i][j] 表示杨辉三角第 i 行第 j 个数（0 起下标）\n        // 转移方程：dp[i][j] = dp[i-1][j-1] + dp[i-1][j]\n        // 边界：每行两端 dp[i][0] = dp[i][i] = 1\n        vector<vector<int>> dp;\n        dp.reserve(numRows);\n        for (int i = 0; i < numRows; ++i) {\n            vector<int> row(i + 1, 1);      // 第 i 行共 i+1 个数，先全部置 1\n            for (int j = 1; j < i; ++j)     // 两端保持 1，只递推中间 j=1..i-1\n                row[j] = dp[i - 1][j - 1] + dp[i - 1][j];\n            dp.push_back(std::move(row));   // 当前行存入，成为下一行的『上一行』\n        }\n        return dp;\n    }\n};",
+      "acmCodeCpp": "// ACM 模式：完整可运行程序（stdin -> stdout）\n// 输入格式：\n//   第一行：numRows（行数，1 <= numRows <= 30）\n// 输出格式：numRows 行，第 i 行为杨辉三角第 i 行的 i 个数，空格分隔\n#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);\n    cin.tie(nullptr);\n\n    int numRows;\n    cin >> numRows;\n    vector<vector<int>> dp;\n    for (int i = 0; i < numRows; ++i) {\n        vector<int> row(i + 1, 1);          // 两端恒为 1\n        for (int j = 1; j < i; ++j)         // 中间 = 上一行左上 + 右上\n            row[j] = dp[i - 1][j - 1] + dp[i - 1][j];\n        dp.push_back(std::move(row));\n    }\n    for (const auto& row : dp) {            // 逐行输出，行内空格分隔\n        for (size_t j = 0; j < row.size(); ++j) {\n            if (j) cout << ' ';\n            cout << row[j];\n        }\n        cout << '\\n';\n    }\n    return 0;\n}",
+      "codeJava": "class Solution {\n    public List<List<Integer>> generate(int numRows) {\n        // 状态定义：dp[i][j] 表示第 i 行第 j 个数（0 起下标）\n        // 转移方程：dp[i][j] = dp[i-1][j-1] + dp[i-1][j]\n        // 边界：每行两端恒为 1\n        List<List<Integer>> dp = new ArrayList<>();\n        for (int i = 0; i < numRows; i++) {\n            List<Integer> row = new ArrayList<>(Collections.nCopies(i + 1, 1)); // 先全部置 1\n            for (int j = 1; j < i; j++)     // 两端保持 1，只递推中间\n                row.set(j, dp.get(i - 1).get(j - 1) + dp.get(i - 1).get(j));\n            dp.add(row);                    // 当前行存入，成为下一行的『上一行』\n        }\n        return dp;\n    }\n}",
+      "codeJs": "/**\n * @param {number} numRows\n * @return {number[][]}\n */\nvar generate = function (numRows) {\n  // 状态定义：dp[i][j] = 第 i 行第 j 个数（0 起下标）\n  // 转移方程：dp[i][j] = 上一行左上 + 右上，两端恒为 1\n  const dp = [];\n  for (let i = 0; i < numRows; i++) {\n    const row = new Array(i + 1).fill(1);  // 第 i 行共 i+1 个数，先全部置 1\n    for (let j = 1; j < i; j++)            // 两端保持 1，只递推中间\n      row[j] = dp[i - 1][j - 1] + dp[i - 1][j];\n    dp.push(row);                          // 当前行存入，成为下一行的『上一行』\n  }\n  return dp;\n};",
+      "codeGo": "func generate(numRows int) [][]int {\n\t// 状态定义：dp[i][j] = 第 i 行第 j 个数（0 起下标）\n\t// 转移方程：dp[i][j] = dp[i-1][j-1] + dp[i-1][j]，两端恒为 1\n\tdp := make([][]int, 0, numRows)\n\tfor i := 0; i < numRows; i++ {\n\t\trow := make([]int, i+1)\n\t\tfor j := range row {\n\t\t\trow[j] = 1 // 先全部置 1\n\t\t}\n\t\tfor j := 1; j < i; j++ { // 两端保持 1，只递推中间\n\t\t\trow[j] = dp[i-1][j-1] + dp[i-1][j]\n\t\t}\n\t\tdp = append(dp, row) // 当前行存入，成为下一行的『上一行』\n\t}\n\treturn dp\n}"
+    },
+    {
+      "id": 198,
+      "title": "House Robber",
+      "titleCn": "打家劫舍",
+      "difficulty": "medium",
+      "frequency": 5,
+      "question": "你是一个专业的小偷，计划偷窃沿街的房屋。每间房内都藏有一定的现金。影响你偷窃的唯一制约因素就是相邻的房屋装有相互连通的防盗系统：如果两间相邻的房屋在同一晚上被小偷闯入，系统会自动报警。\n\n给定一个代表每个房屋存放金额的非负整数数组，计算在不触动警报装置的情况下，一夜之内能够偷窃到的最高金额。\n\n示例 1：输入 nums = [1,2,3,1]，输出 4（偷第 1 和第 3 间：1 + 3 = 4）。\n示例 2：输入 nums = [2,7,9,3,1]，输出 12（偷第 0、2、4 间：2 + 9 + 1 = 12）。\n\n提示：1 <= nums.length <= 100，0 <= nums[i] <= 400。",
+      "hints": [
+        "审题诀窍：约束『相邻不能同偷』只涉及相邻两间——对每间房只有偷/不偷两种决策，且做完决策后未来只与『考虑到了第几间』有关，无后效性成立，可以 DP。",
+        "审题诀窍：状态定义 dp[i] = 考虑前 i 间房能偷到的最高金额（不是『必偷第 i 间』）；转移 dp[i] = max(dp[i-1], dp[i-2] + nums[i-1])——不偷则继承前 i-1 间的结果，偷则相邻那间必须跳过。",
+        "审题诀窍：答案就是 dp[n]，不必额外取 max——『考虑前 i 间』的定义已把不偷最后一间的情况包含在 dp[i-1] 里。",
+        "追问预备：房屋围成圈怎么做？（213 题：按首间取舍拆成两个线性情形取 max）；若房屋是二叉树布局呢？（337 树上打家劫舍：树形 DP 返回偷/不偷两个值）；如何还原偷了哪些房？（dp 回溯：dp[i] != dp[i-1] 说明偷了第 i 间）"
+      ],
+      "keyPoints": [
+        "状态定义：dp[i] = 考虑前 i 间房的最高金额；『考虑前 i 个』而非『以 i 结尾』是本题关键",
+        "转移方程：dp[i] = max(dp[i-1], dp[i-2] + nums[i-1])——不偷继承、偷则隔一间",
+        "边界 dp[0]=0；答案即 dp[n]，无需再取 max",
+        "滚动两个变量把空间降到 O(1)"
+      ],
+      "structureTags": [
+        "dp"
+      ],
+      "approaches": [
+        {
+          "name": "递归记忆化",
+          "idea": "定义 rob(i) 为考虑前 i 间房的最优收益：rob(i) = max(rob(i-1), rob(i-2) + nums[i-1])，自顶向下加 memo 缓存，消除重复子问题。",
+          "complexity": "时间 O(n)，空间 O(n)",
+          "detail": "状态定义：rob(i) = 考虑前 i 间房能偷到的最高金额。转移推导（对第 i 间的决策分类）：不偷第 i 间 → 收益继承 rob(i-1)；偷第 i 间 → 相邻的第 i-1 间必须跳过 → rob(i-2) + nums[i-1]；两类互斥且覆盖全部，取 max。边界 rob(0)=0、rob(1)=nums[0]。\n\n示例走查：nums=[2,7,9,3,1]。rob(1)=2 → rob(2)=max(2, 0+7)=7 → rob(3)=max(7, 2+9)=11 → rob(4)=max(11, 7+3)=11 → rob(5)=max(11, 11+1)=12 ✓（对应偷第 0、2、4 间）。\n\n为什么正确：『考虑前 i 间』的定义把『不偷第 i 间』的情形完整交给 rob(i-1)，无后效性成立；缓存后每个 rob(i) 只算一次，共 n 个状态。易错点：\n- 状态是『考虑前 i 间』而非『必偷第 i 间』，两种定义的转移完全不同。\n- 下标偏移：状态按 1 起计数、数组按 0 起下标，取 nums[i-1]。\n- 递归深度 O(n)，本题 n<=100 安全，更大规模建议改递推。",
+          "code": "def rob_memo(nums):\n    n = len(nums)\n    memo = {0: 0, 1: nums[0] if n else 0}   # 边界：rob(0)=0, rob(1)=nums[0]\n    def rob(i):\n        if i in memo:\n            return memo[i]\n        # 不偷第 i 间 -> rob(i-1)；偷第 i 间 -> rob(i-2) + nums[i-1]\n        memo[i] = max(rob(i - 1), rob(i - 2) + nums[i - 1])\n        return memo[i]\n    return rob(n)"
+        },
+        {
+          "name": "递推 dp 数组",
+          "idea": "自底向上开长度 n+1 的 dp 数组：dp[0]=0、dp[1]=nums[0]，按定义逐项填表。思路与记忆化一致，是更常见的迭代写法。",
+          "complexity": "时间 O(n)，空间 O(n)",
+          "detail": "状态定义：dp[i] = 考虑前 i 间房（下标 0..i-1）的最高金额，dp 数组开 n+1 位。转移推导同上：dp[i] = max(dp[i-1], dp[i-2] + nums[i-1])；边界 dp[0]=0（没有房子可偷）、dp[1]=nums[0]。\n\n示例走查：nums=[1,2,3,1]。dp[0]=0、dp[1]=1 → dp[2]=max(1, 0+2)=2 → dp[3]=max(2, 1+3)=4 → dp[4]=max(4, 2+1)=4，答案 dp[4]=4 ✓（偷第 0、2 间）。\n\n为什么正确：i 从 2 递增到 n，每个状态的两个依赖（i-1、i-2）都已算好，符合『大状态依赖小状态』的拓扑序；答案就是 dp[n]，因为『考虑前 n 间』已包含不偷最后一间的选择。易错点：\n- 遍历顺序必须 i 从小到大，dp[i] 依赖更小的两个状态，倒序填表会读到未定义值。\n- dp 长度是 n+1 不是 n，多出的 dp[0]=0 当锚点。\n- 答案取 dp[n] 即可，不需要 max(dp)——状态定义本身已聚合。",
+          "code": "def rob_table(nums):\n    n = len(nums)\n    dp = [0] * (n + 1)                # dp[i] = 考虑前 i 间房的最高金额\n    dp[1] = nums[0]                   # 边界：只有第 1 间时直接偷它\n    for i in range(2, n + 1):\n        dp[i] = max(dp[i - 1], dp[i - 2] + nums[i - 1])   # 不偷 / 偷 第 i 间\n    return dp[n]"
+        },
+        {
+          "name": "滚动变量",
+          "idea": "dp[i] 只依赖 dp[i-1] 与 dp[i-2]，用两个变量滚动前进即可，空间降到常数。这也是 213 打家劫舍 II 等变形题的复用底座。",
+          "complexity": "时间 O(n)，空间 O(1)",
+          "optimal": true,
+          "detail": "状态定义：dp[i] = 考虑前 i 间房的最高金额；转移 dp[i] = max(dp[i-1], dp[i-2] + nums[i-1])。dp[i] 只依赖前两个状态，用 prev1=dp[i-1]、prev2=dp[i-2] 两个滚动变量替代数组。\n\n示例走查：nums=[2,7,9,3,1]。初始 (prev2, prev1)=(0,0)。x=2 → (0, max(0,0+2)=2)；x=7 → (2, max(2,0+7)=7)；x=9 → (7, max(7,2+9)=11)；x=3 → (11, max(11,7+3)=11)；x=1 → (11, max(11,11+1)=12)，输出 12 ✓。\n\n为什么正确：与数组版逐项等价，只是丢掉不再使用的历史状态；两个决策分类互斥覆盖，max 取最优。易错点：\n- 多重赋值 prev2, prev1 = prev1, max(prev1, prev2 + x) 右端全读旧值，拆成两行会先污染 prev2。\n- 初值 (0,0) 对应 dp[0]=0 的虚拟边界，天然处理空房/单房情形。\n- 遍历顺序从左到右——决策只看『上一间、上上间』，正序即拓扑序；这也是 213 环形版复用的底座。",
+          "code": "def rob_rolling(nums):\n    prev2, prev1 = 0, 0               # prev2=dp[i-2], prev1=dp[i-1]\n    for x in nums:\n        prev2, prev1 = prev1, max(prev1, prev2 + x)   # 右端全读旧值\n    return prev1                      # 考虑完全部房屋，prev1 即 dp[n]"
+        }
+      ],
+      "code": "class Solution:\n    def rob(self, nums: List[int]) -> int:\n        # 状态定义：dp[i] 表示考虑前 i 间房（下标 0..i-1）能偷到的最高金额\n        # 转移方程：dp[i] = max(dp[i-1], dp[i-2] + nums[i-1])\n        #   不偷第 i 间 -> 收益继承 dp[i-1]；\n        #   偷第 i 间   -> 相邻的第 i-1 间必不能偷 -> dp[i-2] + nums[i-1]\n        prev2, prev1 = 0, 0             # 滚动变量：prev2=dp[i-2], prev1=dp[i-1]，初值均为 0\n        for x in nums:\n            prev2, prev1 = prev1, max(prev1, prev2 + x)   # dp[i] 取两决策中较大者\n        return prev1                    # 考虑完全部房屋，prev1 即 dp[n]",
+      "templates": [
+        "「选/不选」决策型 DP 模板：每步二选一且有互斥约束（相邻不能同选）时，dp[i] = max(不选 i 继承 dp[i-1]，选 i 接 dp[i-2] + 值)。注意状态定义为『考虑前 i 个』而非『以 i 结尾』。"
+      ],
+      "companies": [
+        "拼多多",
+        "百度"
+      ],
+      "samples": [
+        {
+          "input": "nums = [1,2,3,1]",
+          "output": "4",
+          "explain": "偷第 1 和第 3 间：1 + 3 = 4"
+        },
+        {
+          "input": "nums = [2,7,9,3,1]",
+          "output": "12",
+          "explain": "偷第 0、2、4 间：2 + 9 + 1 = 12"
+        }
+      ],
+      "acmCode": "# ACM 模式：完整可运行程序（stdin -> stdout）\n# 输入格式：\n#   第一行：n（房屋数）\n#   第二行：n 个非负整数（每间房的现金）\n# 输出格式：一行一个整数，能偷到的最高金额\nimport sys\n\ndef main():\n    data = sys.stdin.read().split()\n    n = int(data[0])\n    nums = [int(x) for x in data[1:1 + n]]\n    prev2, prev1 = 0, 0               # dp[i-2], dp[i-1]\n    for x in nums:\n        prev2, prev1 = prev1, max(prev1, prev2 + x)\n    print(prev1)\n\nif __name__ == '__main__':\n    main()",
+      "codeCpp": "class Solution {\npublic:\n    int rob(vector<int>& nums) {\n        // 状态定义：dp[i] 表示考虑前 i 间房（下标 0..i-1）能偷到的最高金额\n        // 转移方程：dp[i] = max(dp[i-1], dp[i-2] + nums[i-1])\n        //   不偷第 i 间 -> 收益继承 dp[i-1]；偷第 i 间 -> 相邻必不偷 -> dp[i-2] + nums[i-1]\n        int prev2 = 0, prev1 = 0;      // 滚动变量：dp[i-2], dp[i-1]，初值均为 0\n        for (int x : nums) {\n            int cur = max(prev1, prev2 + x);   // 两种决策取较大者\n            prev2 = prev1;                     // 整体右移一位\n            prev1 = cur;\n        }\n        return prev1;                  // 考虑完全部房屋，prev1 即 dp[n]\n    }\n};",
+      "acmCodeCpp": "// ACM 模式：完整可运行程序（stdin -> stdout）\n// 输入格式：\n//   第一行：n（房屋数）\n//   第二行：n 个非负整数（每间房的现金）\n// 输出格式：一行一个整数，能偷到的最高金额\n#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);\n    cin.tie(nullptr);\n\n    int n;\n    cin >> n;\n    vector<int> nums(n);\n    for (auto& x : nums) cin >> x;\n\n    int prev2 = 0, prev1 = 0;          // dp[i-2], dp[i-1]\n    for (int x : nums) {\n        int cur = max(prev1, prev2 + x);   // 不偷第 i 间 / 偷第 i 间，取较大者\n        prev2 = prev1;                     // 整体右移一位\n        prev1 = cur;\n    }\n    cout << prev1 << endl;\n    return 0;\n}",
+      "codeJava": "class Solution {\n    public int rob(int[] nums) {\n        // 状态定义：dp[i] 表示考虑前 i 间房能偷到的最高金额\n        // 转移方程：dp[i] = max(dp[i-1], dp[i-2] + nums[i-1])\n        //   不偷第 i 间 -> 继承 dp[i-1]；偷第 i 间 -> 相邻必不偷 -> dp[i-2] + nums[i-1]\n        int prev2 = 0, prev1 = 0;      // 滚动变量：dp[i-2], dp[i-1]，初值均为 0\n        for (int x : nums) {\n            int cur = Math.max(prev1, prev2 + x);  // 两种决策取较大者\n            prev2 = prev1;                         // 整体右移一位\n            prev1 = cur;\n        }\n        return prev1;                  // 考虑完全部房屋，prev1 即 dp[n]\n    }\n}",
+      "codeJs": "/**\n * @param {number[]} nums\n * @return {number}\n */\nvar rob = function (nums) {\n  // 状态定义：dp[i] 表示考虑前 i 间房能偷到的最高金额\n  // 转移方程：dp[i] = max(dp[i-1], dp[i-2] + nums[i-1])\n  //   不偷当前间则继承 prev1，偷当前间则相邻的必不偷 -> prev2 + x\n  let prev2 = 0, prev1 = 0;      // 滚动变量：dp[i-2], dp[i-1]\n  for (const x of nums) {\n    const cur = Math.max(prev1, prev2 + x);  // 两种决策取较大者\n    prev2 = prev1;                 // 整体右移一位\n    prev1 = cur;\n  }\n  return prev1;                    // prev1 即 dp[n]\n};",
+      "codeGo": "func rob(nums []int) int {\n\t// 状态定义：dp[i] 表示考虑前 i 间房能偷到的最高金额\n\t// 转移方程：dp[i] = max(dp[i-1], dp[i-2] + nums[i-1])\n\t//   不偷当前间则继承 prev1，偷当前间则相邻的必不偷 -> prev2 + x\n\tprev2, prev1 := 0, 0 // 滚动变量：dp[i-2], dp[i-1]\n\tfor _, x := range nums {\n\t\tcur := max(prev1, prev2+x) // 两种决策取较大者\n\t\tprev2, prev1 = prev1, cur  // 整体右移一位\n\t}\n\treturn prev1 // prev1 即 dp[n]\n}"
+    },
+    {
+      "id": 213,
+      "title": "House Robber II",
+      "titleCn": "打家劫舍 II",
+      "difficulty": "medium",
+      "frequency": 3,
+      "question": "你是一个专业的小偷，计划偷窃沿街的房屋，每间房内都藏有一定的现金。这个地方所有的房屋都围成一圈，这意味着第一个房屋和最后一个房屋是紧挨着的。同时，相邻的房屋装有相互连通的防盗系统：如果两间相邻的房屋在同一晚上被小偷闯入，系统会自动报警。\n\n给定一个代表每个房屋存放金额的非负整数数组，计算在不触动警报装置的情况下，今晚能够偷窃到的最高金额。\n\n示例 1：输入 nums = [2,3,2]，输出 3（第 0 间与第 2 间相邻，不能同偷，只能偷第 1 间）。\n示例 2：输入 nums = [1,2,3,1]，输出 4（偷第 0 和第 2 间：1 + 3 = 4）。\n\n提示：1 <= nums.length <= 100，0 <= nums[i] <= 1000。",
+      "hints": [
+        "审题诀窍：与线性版的唯一差别是首尾相邻。不要急着给环形设计全新状态——先想『去掉哪个约束就变回 198』，答案是首尾不能同偷这一个约束。",
+        "审题诀窍：拆环成链——首尾不能同偷，等价于在『不偷首间』与『不偷尾间』两种互斥情形里选：情形 A 考虑 nums[1:]，情形 B 考虑 nums[:-1]，各自跑一遍线性打家劫舍，取较大者。",
+        "审题诀窍：n=1 时两个切片都变成空数组，必须特判直接返回 nums[0]；nums[1:] 与 nums[:-1] 长度均为 n-1，两个情形合起来恰好不重不漏覆盖所有合法方案。",
+        "追问预备：环形最大子数组怎么做？（918：最小子数组和翻转技巧）；去掉环形约束退化成什么？（198 线性版）；为什么拆成两个情形就完备？（首尾不能同偷，任何合法方案至少避开其一，两情形互斥且并集覆盖）"
+      ],
+      "keyPoints": [
+        "环形约束 = 首尾不能同偷，用分类讨论拆成两个线性子问题",
+        "两个情形：rob_linear(nums[1:]) 与 rob_linear(nums[:-1])，各跑一遍线性打家劫舍取 max",
+        "复用 198 的滚动变量解法作为子函数，代码极短",
+        "n=1 特判，避免切片后丢掉唯一的房子"
+      ],
+      "structureTags": [
+        "dp"
+      ],
+      "approaches": [
+        {
+          "name": "递归记忆化（带首间标志）",
+          "idea": "把『是否偷了第 0 间』并入递归状态：dfs(i, took_first)，推到最后一间时按该标志决定能否偷第 n-1 间。状态多一维，分支繁琐、容易写错。",
+          "complexity": "时间 O(n)，空间 O(n)",
+          "detail": "状态定义：dfs(i, prev_stolen, took_first) = 考虑第 i..n-1 间房（prev_stolen 记录上一间是否偷了、took_first 记录第 0 间是否已偷）能偷到的最高金额。转移推导：第 i 间能偷当且仅当上一间没偷、且不是『首间已偷时的尾间』；不偷则 i+1 继续，偷则收益加 nums[i]。\n\n示例走查：nums=[2,3,2]。不偷首间分支：考虑 [3,2] 线性最优 3；偷首间分支：偷 2 后第 1 间必跳过，尾间（第 2 间）因首间已偷不能再偷 → 2。取 max 得 3 ✓。nums=[1,2,3,1] 同理推出 4 ✓。\n\n为什么正确：环形约束唯一新增的信息就是『首间偷没偷』，把它并入状态后问题退化成线性决策链，无后效性恢复；O(n×2×2) 个状态各算一次。易错点：\n- 两个标志缺一不可，漏了 took_first 会在尾间做出非法决策（首尾同偷）。\n- n=1 时首间即尾间，不存在环形约束，必须直接返回 nums[0]。\n- 该写法分支繁琐易错，面试讲清思路即可，落地推荐拆环成链。",
+          "code": "def rob_circle_memo(nums):\n    n = len(nums)\n    if n == 1:\n        return nums[0]                # 单间房不构成环形约束\n    from functools import lru_cache\n    @lru_cache(maxsize=None)\n    def dfs(i, prev_stolen, took_first):\n        if i == n:\n            return 0                  # 没有房子可考虑\n        best = dfs(i + 1, False, took_first)          # 不偷第 i 间\n        can_steal = not prev_stolen and not (i == n - 1 and took_first)\n        if can_steal:                 # 上一间没偷、且尾间未被首间封禁\n            best = max(best, nums[i] + dfs(i + 1, True, took_first or i == 0))\n        return best\n    return dfs(0, False, False)"
+        },
+        {
+          "name": "拆环成链（两遍线性 dp 数组）",
+          "idea": "环形唯一的新约束是首尾相邻。按首间取舍拆成两个互斥情形：不偷首间 -> 只考虑 nums[1:]；不偷尾间 -> 只考虑 nums[:-1]。每段各跑一遍 198 的线性 DP（数组版），取较大者。",
+          "complexity": "时间 O(n)，空间 O(n)",
+          "detail": "状态定义：沿用 198 的 dp[i] = 考虑前 i 间房的最高金额，对两个子序列各跑一遍。转移推导（分类消除环形约束）：首尾不能同偷 → 任何合法方案要么不偷首间、要么不偷尾间 → 情形 A 只考虑 nums[1:]（首间出局），情形 B 只考虑 nums[:-1]（尾间出局），两段内部都是普通线性房屋，各跑一遍数组版线性 DP 取 max。\n\n示例走查：nums=[2,3,2]。情形 A 考虑 [3,2]：dp 依次 0→3→max(3,0+2)=3；情形 B 考虑 [2,3]：0→2→max(2,0+3)=3；答案 max(3,3)=3 ✓。nums=[1,2,3,1]：A=[2,3,1]→4，B=[1,2,3]→4，答案 4 ✓。\n\n为什么正确：两种情形互斥（首间、尾间不同时在案）且覆盖全部合法方案（至少一个不在案），每段内部约束与 198 完全一致。易错点：\n- n=1 时 nums[1:] 与 nums[:-1] 均为空，必须特判返回 nums[0]。\n- 别把两个情形误解为『必须偷尾间/首间』——它们只是排除了其中一间。\n- 遍历顺序仍是每段内 i 从小到大（线性拓扑序）。",
+          "code": "def rob_circle_table(nums):\n    if len(nums) == 1:\n        return nums[0]                # 特判：切片会丢掉唯一的房子\n\n    def rob_linear(houses):\n        n = len(houses)\n        dp = [0] * (n + 1)            # dp[i] = 考虑前 i 间的最高金额\n        if n:\n            dp[1] = houses[0]\n        for i in range(2, n + 1):\n            dp[i] = max(dp[i - 1], dp[i - 2] + houses[i - 1])\n        return dp[n]\n\n    return max(rob_linear(nums[1:]), rob_linear(nums[:-1]))   # 两情形取 max"
+        },
+        {
+          "name": "拆环成链 + 滚动变量",
+          "idea": "在情形拆分的基础上，把每段线性 DP 换成 198 的滚动变量实现，额外空间降为 O(1)。这是环形 DP 的标准收尾形态。",
+          "complexity": "时间 O(n)，空间 O(1)",
+          "optimal": true,
+          "detail": "状态定义：子函数沿用 198 的滚动变量——prev2=dp[i-2]、prev1=dp[i-1]，dp[i] = max(dp[i-1], dp[i-2] + houses[i-1])。转移推导同上：环形约束按首间取舍拆成两个互斥线性情形，各跑一遍滚动版取 max。\n\n示例走查：nums=[2,7,9,3,1]。A=rob_linear([7,9,3,1])：(0,0)→(0,7)→(7,9)→(9,10)→(10,10)=10；B=rob_linear([2,7,9,3])：(0,0)→(0,2)→(2,7)→(7,11)→(11,11)=11；max(10,11)=11 ✓（首 2 与尾 1 不能同偷，线性版答案 12 不可取）。\n\n为什么正确：拆分不重不漏，滚动变量与数组版逐项等价；两段串行各 O(n) 时间、O(1) 空间。易错点：\n- n=1 特判必须保留，否则两个空切片都返回 0。\n- 复用 198 子函数时别把环形约束带进 rob_linear——它必须是无环的纯线性版本。\n- 这是环形 DP 的通用套路（918 环形最大子数组同理）：约束碰首尾，就按首元素的取舍拆段。",
+          "code": "def rob_circle_rolling(nums):\n    if len(nums) == 1:\n        return nums[0]                # 特判：单间房不构成环形约束\n\n    def rob_linear(houses):\n        prev2, prev1 = 0, 0           # dp[i-2], dp[i-1]，同 198\n        for x in houses:\n            prev2, prev1 = prev1, max(prev1, prev2 + x)\n        return prev1\n\n    return max(rob_linear(nums[1:]), rob_linear(nums[:-1]))"
+        }
+      ],
+      "code": "class Solution:\n    def rob(self, nums: List[int]) -> int:\n        # 环形处理：房屋围成圈，首尾相邻不能同偷\n        # 拆环成链：按『首间偷不偷』分成两个互斥的线性情形——\n        #   情形 A：不偷首间 -> 等价于线性打家劫舍 nums[1:]\n        #   情形 B：不偷尾间 -> 等价于线性打家劫舍 nums[:-1]\n        if len(nums) == 1:\n            return nums[0]              # 特判：单间房不构成环形约束，切片会丢解\n\n        def rob_linear(houses: List[int]) -> int:\n            # 状态定义：dp[i] = 考虑前 i 间房能偷到的最高金额（同 198 题）\n            # 转移方程：dp[i] = max(dp[i-1], dp[i-2] + houses[i-1])\n            prev2, prev1 = 0, 0         # 滚动变量：prev2=dp[i-2], prev1=dp[i-1]\n            for x in houses:\n                prev2, prev1 = prev1, max(prev1, prev2 + x)\n            return prev1\n\n        # 两情形互斥且合起来覆盖所有合法方案，取较大者\n        return max(rob_linear(nums[1:]), rob_linear(nums[:-1]))",
+      "templates": [
+        "「环形 DP 处理」模板：约束涉及首尾（环形数组/环形队列）时，按首元素的取舍拆成两个线性子问题分别求解取最优（本题：max(rob(nums[1:]), rob(nums[:-1]))），避免为环形单独设计复杂状态。环形最大子数组（918）同理。"
+      ],
+      "companies": [
+        "拼多多",
+        "快手"
+      ],
+      "samples": [
+        {
+          "input": "nums = [2,3,2]",
+          "output": "3",
+          "explain": "第 0 间与第 2 间相邻不能同偷，最优是偷第 1 间"
+        },
+        {
+          "input": "nums = [1,2,3,1]",
+          "output": "4",
+          "explain": "偷第 0 和第 2 间：1 + 3 = 4"
+        }
+      ],
+      "acmCode": "# ACM 模式：完整可运行程序（stdin -> stdout）\n# 输入格式：\n#   第一行：n（房屋数，房屋围成一圈）\n#   第二行：n 个非负整数（每间房的现金）\n# 输出格式：一行一个整数，今晚能偷到的最高金额\nimport sys\n\ndef main():\n    data = sys.stdin.read().split()\n    n = int(data[0])\n    nums = [int(x) for x in data[1:1 + n]]\n    if n == 1:                        # 单间房：切片会丢解，直接返回\n        print(nums[0])\n        return\n\n    def rob_linear(houses):\n        prev2, prev1 = 0, 0           # dp[i-2], dp[i-1]，同 198\n        for x in houses:\n            prev2, prev1 = prev1, max(prev1, prev2 + x)\n        return prev1\n\n    print(max(rob_linear(nums[1:]), rob_linear(nums[:-1])))\n\nif __name__ == '__main__':\n    main()",
+      "codeCpp": "class Solution {\npublic:\n    int rob(vector<int>& nums) {\n        // 环形处理：房屋围成圈，首尾相邻不能同偷\n        // 拆环成链：情形 A 不偷首间 -> 线性打家劫舍 nums[1..n)；\n        //           情形 B 不偷尾间 -> 线性打家劫舍 nums[0..n-1)\n        int n = nums.size();\n        if (n == 1) return nums[0];    // 特判：单间房不构成环形约束，切片会丢解\n        auto robLinear = [](const vector<int>& houses) {\n            // 状态定义：dp[i] = 前 i 间房最高金额（同 198 题）\n            // 转移方程：dp[i] = max(dp[i-1], dp[i-2] + houses[i-1])\n            int prev2 = 0, prev1 = 0;  // 滚动变量：dp[i-2], dp[i-1]\n            for (int x : houses) {\n                int cur = max(prev1, prev2 + x);\n                prev2 = prev1;         // 整体右移一位\n                prev1 = cur;\n            }\n            return prev1;\n        };\n        // 两情形互斥且合起来覆盖所有合法方案，取较大者\n        vector<int> skipFirst(nums.begin() + 1, nums.end());\n        vector<int> skipLast(nums.begin(), nums.end() - 1);\n        return max(robLinear(skipFirst), robLinear(skipLast));\n    }\n};",
+      "acmCodeCpp": "// ACM 模式：完整可运行程序（stdin -> stdout）\n// 输入格式：\n//   第一行：n（房屋数，房屋围成一圈）\n//   第二行：n 个非负整数（每间房的现金）\n// 输出格式：一行一个整数，今晚能偷到的最高金额\n#include <bits/stdc++.h>\nusing namespace std;\n\n// 线性打家劫舍：dp[i] = max(dp[i-1], dp[i-2] + houses[i-1])，同 198 题\nint robLinear(const vector<int>& houses) {\n    int prev2 = 0, prev1 = 0;          // 滚动变量：dp[i-2], dp[i-1]\n    for (int x : houses) {\n        int cur = max(prev1, prev2 + x);\n        prev2 = prev1;                 // 整体右移一位\n        prev1 = cur;\n    }\n    return prev1;\n}\n\nint main() {\n    ios::sync_with_stdio(false);\n    cin.tie(nullptr);\n\n    int n;\n    cin >> n;\n    vector<int> nums(n);\n    for (auto& x : nums) cin >> x;\n    if (n == 1) {                      // 单间房：切片会丢解，直接输出\n        cout << nums[0] << endl;\n        return 0;\n    }\n    // 拆环成链：不偷首间 -> nums[1..n)；不偷尾间 -> nums[0..n-1)，取较大者\n    vector<int> skipFirst(nums.begin() + 1, nums.end());\n    vector<int> skipLast(nums.begin(), nums.end() - 1);\n    cout << max(robLinear(skipFirst), robLinear(skipLast)) << endl;\n    return 0;\n}",
+      "codeJava": "class Solution {\n    public int rob(int[] nums) {\n        // 环形处理：房屋围成圈，首尾相邻不能同偷\n        // 拆环成链：按『首间偷不偷』分成两个互斥的线性情形，取较大者\n        if (nums.length == 1) return nums[0];  // 单间房不构成环形约束\n        return Math.max(robLinear(nums, 1, nums.length),     // 情形 A：不偷首间\n                        robLinear(nums, 0, nums.length - 1)); // 情形 B：不偷尾间\n    }\n\n    // 线性打家劫舍（同 198）：dp[i] = max(dp[i-1], dp[i-2] + nums[i])\n    private int robLinear(int[] nums, int from, int to) {\n        int prev2 = 0, prev1 = 0;      // 滚动变量：dp[i-2], dp[i-1]\n        for (int i = from; i < to; i++) {\n            int cur = Math.max(prev1, prev2 + nums[i]);\n            prev2 = prev1;             // 整体右移一位\n            prev1 = cur;\n        }\n        return prev1;\n    }\n}",
+      "codeJs": "/**\n * @param {number[]} nums\n * @return {number}\n */\nvar rob = function (nums) {\n  // 环形处理：房屋围成圈，首尾相邻不能同偷\n  // 拆环成链：情形 A 不偷首间 / 情形 B 不偷尾间，二者互斥且覆盖全部方案\n  if (nums.length === 1) return nums[0];   // 单间房不构成环形约束，切片会丢解\n  const robLinear = (houses) => {\n    // 线性打家劫舍（同 198）：dp[i] = max(dp[i-1], dp[i-2] + houses[i-1])\n    let prev2 = 0, prev1 = 0;    // 滚动变量：dp[i-2], dp[i-1]\n    for (const x of houses) {\n      const cur = Math.max(prev1, prev2 + x);\n      prev2 = prev1;             // 整体右移一位\n      prev1 = cur;\n    }\n    return prev1;\n  };\n  return Math.max(robLinear(nums.slice(1)), robLinear(nums.slice(0, -1)));\n};",
+      "codeGo": "func rob(nums []int) int {\n\t// 环形处理：房屋围成圈，首尾相邻不能同偷\n\t// 拆环成链：按『首间偷不偷』分成两个互斥的线性情形，取较大者\n\tn := len(nums)\n\tif n == 1 {\n\t\treturn nums[0] // 单间房不构成环形约束，切片会丢解\n\t}\n\trobLinear := func(houses []int) int {\n\t\t// 线性打家劫舍（同 198）：dp[i] = max(dp[i-1], dp[i-2]+houses[i-1])\n\t\tprev2, prev1 := 0, 0 // 滚动变量：dp[i-2], dp[i-1]\n\t\tfor _, x := range houses {\n\t\t\tcur := max(prev1, prev2+x)\n\t\t\tprev2, prev1 = prev1, cur // 整体右移一位\n\t\t}\n\t\treturn prev1\n\t}\n\t// 情形 A 不偷首间 -> nums[1:]；情形 B 不偷尾间 -> nums[:n-1]\n\treturn max(robLinear(nums[1:]), robLinear(nums[:n-1]))\n}"
+    },
+    {
+      "id": 53,
+      "title": "Maximum Subarray",
+      "titleCn": "最大子数组和",
+      "difficulty": "medium",
+      "frequency": 5,
+      "question": "给你一个整数数组 nums，请找出一个具有最大和的连续子数组（子数组最少包含一个元素），返回其最大和。子数组是数组中的一个连续部分。\n\n示例 1：输入 nums = [-2,1,-3,4,-1,2,1,-5,4]，输出 6（连续子数组 [4,-1,2,1] 的和最大，为 6）。\n示例 2：输入 nums = [1]，输出 1。\n示例 3：输入 nums = [5,4,-1,7,8]，输出 23（整个数组之和）。\n\n提示：1 <= nums.length <= 10^5，-10^4 <= nums[i] <= 10^4。",
+      "hints": [
+        "审题诀窍：『子数组必须连续』提示我们把状态挂在结尾上——定义 dp[i] = 以 nums[i] 结尾的最大子数组和，把连续性编码进状态；若定义为『前 i 个里的最大和』，转移就无从下手。",
+        "审题诀窍：转移只有两种来源——以 i 结尾的段要么自己开新段（nums[i]），要么接在以 i-1 结尾的段后面（dp[i-1] + nums[i]），取较大者。",
+        "审题诀窍：答案不是 dp[n-1]，而是所有 dp[i] 的最大值（最大段不一定以最后一个元素结尾）；dp[i-1] < 0 时纯拖后腿、果断重开一段——这正是 Kadane 算法的贪心直觉。",
+        "追问预备：要返回子数组本身怎么办？（记录重开段起点与全局最优端点）；乘积版怎么做？（152 双状态）；若允许删除至多一个元素呢？（维护『以 i 结尾且已删/未删』两个状态）"
+      ],
+      "keyPoints": [
+        "状态定义：dp[i] = 以 nums[i] 结尾（必含该元素）的最大子数组和，连续性编码进状态",
+        "转移方程：dp[i] = max(nums[i], dp[i-1] + nums[i])——续接前段或新开一段",
+        "答案 = max(dp[i])，边扫边更新；子数组至少一个元素，全负数组返回最大单元素而非 0",
+        "Kadane 滚动变量：O(n) 时间 O(1) 空间"
+      ],
+      "structureTags": [
+        "dp",
+        "greedy"
+      ],
+      "approaches": [
+        {
+          "name": "枚举所有子数组（前缀和加速）",
+          "idea": "预处理前缀和后枚举所有区间端点 (i, j)，区间和 = P[j] - P[i]，记录最大值。是思维基线，n 达到 10^5 时必然超时。",
+          "complexity": "时间 O(n²)，空间 O(1)",
+          "detail": "状态定义：P[i] = nums 前 i 个元素的前缀和，则子数组 nums[i..j] 的和 = P[j+1] - P[i]。枚举方式：双重循环枚举右端点 j 与左端点 i，用前缀和 O(1) 求每段区间和，维护全局最大。不用前缀积/前缀和相减以外的技巧，是因为本思路只求『枚举不漏』。\n\n示例走查：nums=[-2,1,-3,4,-1,2,1,-5,4]。P=[0,-2,-1,-4,0,-1,1,2,-3,1]。枚举到右端点 j=6（元素 1）时，区间和 = P[7]-P[i]，左侧最小前缀是 P[3]=-4 → 2-(-4)=6，对应 [4,-1,2,1]，正是答案 6。\n\n为什么它是基线：它证明答案一定落在某个 (i,j) 区间上，并给出 O(n²) 的可运行上界；瓶颈在『对每个 j 求左侧最小前缀』被内层循环 O(n) 地做——把这一步换成维护 running minimum 即升级为 O(n)。易错点：\n- P 下标比 nums 偏移 1，区间和是 P[j+1]-P[i] 不是 P[j]-P[i]。\n- 全负数组（如 [-3,-1]）答案是最小单元素而非 0——枚举必须保证子数组非空。\n- n=10^5 时约 10^10 次操作必然超时，仅作思维基线。",
+          "code": "def max_subarray_brute(nums):\n    n = len(nums)\n    P = [0] * (n + 1)                 # P[i] = 前 i 个元素之和\n    for i, x in enumerate(nums):\n        P[i + 1] = P[i] + x\n    best = float('-inf')\n    for j in range(n):                # 右端点（子数组必含 nums[j]）\n        for i in range(j + 1):        # 左端点，保证子数组非空\n            best = max(best, P[j + 1] - P[i])   # 区间和 = P[j+1] - P[i]\n    return best"
+        },
+        {
+          "name": "递推 dp 数组",
+          "idea": "dp[i] = max(nums[i], dp[i-1] + nums[i])（以 i 结尾的最大子数组和），答案取 max(dp)。状态定义成『以 i 结尾』是把连续约束变成可递推性质的关键一步。",
+          "complexity": "时间 O(n)，空间 O(n)",
+          "detail": "状态定义：dp[i] = 以 nums[i] 结尾（必含该元素）的最大子数组和。转移推导（最后一步分类）：以 i 结尾的子数组要么只有 nums[i] 自己（新开一段），要么接在某个以 i-1 结尾的子数组后面——后者最优就是 dp[i-1] + nums[i]，故 dp[i] = max(nums[i], dp[i-1] + nums[i])；答案 = max(dp)。\n\n示例走查：nums=[-2,1,-3,4,-1,2,1,-5,4]。dp 依次为：-2 → 1（新开段）→ -2 → 4（前缀和为负，重开段）→ 3 → 5 → 6 → 1 → 5；max(dp)=6 ✓。全负数组 [-3,-1]：dp=[-3,-1]，max=1，正确返回最大单元素。\n\n为什么正确：『以 i 结尾』把连续性编码进状态，最后一步只有『接前段/不接』两类，互斥覆盖；答案取 max(dp) 因为最优段可以结尾在任意位置。易错点：\n- 状态必须定义成『以 i 结尾』，写成『前 i 个里的最大』则转移断裂。\n- 答案不是 dp[n-1]，本例 dp[n-1]=5 而答案 6。\n- 遍历 i 从 1 到 n-1 正序，dp[i] 只依赖 dp[i-1]。",
+          "code": "def max_subarray_table(nums):\n    n = len(nums)\n    dp = [0] * n                      # dp[i] = 以 nums[i] 结尾的最大子数组和\n    dp[0] = nums[0]\n    for i in range(1, n):\n        # 新开一段 vs 续接前一段，二者取大\n        dp[i] = max(nums[i], dp[i - 1] + nums[i])\n    return max(dp)                    # 最优段可能结尾于任意位置"
+        },
+        {
+          "name": "Kadane 滚动变量",
+          "idea": "dp[i] 只依赖 dp[i-1]，用一个变量滚动并同步维护全局最大。贪心视角完全等价：当前段和一旦变负，对后续只有负贡献，直接丢弃重开。",
+          "complexity": "时间 O(n)，空间 O(1)",
+          "optimal": true,
+          "detail": "状态定义：cur 即 dp[i]（以当前元素结尾的最大子数组和）的滚动版，best 维护 max(dp[0..i])。转移：cur = max(x, cur + x)——dp[i-1] < 0 时是负贡献，果断舍弃从 x 重开一段，这正是 Kadane 的贪心直觉。\n\n示例走查：nums=[5,4,-1,7,8]。cur/best 演化：5/5 → 9/9 → 8/9 → 15/15 → 23/23，输出 23 ✓。再看样例 1：cur=-2 → 1（舍弃 -2 重开）→ -2 → 4 → 3 → 5 → 6 → 1 → 5，best=6 ✓。\n\n为什么正确：与数组版逐项等价（dp[i] 只依赖 dp[i-1]），best 边扫边补上『答案取 max(dp)』这半步；负前缀必丢的贪心与 max 转移严格等价。易错点：\n- cur、best 初值都是 nums[0]，循环从第二个元素开始；初值设 0 会把空段当答案，全负数组就错了。\n- 遍历顺序从左到右不可倒——cur 的语义是『以当前元素结尾』，依赖前一个元素的结果。\n- 面试追问：若要求返回子数组本身，需额外记录每次重开段的起点。",
+          "code": "def max_subarray_kadane(nums):\n    cur = best = nums[0]              # cur=dp[i] 滚动版；best=全局最大\n    for x in nums[1:]:\n        cur = max(x, cur + x)         # 前段为负贡献则舍弃，从 x 重开\n        best = max(best, cur)         # 答案取所有 dp[i] 的最大值\n    return best"
+        }
+      ],
+      "code": "class Solution:\n    def maxSubArray(self, nums: List[int]) -> int:\n        # 状态定义：dp[i] = 以 nums[i] 结尾（必含该元素）的最大子数组和\n        # 转移方程：dp[i] = max(nums[i], dp[i-1] + nums[i])\n        #   以 i 结尾的子数组只有两种来源：单独从 i 开新段，或接在以 i-1 结尾的段后\n        cur = best = nums[0]            # cur 即 dp[i] 的滚动版；best 记录全局最大答案\n        for x in nums[1:]:\n            cur = max(x, cur + x)       # dp[i-1] 为负时是负贡献，舍弃并从 x 重开一段\n            best = max(best, cur)       # 答案是所有 dp[i] 的最大值，边推边更新\n        return best",
+      "templates": [
+        "「子数组 DP」模板：涉及连续子数组的最值时，状态必须定义为『以 i 结尾』（把连续性编码进状态），转移只有『续接前段』或『新开一段』两个选项；答案取所有 dp[i] 的最大值而非末项。乘积版（152）在此基础上加状态维度。"
+      ],
+      "companies": [
+        "字节跳动",
+        "腾讯"
+      ],
+      "samples": [
+        {
+          "input": "nums = [-2,1,-3,4,-1,2,1,-5,4]",
+          "output": "6",
+          "explain": "连续子数组 [4,-1,2,1] 的和最大，为 6"
+        },
+        {
+          "input": "nums = [5,4,-1,7,8]",
+          "output": "23",
+          "explain": "整个数组之和最大"
+        }
+      ],
+      "acmCode": "# ACM 模式：完整可运行程序（stdin -> stdout）\n# 输入格式：\n#   第一行：n（数组长度）\n#   第二行：n 个整数（数组）\n# 输出格式：一行一个整数，最大子数组和\nimport sys\n\ndef main():\n    data = sys.stdin.read().split()\n    n = int(data[0])\n    nums = [int(x) for x in data[1:1 + n]]\n    cur = best = nums[0]\n    for x in nums[1:]:\n        cur = max(x, cur + x)         # 负贡献前段舍弃重开\n        best = max(best, cur)\n    print(best)\n\nif __name__ == '__main__':\n    main()",
+      "codeCpp": "class Solution {\npublic:\n    int maxSubArray(vector<int>& nums) {\n        // 状态定义：cur = 以当前元素结尾的最大子数组和（dp[i] 的滚动版）\n        // 转移方程：cur = max(x, cur + x)——以 i 结尾的子数组只有两种来源：\n        //   单独从 x 开新段，或接在以 i-1 结尾的段后；前段为负贡献时舍弃重开\n        long long best = LLONG_MIN;    // 负无穷哨兵用 LLONG_MIN，防止极端值下溢出\n        long long cur = 0;             // cur 即 dp[i]，边扫边滚\n        for (int x : nums) {\n            cur = max((long long)x, cur + x);   // 两种来源取较大者\n            best = max(best, cur);              // 答案是所有 dp[i] 的最大值\n        }\n        return (int)best;\n    }\n};",
+      "acmCodeCpp": "// ACM 模式：完整可运行程序（stdin -> stdout）\n// 输入格式：\n//   第一行：n（数组长度）\n//   第二行：n 个整数（数组）\n// 输出格式：一行一个整数，最大子数组和\n#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);   // 关闭同步，读入更快\n    cin.tie(nullptr);\n\n    int n;\n    cin >> n;\n    vector<int> nums(n);\n    for (auto& x : nums) cin >> x;\n\n    // 状态定义：cur = 以当前元素结尾的最大子数组和（dp[i] 的滚动版）\n    // 转移方程：cur = max(x, cur + x)，前段为负贡献时舍弃并从 x 重开一段\n    long long best = LLONG_MIN;    // 负无穷哨兵用 LLONG_MIN，防止极端值下溢出\n    long long cur = 0;\n    for (int x : nums) {\n        cur = max((long long)x, cur + x);   // 单独开新段 / 接在前一段后\n        best = max(best, cur);              // 答案是所有 dp[i] 的最大值\n    }\n    cout << best << endl;\n    return 0;\n}",
+      "codeJava": "class Solution {\n    public int maxSubArray(int[] nums) {\n        // 状态定义：cur = 以当前元素结尾的最大子数组和（dp[i] 的滚动版）\n        // 转移方程：cur = max(x, cur + x)——以 i 结尾的子数组只有两种来源：\n        //   单独从 x 开新段，或接在以 i-1 结尾的段后；前段为负贡献时舍弃重开\n        long best = Long.MIN_VALUE;    // 负无穷哨兵，防止极端输入下 int 溢出\n        long cur = 0;                  // cur 即 dp[i]，边扫边滚\n        for (int x : nums) {\n            cur = Math.max(x, cur + x);   // 两种来源取较大者（x 自动提升为 long）\n            best = Math.max(best, cur);   // 答案是所有 dp[i] 的最大值\n        }\n        return (int) best;\n    }\n}",
+      "codeJs": "/**\n * @param {number[]} nums\n * @return {number}\n */\nvar maxSubArray = function (nums) {\n  // 状态定义：cur = 以当前元素结尾的最大子数组和（dp[i] 的滚动版）\n  // 转移方程：cur = max(x, cur + x)，前段为负贡献时舍弃并从 x 重开一段\n  let cur = nums[0];               // 初值对应 dp[0] = nums[0]\n  let best = nums[0];              // best 记录全局最大答案\n  for (let i = 1; i < nums.length; i++) {\n    cur = Math.max(nums[i], cur + nums[i]);   // 单独开新段 / 接在前一段后\n    best = Math.max(best, cur);    // 答案是所有 dp[i] 的最大值，边推边更新\n  }\n  return best;\n};",
+      "codeGo": "func maxSubArray(nums []int) int {\n\t// 状态定义：cur = 以当前元素结尾的最大子数组和（dp[i] 的滚动版）\n\t// 转移方程：cur = max(x, cur + x)，前段为负贡献时舍弃并从 x 重开一段\n\tcur, best := nums[0], nums[0]  // 初值对应 dp[0] = nums[0]，best 记录全局答案\n\tfor _, x := range nums[1:] {\n\t\tif cur+x > x {                // 接在前一段后更优则接上\n\t\t\tcur += x\n\t\t} else {                      // 否则从 x 单独开新段\n\t\t\tcur = x\n\t\t}\n\t\tif cur > best {               // 答案是所有 dp[i] 的最大值，边推边更新\n\t\t\tbest = cur\n\t\t}\n\t}\n\treturn best\n}"
+    },
+    {
+      "id": 152,
+      "title": "Maximum Product Subarray",
+      "titleCn": "乘积最大子数组",
+      "difficulty": "medium",
+      "frequency": 4,
+      "question": "给你一个整数数组 nums，请找出数组中乘积最大的非空连续子数组（至少包含一个数字），并返回该子数组对应的乘积。测试用例的答案是一个 32 位整数。\n\n示例 1：输入 nums = [2,3,-2,4]，输出 6（子数组 [2,3] 有最大乘积 6）。\n示例 2：输入 nums = [-2,0,-1]，输出 0（结果不能是 2，因为 [-2,-1] 不是连续子数组）。\n\n提示：1 <= nums.length <= 2 * 10^4，-10 <= nums[i] <= 10，任何前缀或后缀的乘积都保证是 32 位整数。",
+      "hints": [
+        "审题诀窍：照搬 53 题只维护最大值会错——负负得正。反例 [2,-5,-2]：正确答案 20（整个数组相乘），单状态解只能得到 10。凡转移中存在翻转效应，就要同时维护最大与最小两个状态。",
+        "审题诀窍：状态定义（以 nums[i] 结尾）两个分量：dp_max[i] 最大乘积、dp_min[i] 最小乘积；转移候选有三个——nums[i]（新开段）、dp_max[i-1]*nums[i]、dp_min[i-1]*nums[i]，分别取 max / min。",
+        "审题诀窍：易错点在更新顺序——先收集三个候选再同时赋值，否则算最小分量时用到的是刚被覆盖的新最大分量；0 会把两个分量都归零（下一轮自然重开），但答案不会丢，因为 best 已记录过历史最优。",
+        "追问预备：为什么必须同时维护最小值？（负负得正，最小负乘积乘下一个负数会反超）；数组里有 0 怎么办？（0 把状态清零重开，best 已记录历史最优，答案不丢）；能否只扫一遍不用双状态？（不行，反例 [2,-5,-2]）"
+      ],
+      "keyPoints": [
+        "双状态：以 i 结尾的最大乘积 fmax 与最小乘积 fmin 同时维护（负负得正，最小可能翻盘）",
+        "转移三候选：nums[i]、fmax*nums[i]、fmin*nums[i]，分别取 max 与 min",
+        "先收集候选再同时赋值，避免新旧状态混用的经典 bug",
+        "答案取所有 fmax 的最大值；0 重置状态但不丢答案（best 已记录）"
+      ],
+      "structureTags": [
+        "dp"
+      ],
+      "approaches": [
+        {
+          "name": "枚举所有子数组",
+          "idea": "双重循环枚举起点终点，边扩区间边乘边记录最大值。思路直观，n 到 2*10^4 时 O(n²) 会超时。",
+          "complexity": "时间 O(n²)，空间 O(1)",
+          "detail": "枚举方式：固定左端点 i，向右扩展右端点 j，边扩边乘维护当前乘积 prod，记录历史最大。不用前缀和相减技巧——乘法没有可靠的『逆运算』（除零、除不尽），所以只能边乘边记。\n\n示例走查：nums=[2,3,-2,4]。左端 0：2 → 6 → -12 → -48，过程最大 6；左端 1：3 → -6 → -24；左端 2：-2 → -8；左端 3：4。全局最大 6 ✓。nums=[-2,0,-1]：左端 0：-2 → 0；左端 1：0 → 0；左端 2：-1，最大 0 ✓（[-2,-1] 不连续，取不到 2）。\n\n为什么它是基线：它揭示了本题的核心现象——乘积会因负数翻转、被 0 清零，这为双状态 DP 提供动机；O(n²) 在 n=2*10^4 时约 4*10^8 次运算，Python 必超时。易错点：\n- 子数组非空，内层从 j=i 开始而不是 i+1。\n- 题目保证任何前缀/后缀乘积在 32 位内，自造数据时注意溢出（Python 无忧，C++ 要 long long）。\n- 外层左端内层右端（或反之）都行，关键是每个区间恰被枚举一次。",
+          "code": "def max_product_brute(nums):\n    n = len(nums)\n    best = float('-inf')\n    for i in range(n):                # 左端点\n        prod = 1\n        for j in range(i, n):         # 右端点，向右扩展边乘边记\n            prod *= nums[j]\n            best = max(best, prod)\n    return best"
+        },
+        {
+          "name": "递推双状态 dp 数组",
+          "idea": "类比 53 题，但单状态不够：负负得正，最小负乘积乘下一个负数可能反超最大。故同时维护 fmax[i] 与 fmin[i]，各自从三个候选 {nums[i], fmax[i-1]*nums[i], fmin[i-1]*nums[i]} 中取 max / min。",
+          "complexity": "时间 O(n)，空间 O(n)",
+          "detail": "状态定义：fmax[i] = 以 nums[i] 结尾的最大乘积、fmin[i] = 以 nums[i] 结尾的最小乘积。转移推导（最后一步分类）：以 i 结尾的段要么只有 nums[i]，要么接在某个以 i-1 结尾的段后；由于负负得正，接上的前段既可能取最大（正×正）也可能取最小（负×负翻正），故候选有三个——nums[i]、fmax[i-1]*nums[i]、fmin[i-1]*nums[i]，fmax 取三者 max、fmin 取三者 min。\n\n示例走查：nums=[2,-5,-2]。i=0 → (fmax,fmin)=(2,2)；i=1（x=-5）→ 候选 {-5,-10,-10} → (-5,-10)；i=2（x=-2）→ 候选 {-2,10,20} → (20,-2)，答案 max(fmax)=20 ✓（整段相乘；若只维护 fmax 单状态只能得 10）。\n\n为什么正确：任何以 i 结尾的最优段都由『末元素 + 某个以 i-1 结尾的段』构成，而段乘积的极值只会出现在 fmax/fmin 两端，三候选不重不漏。易错点：\n- 只维护 fmax 会漏掉负负得正的反超，反例 [2,-5,-2]。\n- 更新 fmin 必须用旧的 fmax[i-1]——先收集候选元组再赋值。\n- 0 会把 fmax、fmin 同时归零，下一轮从 nums[i] 自然重开，答案由 best 兜底。",
+          "code": "def max_product_table(nums):\n    n = len(nums)\n    fmax = [0] * n                    # 以 i 结尾的最大乘积\n    fmin = [0] * n                    # 以 i 结尾的最小乘积（负负得正的保险）\n    fmax[0] = fmin[0] = nums[0]\n    for i in range(1, n):\n        x = nums[i]\n        cands = (x, fmax[i - 1] * x, fmin[i - 1] * x)   # 新开段/接最大/接最小\n        fmax[i] = max(cands)\n        fmin[i] = min(cands)\n    return max(fmax)"
+        },
+        {
+          "name": "双状态滚动变量",
+          "idea": "两个状态都只依赖前一位，各用一个变量滚动；注意先算候选元组再同时赋值，保证算 min 时用到的仍是上一轮的旧 fmax。",
+          "complexity": "时间 O(n)，空间 O(1)",
+          "optimal": true,
+          "detail": "状态定义：fmax、fmin 滚动表示『以当前元素结尾』的最大/最小乘积，best 维护全局答案。转移三候选 {x, fmax*x, fmin*x} 不变——两个状态都只依赖前一位，可各用一个变量滚动。\n\n示例走查：nums=[2,3,-2,4]。fmax/fmin/best 演化：2/2/2 → 6/6/6 → 候选 {-2,-12,-12} → -2/-12/6 → 候选 {4,-8,-48} → 4/-8/6，输出 6 ✓。nums=[-2,3,-4]：-2/-2/-2 → 候选 {3,-6,-6} → 3/-6/3 → 候选 {-4,-12,24} → 24/-12/24 ✓（-2×3×-4=24，靠 fmin=-6 翻正）。\n\n为什么正确：与双状态数组版逐项等价，best 补上答案聚合；先收集候选再同时赋值保证算 min 时用到的仍是旧 fmax。易错点：\n- 必须写 fmax, fmin = max(cands), min(cands) 同时赋值；拆成两行会让 fmin 读到新 fmax。\n- best 初值 nums[0] 且循环从第二个元素开始，保证子数组非空。\n- 遍历顺序从左到右：fmax/fmin 都只依赖上一个位置的值，倒序会破坏状态语义。",
+          "code": "def max_product_rolling(nums):\n    fmax = fmin = best = nums[0]      # 初值对应 dp[0] = nums[0]\n    for x in nums[1:]:\n        cands = (x, fmax * x, fmin * x)       # 先收集候选\n        fmax, fmin = max(cands), min(cands)   # 再同时赋值，避免新旧混用\n        best = max(best, fmax)                # 答案取所有最大分量的最大值\n    return best"
+        }
+      ],
+      "code": "class Solution:\n    def maxProduct(self, nums: List[int]) -> int:\n        # 状态定义：dp[i] 描述以 nums[i] 结尾的子数组，含两个分量（滚动维护）——\n        #   fmax = dp[i] 的最大乘积分量；fmin = dp[i] 的最小乘积分量\n        #   为何要最小：负数乘负数变正数，当前最小负值乘下一个负数可能反超最大值\n        # 转移方程：从三候选 {nums[i], fmax*nums[i], fmin*nums[i]} 中取 max 与 min\n        fmax = fmin = best = nums[0]    # 滚动变量，初值对应 dp[0] = nums[0]\n        for x in nums[1:]:\n            cands = (x, fmax * x, fmin * x)      # 三个候选：新开段 / 续接最大 / 续接最小\n            fmax, fmin = max(cands), min(cands)  # 先算候选再同时赋值，避免用到已覆盖的旧值\n            best = max(best, fmax)               # 答案取所有 dp[i] 最大分量的最大值\n        return best",
+      "templates": [
+        "「多状态 DP」模板：当转移存在翻转/抵消效应（负负得正、奇偶切换、冷热交易日等）导致单一状态不够用时，同时维护最大/最小（或按奇偶分状态）两套 dp；转移候选取并集后再各自取最值。"
+      ],
+      "companies": [
+        "字节跳动",
+        "美团"
+      ],
+      "samples": [
+        {
+          "input": "nums = [2,3,-2,4]",
+          "output": "6",
+          "explain": "子数组 [2,3] 有最大乘积 6"
+        },
+        {
+          "input": "nums = [-2,0,-1]",
+          "output": "0",
+          "explain": "[-2,-1] 不是连续子数组，结果不能是 2"
+        }
+      ],
+      "acmCode": "# ACM 模式：完整可运行程序（stdin -> stdout）\n# 输入格式：\n#   第一行：n（数组长度）\n#   第二行：n 个整数（数组）\n# 输出格式：一行一个整数，乘积最大的非空连续子数组的乘积\nimport sys\n\ndef main():\n    data = sys.stdin.read().split()\n    n = int(data[0])\n    nums = [int(x) for x in data[1:1 + n]]\n    fmax = fmin = best = nums[0]\n    for x in nums[1:]:\n        cands = (x, fmax * x, fmin * x)\n        fmax, fmin = max(cands), min(cands)\n        best = max(best, fmax)\n    print(best)\n\nif __name__ == '__main__':\n    main()",
+      "codeCpp": "class Solution {\npublic:\n    int maxProduct(vector<int>& nums) {\n        // 状态定义：fmax/fmin = 以当前元素结尾的子数组的最大/最小乘积（滚动维护）\n        // 为何要维护最小：负负得正，当前最小负值乘下一个负数可能反超最大值\n        // 转移方程：从三候选 {x, fmax*x, fmin*x}（新开段/续最大/续最小）取 max 与 min\n        long long fmax = 1, fmin = 1;  // 乘法单位元 1 作初值，首个元素自然并入\n        long long best = LLONG_MIN;    // 负无穷哨兵用 LLONG_MIN，防止极端值下溢出\n        for (int x : nums) {\n            long long v = x;\n            long long a = v, b = fmax * v, c = fmin * v;  // 三个候选一次算全\n            fmax = max({a, b, c});     // 先算候选再同时赋值，避免用到已覆盖旧值\n            fmin = min({a, b, c});\n            best = max(best, fmax);    // 答案取所有位置最大分量的最大值\n        }\n        return (int)best;\n    }\n};",
+      "acmCodeCpp": "// ACM 模式：完整可运行程序（stdin -> stdout）\n// 输入格式：\n//   第一行：n（数组长度）\n//   第二行：n 个整数（数组）\n// 输出格式：一行一个整数，乘积最大的非空连续子数组的乘积\n#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);   // 关闭同步，读入更快\n    cin.tie(nullptr);\n\n    int n;\n    cin >> n;\n    vector<int> nums(n);\n    for (auto& x : nums) cin >> x;\n\n    // 状态定义：fmax/fmin = 以当前元素结尾的子数组的最大/最小乘积（滚动维护）\n    // 为何要维护最小：负负得正，当前最小负值乘下一个负数可能反超最大值\n    long long fmax = 1, fmin = 1;  // 乘法单位元 1 作初值，首个元素自然并入\n    long long best = LLONG_MIN;    // 负无穷哨兵用 LLONG_MIN，防止极端值下溢出\n    for (int x : nums) {\n        long long v = x;\n        long long a = v, b = fmax * v, c = fmin * v;  // 三个候选一次算全\n        fmax = max({a, b, c});     // 先算候选再同时赋值，避免用到已覆盖旧值\n        fmin = min({a, b, c});\n        best = max(best, fmax);    // 答案取所有位置最大分量的最大值\n    }\n    cout << best << endl;\n    return 0;\n}",
+      "codeJava": "class Solution {\n    public int maxProduct(int[] nums) {\n        // 状态定义：fmax/fmin = 以当前元素结尾的子数组的最大/最小乘积（滚动维护）\n        // 为何要维护最小：负负得正，当前最小负值乘下一个负数可能反超最大值\n        // 转移方程：从三候选 {x, fmax*x, fmin*x}（新开段/续最大/续最小）取 max 与 min\n        long fmax = 1, fmin = 1;       // 乘法单位元 1 作初值，首个元素自然并入\n        long best = Long.MIN_VALUE;    // 负无穷哨兵，防止极端值比较溢出\n        for (int x : nums) {\n            long a = x, b = fmax * x, c = fmin * x;   // 三个候选一次算全\n            fmax = Math.max(a, Math.max(b, c));   // 先算候选再同时赋值，避免用旧值\n            fmin = Math.min(a, Math.min(b, c));\n            best = Math.max(best, fmax);          // 答案取所有位置最大分量的最大值\n        }\n        return (int) best;\n    }\n}",
+      "codeJs": "/**\n * @param {number[]} nums\n * @return {number}\n */\nvar maxProduct = function (nums) {\n  // 状态定义：fmax/fmin = 以当前元素结尾的子数组的最大/最小乘积（滚动维护）\n  // 为何要维护最小：负负得正，当前最小负值乘下一个负数可能反超最大值\n  let fmax = nums[0], fmin = nums[0], best = nums[0];  // 初值对应 dp[0] = nums[0]\n  for (let i = 1; i < nums.length; i++) {\n    const x = nums[i];\n    const cands = [x, fmax * x, fmin * x];   // 三个候选：新开段/续最大/续最小\n    fmax = Math.max(...cands);               // 先算候选再同时赋值，避免用到旧值\n    fmin = Math.min(...cands);\n    best = Math.max(best, fmax);             // 答案取所有位置最大分量的最大值\n  }\n  return best;\n};",
+      "codeGo": "func maxProduct(nums []int) int {\n\t// 状态定义：fmax/fmin = 以当前元素结尾的子数组的最大/最小乘积（滚动维护）\n\t// 为何要维护最小：负负得正，当前最小负值乘下一个负数可能反超最大值\n\tfmax, fmin, best := nums[0], nums[0], nums[0]  // 初值对应 dp[0] = nums[0]\n\tfor _, x := range nums[1:] {\n\t\ta, b, c := x, fmax*x, fmin*x     // 三个候选：新开段/续最大/续最小\n\t\tfmax = a                         // 先算候选再同时赋值，避免用到已覆盖旧值\n\t\tif b > fmax {\n\t\t\tfmax = b\n\t\t}\n\t\tif c > fmax {\n\t\t\tfmax = c\n\t\t}\n\t\tfmin = a\n\t\tif b < fmin {\n\t\t\tfmin = b\n\t\t}\n\t\tif c < fmin {\n\t\t\tfmin = c\n\t\t}\n\t\tif fmax > best {                 // 答案取所有位置最大分量的最大值\n\t\t\tbest = fmax\n\t\t}\n\t}\n\treturn best\n}"
+    },
+    {
+      "id": 139,
+      "title": "Word Break",
+      "titleCn": "单词拆分",
+      "difficulty": "medium",
+      "frequency": 4,
+      "question": "给你一个字符串 s 和一个字符串列表 wordDict 作为字典。请你判断是否可以利用字典中出现的单词拼接出 s。\n\n注意：不要求字典中出现的单词全部都使用，并且字典中的单词可以重复使用。\n\n示例 1：输入 s = \"leetcode\", wordDict = [\"leet\", \"code\"]，输出 true（可以拼接为 leet + code）。\n示例 2：输入 s = \"applepenapple\", wordDict = [\"apple\", \"pen\"]，输出 true（apple + pen + apple，单词可以重复使用）。\n示例 3：输入 s = \"catsandog\", wordDict = [\"cats\", \"dog\", \"sand\", \"and\", \"cat\"]，输出 false。\n\n提示：1 <= s.length <= 300，1 <= wordDict.length <= 1000，字典中所有单词互不相同。",
+      "hints": [
+        "审题诀窍：『拼接出 s』正着枚举组合是指数级；反过来看成『把 s 切成若干个字典单词』，只需决策每个切分点——换视角后 DP 的结构立刻显现。",
+        "审题诀窍：状态定义 dp[i] = s 的前 i 个字符能否被拆分；转移枚举『最后一个单词』：dp[i] 为 True 当且仅当存在 j 使 dp[j] 为 True 且 s[j:i] 在字典中。dp[0]=True 是递推的种子（空串视为可拆）。",
+        "审题诀窍：单词判断务必用哈希集合而非列表，否则每次 in 都是 O(词数×词长)；内层枚举切分点 j 是 O(n)，换成枚举『字典中出现过的词长集合』通常更快、更贴合数据。",
+        "追问预备：返回所有拆分方案怎么做？（140 题：DFS 回溯 + 记忆化剪枝）；若问最少使用几个单词？（把布尔 dp 换成 min 计数）；BFS 视角怎么做？（从位置 0 出发按词长建边，求能否到达位置 n）"
+      ],
+      "keyPoints": [
+        "反向视角：拼接 -> 切分，状态 dp[i] = 前缀 s[:i] 可拆分",
+        "转移：枚举最后一个单词，dp[i] = 存在 j 使 dp[j] 且 s[j:i] 在集合中；dp[0]=True 是种子",
+        "哈希集合存单词，子串查询 O(1)（忽略切片常数）",
+        "用『字典中出现过的词长集合』剪枝，内层从 O(n) 降到 O(k)（k 为不同词长数）"
+      ],
+      "structureTags": [
+        "dp"
+      ],
+      "approaches": [
+        {
+          "name": "递归记忆化",
+          "idea": "dfs(i) 表示 s[i:] 能否被拆分：枚举字典中每个单词 w，若 s 以 w 开头则看 dfs(i + len(w))，任一分支成立即可；memo 缓存每个起点的结论，避免重复搜索失败分支。",
+          "complexity": "时间 O(n·m·L)，空间 O(n)",
+          "detail": "状态定义：dfs(i) = 后缀 s[i:] 能否被字典拆分。转移推导（最后一步分类）：拆分 s[i:] 的下一个单词必是字典中的某个 w——若 s 以 w 开头（s.startswith(w, i)），则问题归约为 dfs(i + len(w))；任一单词分支成立即为 true。边界 dfs(n)=True（空串视为可拆）。\n\n示例走查：s=\"leetcode\"，words={leet, code}。dfs(0)：取 leet → dfs(4)；dfs(4)：取 code → dfs(8)=True，逐层返回 True ✓。s=\"catsandog\"：所有分支最终都撞死胡同（剩 og 或 andog），memo 把每个起点的失败结论缓存，避免重复搜索。\n\n为什么正确：每个后缀的答案只由更短后缀决定，缓存后每个 dfs(i) 只算一次，指数级搜索坍缩为 O(n·m·L)（m 为词数、L 为平均词长）。易错点：\n- memo 缓存的是布尔结论，用 lru_cache 最省心，手写 dict 要区分『未计算』。\n- 不缓存的话最坏 2^n 次分支（如 s=\"aaa...b\"、字典={a,aa,aaa}），n=300 直接爆炸。\n- 单词匹配用 s.startswith(w, i) 比切片 s[i:i+len(w)]==w 少一次拷贝。",
+          "code": "def word_break_memo(s, wordDict):\n    words = set(wordDict)\n    from functools import lru_cache\n    @lru_cache(maxsize=None)\n    def dfs(i):\n        if i == len(s):\n            return True               # 空串视为可拆，递归出口\n        # 枚举『下一个单词』w：s 以 w 开头则归约到更短后缀\n        return any(s.startswith(w, i) and dfs(i + len(w)) for w in words)\n    return dfs(0)"
+        },
+        {
+          "name": "递推 dp（枚举切分点）",
+          "idea": "dp[i] 表示前 i 个字符可拆。对每个 i 枚举切分点 j：dp[i] = 存在 j，dp[j] 为 True 且 s[j:i] 在哈希集合中。自底向上填表，把搜索的『枚举后缀单词』换成『枚举切分点』。",
+          "complexity": "时间 O(n²)，空间 O(n)",
+          "detail": "状态定义：dp[i] = 前缀 s[:i]（前 i 个字符）能否被拆分。转移推导（最后一个单词分类）：s[:i] 的最后一个单词从切分点 j 开始——dp[i] 为 True 当且仅当存在 j<i，dp[j] 为 True 且 s[j:i] 在字典中；边界 dp[0]=True（空串是递推种子）。\n\n示例走查：s=\"applepenapple\"，words={apple, pen}。dp[5]=True（apple）→ dp[8]=True（dp[5] 且 s[5:8]=pen）→ dp[13]=True（dp[8] 且 s[8:13]=apple），答案 True ✓。\n\n为什么正确：任何拆分的最后一个单词唯一确定切分点 j，枚举 j 就覆盖了所有情形；dp 从左往右填表时 dp[j]（j<i）已就绪。易错点：\n- 内层枚举切分点 j 是 O(n)，配合子串切片 O(L)，总 O(n²·L)——n=300 时可过但偏慢，词长剪枝版更实用。\n- 单词必须放哈希集合，用列表做 in 判断每次 O(词数×词长)。\n- 遍历顺序 i 从 1 到 n 正序、j<i，保证依赖的是已算好的前缀。",
+          "code": "def word_break_dp(s, wordDict):\n    words = set(wordDict)             # 哈希集合 O(1) 判断子串\n    n = len(s)\n    dp = [False] * (n + 1)            # dp[i] = s[:i] 能否被拆分\n    dp[0] = True                      # 空串是递推种子\n    for i in range(1, n + 1):\n        for j in range(i):            # 枚举最后一个单词的起点\n            if dp[j] and s[j:i] in words:\n                dp[i] = True\n                break                 # 一种拆法即可，提前退出\n    return dp[n]"
+        },
+        {
+          "name": "递推 dp + 词长剪枝",
+          "idea": "内层不再枚举切分点 j，而是枚举字典中出现过的词长集合 lens：dp[i] 只需检查 dp[i-L] 且 s[i-L:i] 在集合中。不同词长数 k 通常远小于 n，内层大幅缩短，是本题最实用的最优形态。",
+          "complexity": "时间 O(n·k·L)，空间 O(n)",
+          "optimal": true,
+          "detail": "状态定义：dp[i] = 前缀 s[:i] 能否被拆分，转移同上——dp[i] 为 True 当且仅当存在词长 L 使 dp[i-L] 为 True 且 s[i-L:i] 在字典中；dp[0]=True 是种子。\n\n示例走查：s=\"leetcode\"，词长集合 lens={4}。i=4：dp[0] 且 s[0:4]=leet ✓ → dp[4]=True；i=8：dp[4] 且 s[4:8]=code ✓ → dp[8]=True，答案 True ✓。若字典含 1、3、7 等词长，内层也只试这几种长度，切不到词长的位置直接跳过。\n\n为什么正确：『最后一个单词的长度』与『最后一个单词的起点』一一对应，与枚举切分点版等价；但不同词长数 k 通常远小于 n，内层从 O(n) 降到 O(k)。易错点：\n- 词长集合用 set 去重，否则重复词长白算。\n- 判断 L<=i 再切片——Python 的 s[i-L:i] 在 L>i 时会悄悄截断成短串造成假命中。\n- dp 是可达性布尔值，找到一个拆法就 break 提前退出内层。",
+          "code": "def word_break_pruned(s, wordDict):\n    words = set(wordDict)\n    lens = {len(w) for w in wordDict} # 只枚举出现过的词长，剪掉无效切分\n    n = len(s)\n    dp = [False] * (n + 1)\n    dp[0] = True                      # 空串种子\n    for i in range(1, n + 1):\n        for L in lens:                # 枚举最后一个单词的长度\n            if L <= i and dp[i - L] and s[i - L:i] in words:\n                dp[i] = True\n                break\n    return dp[n]"
+        }
+      ],
+      "code": "class Solution:\n    def wordBreak(self, s: str, wordDict: List[str]) -> bool:\n        # 状态定义：dp[i] 表示 s 的前 i 个字符 s[:i] 能否被字典拆分\n        # 转移方程：dp[i] = True 当且仅当存在词长 L，使 dp[i-L] 为 True 且 s[i-L:i] 在字典中\n        #   （把『拼接』反过来想成『切分』，最后一个单词的起点即 i-L）\n        words = set(wordDict)                 # 哈希集合：O(1) 判断子串是否为字典单词\n        lens = {len(w) for w in wordDict}     # 只枚举出现过的词长，剪掉无效切分位置\n        dp = [False] * (len(s) + 1)\n        dp[0] = True                          # 边界：空前串视为可拆分，是递推的种子\n        for i in range(1, len(s) + 1):\n            for L in lens:                    # 枚举『最后一个单词』的长度\n                if L <= i and dp[i - L] and s[i - L:i] in words:\n                    dp[i] = True              # 前 i-L 个字符可拆 + 末段是单词 -> 可拆\n                    break                     # 找到一种拆法即可，提前结束内层循环\n        return dp[-1]",
+      "templates": [
+        "「可达性 DP + 集合匹配」模板：问『能否拼出/拆分/到达』时，状态定义为前缀可达性 dp[i]，转移枚举『最后一段』；匹配集合放哈希表 O(1) 查询，并可用『段长集合』剪枝减少无效枚举。"
+      ],
+      "companies": [
+        "字节跳动",
+        "阿里巴巴"
+      ],
+      "samples": [
+        {
+          "input": "s = \"leetcode\", wordDict = [\"leet\", \"code\"]",
+          "output": "true",
+          "explain": "可拼接为 leet + code"
+        },
+        {
+          "input": "s = \"catsandog\", wordDict = [\"cats\", \"dog\", \"sand\", \"and\", \"cat\"]",
+          "output": "false",
+          "explain": "任何切法都会剩下无法匹配的残留"
+        }
+      ],
+      "acmCode": "# ACM 模式：完整可运行程序（stdin -> stdout）\n# 输入格式：\n#   第一行：字符串 s\n#   第二行：m（字典单词数）\n#   第三行：m 个单词，空格分隔\n# 输出格式：一行 true 或 false\nimport sys\n\ndef main():\n    data = sys.stdin.read().split()\n    s = data[0]\n    m = int(data[1])\n    words = set(data[2:2 + m])\n    lens = {len(w) for w in words}\n    n = len(s)\n    dp = [False] * (n + 1)\n    dp[0] = True                      # 空串种子\n    for i in range(1, n + 1):\n        for L in lens:                # 枚举最后一个单词的长度\n            if L <= i and dp[i - L] and s[i - L:i] in words:\n                dp[i] = True\n                break\n    print('true' if dp[n] else 'false')\n\nif __name__ == '__main__':\n    main()",
+      "codeCpp": "class Solution {\npublic:\n    bool wordBreak(string s, vector<string>& wordDict) {\n        // 状态定义：dp[i] 表示 s 的前 i 个字符 s[0..i) 能否被字典拆分\n        // 转移方程：dp[i] = true 当且仅当存在词长 L，使 dp[i-L] 为真\n        //   且 s[i-L..i) 在字典中（把『拼接』反过来想成『切分』）\n        unordered_set<string> words(wordDict.begin(), wordDict.end());  // O(1) 判单词\n        unordered_set<int> lens;       // 只枚举出现过的词长，剪掉无效切分位置\n        for (const string& w : wordDict) lens.insert((int)w.size());\n        int n = (int)s.size();\n        vector<bool> dp(n + 1, false);\n        dp[0] = true;                  // 边界：空前串视为可拆分，是递推的种子\n        for (int i = 1; i <= n; ++i) {\n            for (int L : lens) {       // 枚举『最后一个单词』的长度\n                if (L <= i && dp[i - L] && words.count(s.substr(i - L, L))) {\n                    dp[i] = true;      // 前 i-L 个字符可拆 + 末段是单词 -> 可拆\n                    break;             // 找到一种拆法即可，提前结束内层循环\n                }\n            }\n        }\n        return dp[n];\n    }\n};",
+      "acmCodeCpp": "// ACM 模式：完整可运行程序（stdin -> stdout）\n// 输入格式：\n//   第一行：字符串 s\n//   第二行：m（字典单词数）\n//   第三行：m 个单词，空格分隔\n// 输出格式：一行 true 或 false\n#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);   // 关闭同步，读入更快\n    cin.tie(nullptr);\n\n    string s;\n    int m;\n    cin >> s >> m;\n    unordered_set<string> words;   // O(1) 判断子串是否为字典单词\n    unordered_set<int> lens;       // 只枚举出现过的词长，剪掉无效切分位置\n    for (int i = 0; i < m; ++i) {\n        string w;\n        cin >> w;\n        words.insert(w);\n        lens.insert((int)w.size());\n    }\n\n    // 状态定义：dp[i] 表示 s 的前 i 个字符 s[0..i) 能否被字典拆分\n    // 转移方程：dp[i] = true 当且仅当存在词长 L，使 dp[i-L] 为真且末段在字典中\n    int n = (int)s.size();\n    vector<bool> dp(n + 1, false);\n    dp[0] = true;                  // 边界：空前串视为可拆分，是递推的种子\n    for (int i = 1; i <= n; ++i) {\n        for (int L : lens) {       // 枚举『最后一个单词』的长度\n            if (L <= i && dp[i - L] && words.count(s.substr(i - L, L))) {\n                dp[i] = true;      // 前 i-L 个字符可拆 + 末段是单词 -> 可拆\n                break;             // 找到一种拆法即可，提前结束内层循环\n            }\n        }\n    }\n    cout << (dp[n] ? \"true\" : \"false\") << endl;\n    return 0;\n}",
+      "codeJava": "class Solution {\n    public boolean wordBreak(String s, List<String> wordDict) {\n        // 状态定义：dp[i] 表示 s 的前 i 个字符能否被字典拆分\n        // 转移方程：dp[i] = true 当且仅当存在词长 L，使 dp[i-L] 为真\n        //   且 s[i-L, i) 在字典中（把『拼接』反过来想成『切分』）\n        Set<String> words = new HashSet<>(wordDict);   // 哈希集合：O(1) 判断子串\n        Set<Integer> lens = new HashSet<>();           // 只枚举出现过的词长，剪枝\n        for (String w : wordDict) lens.add(w.length());\n        int n = s.length();\n        boolean[] dp = new boolean[n + 1];\n        dp[0] = true;                  // 边界：空前串视为可拆分，是递推的种子\n        for (int i = 1; i <= n; i++) {\n            for (int L : lens) {       // 枚举『最后一个单词』的长度\n                if (L <= i && dp[i - L] && words.contains(s.substring(i - L, i))) {\n                    dp[i] = true;      // 前 i-L 个字符可拆 + 末段是单词 -> 可拆\n                    break;             // 找到一种拆法即可，提前结束内层循环\n                }\n            }\n        }\n        return dp[n];\n    }\n}",
+      "codeJs": "/**\n * @param {string} s\n * @param {string[]} wordDict\n * @return {boolean}\n */\nvar wordBreak = function (s, wordDict) {\n  // 状态定义：dp[i] 表示 s 的前 i 个字符 s.slice(0, i) 能否被字典拆分\n  // 转移方程：dp[i] = true 当且仅当存在词长 L，使 dp[i-L] 为真\n  //   且 s.slice(i-L, i) 在字典中（把『拼接』反过来想成『切分』）\n  const words = new Set(wordDict); // 哈希集合：O(1) 判断子串是否为字典单词\n  const lens = [...new Set(wordDict.map((w) => w.length))];  // 只枚举出现过的词长\n  const n = s.length;\n  const dp = new Array(n + 1).fill(false);\n  dp[0] = true;                    // 边界：空前串视为可拆分，是递推的种子\n  for (let i = 1; i <= n; i++) {\n    for (const L of lens) {        // 枚举『最后一个单词』的长度\n      if (L <= i && dp[i - L] && words.has(s.slice(i - L, i))) {\n        dp[i] = true;              // 前 i-L 个字符可拆 + 末段是单词 -> 可拆\n        break;                     // 找到一种拆法即可，提前结束内层循环\n      }\n    }\n  }\n  return dp[n];\n};",
+      "codeGo": "func wordBreak(s string, wordDict []string) bool {\n\t// 状态定义：dp[i] 表示 s 的前 i 个字符 s[:i] 能否被字典拆分\n\t// 转移方程：dp[i] = true 当且仅当存在词长 L，使 dp[i-L] 为真\n\t//   且 s[i-L:i] 在字典中（把『拼接』反过来想成『切分』）\n\twords := map[string]bool{}     // 哈希集合：O(1) 判断子串是否为字典单词\n\tlens := map[int]bool{}         // 只枚举出现过的词长，剪掉无效切分位置\n\tfor _, w := range wordDict {\n\t\twords[w] = true\n\t\tlens[len(w)] = true\n\t}\n\tn := len(s)\n\tdp := make([]bool, n+1)\n\tdp[0] = true                   // 边界：空前串视为可拆分，是递推的种子\n\tfor i := 1; i <= n; i++ {\n\t\tfor L := range lens {      // 枚举『最后一个单词』的长度\n\t\t\tif L <= i && dp[i-L] && words[s[i-L:i]] {\n\t\t\t\tdp[i] = true       // 前 i-L 个字符可拆 + 末段是单词 -> 可拆\n\t\t\t\tbreak              // 找到一种拆法即可，提前结束内层循环\n\t\t\t}\n\t\t}\n\t}\n\treturn dp[n]\n}"
+    },
+    {
+      "id": 322,
+      "title": "Coin Change",
+      "titleCn": "零钱兑换",
+      "difficulty": "medium",
+      "frequency": 5,
+      "question": "给你一个整数数组 coins 表示不同面额的硬币，另给一个整数 amount 表示总金额。\n\n计算并返回可以凑成总金额所需的最少硬币个数。如果没有任何一种硬币组合能组成总金额，返回 -1。你可以认为每种硬币的数量是无限的。\n\n示例 1：输入 coins = [1,2,5], amount = 11，输出 3（11 = 5 + 5 + 1）。\n示例 2：输入 coins = [2], amount = 3，输出 -1（无法凑出）。\n示例 3：输入 coins = [1], amount = 0，输出 0（金额为 0 不需要硬币）。\n\n提示：1 <= coins.length <= 12，0 <= amount <= 10^4。",
+      "hints": [
+        "审题诀窍：求『最少枚数』且硬币可无限使用 -> 完全背包；状态定义 dp[i] = 凑出金额 i 的最少硬币枚数，转移 dp[i] = min(dp[i-c] + 1)——枚举『最后一枚硬币』的面额 c，剩余 i-c 交给子问题。",
+        "审题诀窍：无效状态用 INF（如 amount+1）表示而不是 -1：-1 参与『加一』转移会污染后续的 min 比较；最终 dp[amount] 仍是 INF 才说明无解、返回 -1。",
+        "审题诀窍：贪心（每次拿最大面额）在本题不成立——反例 coins=[1,3,4], amount=6：贪心得 4+1+1 共 3 枚，最优是 3+3 共 2 枚。面额组合相互影响，必须 DP 全局权衡。",
+        "追问预备：求凑法组合数怎么做？（518：dp[0]=1、转移改加法）；贪心为什么错？（[1,3,4] 凑 6：贪心得 4+1+1 三枚，最优 3+3 两枚）；若每种硬币有限枚怎么做？（多重背包：二进制拆分或单调队列优化）"
+      ],
+      "keyPoints": [
+        "状态定义：dp[i] = 凑出金额 i 的最少硬币枚数（完全背包·最少件数）",
+        "转移方程：dp[i] = min(dp[i-c] + 1)，枚举最后一枚硬币的面额 c",
+        "INF = amount+1 表示不可达，避免 -1 污染 min 转移；dp[0]=0 是种子",
+        "贪心不成立（反例 [1,3,4], amount=6），必须 DP"
+      ],
+      "structureTags": [
+        "dp"
+      ],
+      "approaches": [
+        {
+          "name": "暴力递归",
+          "idea": "f(a) = 1 + min(f(a - c)) 对每枚面额递归；同一金额被反复求解，amount 稍大就指数爆炸。",
+          "complexity": "时间 O(c^a)（指数级），空间 O(a)",
+          "detail": "状态定义：f(a) = 凑出金额 a 的最少硬币枚数。转移推导（最后一枚硬币分类）：凑出 a 的方案里最后一枚硬币面额必是某个 c——f(a) = 1 + min(f(a-c)) 对所有面额 c；边界 f(0)=0（金额 0 用 0 枚），a<0 视为不可达（返回正无穷）。\n\n示例走查：coins=[1,2,5], amount=11。f(11) → 1+min(f(10), f(9), f(6))；f(6) → 1+min(f(5)=1, f(4)=2, f(1)=1)=2 → f(11) 经 f(6) 分支得 3 ✓。但 f(9)、f(10) 的子树里 f(6) 会被反复展开，金额稍大节点数指数增长。\n\n为什么它是基线：转移方程直接来自『最后一枚硬币』的分类，是后面所有优化的骨架。易错点：\n- 不可达用正无穷表示，用 -1 会污染 min 比较与加一转移。\n- c>a 的面额必须跳过（f(a-c) 对 a<c 返回 inf 也能兜底，但要理解语义）。\n- 复杂度 O(c^amount)（c 为面额数），amount=10^4 完全不可行。",
+          "code": "def coin_change_brute(coins, amount):\n    def f(a):\n        if a == 0:\n            return 0                  # 金额 0 不需要硬币\n        if a < 0:\n            return float('inf')       # 负金额不可达\n        # 最后一枚硬币是 c：1 + f(a-c)，所有面额取最小\n        return 1 + min(f(a - c) for c in coins)\n    ans = f(amount)\n    return ans if ans != float('inf') else -1"
+        },
+        {
+          "name": "递归记忆化",
+          "idea": "对每个金额 a 缓存 f(a)：子问题只有 amount+1 个，每个转移试 c 种面额。自顶向下，等价于递推。",
+          "complexity": "时间 O(a·c)，空间 O(a)",
+          "detail": "状态定义：f(a) = 凑出金额 a 的最少硬币枚数，加 memo 缓存。转移不变：f(a) = 1 + min(f(a-c))，f(0)=0，负金额返回正无穷。\n\n示例走查：coins=[1,2,5], amount=11。第一次算到 f(6)=2 并缓存；后续 f(9)、f(10)、f(11) 的分支再遇到 f(6) 直接查表。子问题只有 amount+1 个，每个转移试 |coins| 种面额，总 O(amount·|coins|)。\n\n为什么正确：与暴力递归同构，缓存消除重复子问题；自顶向下与自底向上递推等价，只是方向相反。易错点：\n- Python 的 float('inf') 支持加法与比较，无需对 inf 特判，但最终要判断 f(amount) 是否仍为 inf 以返回 -1。\n- 递归深度 O(amount)（每次至少减 1），amount=10^4 时 Python 可能爆栈，工程上更推荐递推。\n- memo 用 dict 或数组皆可，键是金额 a。",
+          "code": "def coin_change_memo(coins, amount):\n    memo = {0: 0}                     # f(0)=0 是递归出口\n    def f(a):\n        if a < 0:\n            return float('inf')       # 负金额不可达\n        if a not in memo:\n            memo[a] = 1 + min(f(a - c) for c in coins)\n        return memo[a]\n    ans = f(amount)\n    return ans if ans != float('inf') else -1"
+        },
+        {
+          "name": "递推 dp（完全背包式）",
+          "idea": "自底向上：dp[0]=0，dp[i] = min(dp[i-c] + 1) 对所有 c <= i。硬币可无限使用即完全背包求最小物品数；递推无递归栈，常数更小。",
+          "complexity": "时间 O(a·c)，空间 O(a)",
+          "optimal": true,
+          "detail": "状态定义：dp[i] = 凑出金额 i 的最少硬币枚数（完全背包·最少件数）。转移方程 dp[i] = min(dp[i-c] + 1) 对所有 c<=i——枚举最后一枚硬币面额 c，剩余 i-c 交给子问题；dp[0]=0 是种子，INF=amount+1 表示不可达。\n\n示例走查：coins=[1,2,5], amount=11。dp[1..4]=1,1,2,2 → dp[5]=1（一枚 5）→ dp[6]=2 → dp[10]=2（两枚 5）→ dp[11]=min(dp[10]+1, dp[9]+1, dp[6]+1)=3 ✓。coins=[2], amount=3：dp[1]=INF、dp[2]=1、dp[3]=dp[1]+1=INF → 返回 -1 ✓。\n\n为什么正确：每个金额的方案按最后一枚硬币分类，互斥覆盖；外层金额从 1 递增保证 dp[i-c] 已就绪。求 min 时内外层循环顺序不影响正确性（与计数型不同），习惯上外金额内硬币。易错点：\n- INF 用 amount+1 而非 -1：-1 加一会变成 0 污染 min。\n- c<=i 的判断不能省，否则负下标或漏解。\n- 贪心不成立：coins=[1,3,4], amount=6 贪心得 3 枚，最优 3+3 共 2 枚——面额相互影响必须 DP。",
+          "code": "def coin_change_dp(coins, amount):\n    INF = amount + 1                  # 表示凑不出：合法方案枚数 <= amount\n    dp = [INF] * (amount + 1)\n    dp[0] = 0                         # 金额 0 用 0 枚，递推种子\n    for i in range(1, amount + 1):\n        for c in coins:               # 枚举最后一枚硬币的面额\n            if c <= i and dp[i - c] + 1 < dp[i]:\n                dp[i] = dp[i - c] + 1\n    return dp[amount] if dp[amount] != INF else -1"
+        }
+      ],
+      "code": "class Solution:\n    def coinChange(self, coins: List[int], amount: int) -> int:\n        # 状态定义：dp[i] = 凑出金额 i 所需的最少硬币枚数\n        # 转移方程：dp[i] = min(dp[i - c] + 1)，对所有面额 c <= i\n        #   （『最后一枚硬币』若是面额 c，则剩余 i-c 由子问题最优解决）\n        INF = amount + 1                # 表示『凑不出』：任何合法方案枚数都 <= amount\n        dp = [INF] * (amount + 1)\n        dp[0] = 0                       # 边界：金额 0 不需要任何硬币，是递推种子\n        for i in range(1, amount + 1):\n            for c in coins:             # 枚举最后一枚硬币的面额\n                if c <= i and dp[i - c] + 1 < dp[i]:\n                    dp[i] = dp[i - c] + 1     # 用一枚 c，剩余金额交给子问题\n        return dp[amount] if dp[amount] != INF else -1   # 仍是 INF 说明无解",
+      "templates": [
+        "「完全背包·最少件数」模板：物品可重复选、求最值 -> 外层枚举容量/金额，内层枚举物品，dp[i] = min(dp[i-c] + 1)。求最小时用 INF 初始化、dp[0]=0 起步；若问『凑法方案数』（518）则 dp[0]=1 且转移改加法。"
+      ],
+      "companies": [
+        "美团",
+        "拼多多"
+      ],
+      "samples": [
+        {
+          "input": "coins = [1,2,5], amount = 11",
+          "output": "3",
+          "explain": "11 = 5 + 5 + 1"
+        },
+        {
+          "input": "coins = [2], amount = 3",
+          "output": "-1",
+          "explain": "面额 2 无法凑出 3"
+        }
+      ],
+      "acmCode": "# ACM 模式：完整可运行程序（stdin -> stdout）\n# 输入格式：\n#   第一行：n amount（硬币种数、总金额）\n#   随后 n 行：每行一个面额（每种硬币数量无限）\n# 输出格式：一行一个整数，凑成总金额的最少硬币数；凑不出输出 -1\nimport sys\n\ndef main():\n    data = sys.stdin.read().split()\n    n, amount = int(data[0]), int(data[1])\n    coins = [int(x) for x in data[2:2 + n]]\n    INF = amount + 1                  # 表示凑不出\n    dp = [INF] * (amount + 1)\n    dp[0] = 0\n    for i in range(1, amount + 1):\n        for c in coins:               # 枚举最后一枚硬币的面额\n            if c <= i and dp[i - c] + 1 < dp[i]:\n                dp[i] = dp[i - c] + 1\n    print(dp[amount] if dp[amount] != INF else -1)\n\nif __name__ == '__main__':\n    main()",
+      "codeCpp": "class Solution {\npublic:\n    int coinChange(vector<int>& coins, int amount) {\n        // 状态定义：dp[i] = 凑出金额 i 所需的最少硬币枚数\n        // 转移方程：dp[i] = min(dp[i-c] + 1)，对所有面额 c <= i\n        //   （『最后一枚硬币』若是面额 c，则剩余 i-c 由子问题最优解决）\n        const long long INF = amount + 1LL;  // 「凑不出」哨兵：合法方案枚数必 <= amount\n        vector<long long> dp(amount + 1, INF);\n        dp[0] = 0;                     // 边界：金额 0 不需要任何硬币，是递推种子\n        for (int i = 1; i <= amount; ++i) {\n            for (int c : coins) {      // 枚举最后一枚硬币的面额\n                if (c <= i && dp[i - c] + 1 < dp[i])\n                    dp[i] = dp[i - c] + 1;   // 用一枚 c，剩余金额交给子问题\n            }\n        }\n        if (dp[amount] == INF) return -1;    // 仍是 INF 说明无解\n        return (int)dp[amount];\n    }\n};",
+      "acmCodeCpp": "// ACM 模式：完整可运行程序（stdin -> stdout）\n// 输入格式：\n//   第一行：n amount（硬币种数、总金额）\n//   随后 n 行：每行一个面额（每种硬币数量无限）\n// 输出格式：一行一个整数，凑成总金额的最少硬币数；凑不出输出 -1\n#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);   // 关闭同步，读入更快\n    cin.tie(nullptr);\n\n    int n, amount;\n    cin >> n >> amount;\n    vector<int> coins(n);\n    for (auto& c : coins) cin >> c;\n\n    // 状态定义：dp[i] = 凑出金额 i 所需的最少硬币枚数\n    // 转移方程：dp[i] = min(dp[i-c] + 1)，枚举最后一枚硬币的面额 c\n    const long long INF = amount + 1LL;  // 「凑不出」哨兵：合法方案枚数必 <= amount\n    vector<long long> dp(amount + 1, INF);\n    dp[0] = 0;                     // 边界：金额 0 不需要任何硬币，是递推种子\n    for (int i = 1; i <= amount; ++i) {\n        for (int c : coins) {      // 枚举最后一枚硬币的面额\n            if (c <= i && dp[i - c] + 1 < dp[i])\n                dp[i] = dp[i - c] + 1;   // 用一枚 c，剩余金额交给子问题\n        }\n    }\n    if (dp[amount] == INF) cout << -1 << endl;   // 仍是 INF 说明无解\n    else cout << dp[amount] << endl;\n    return 0;\n}",
+      "codeJava": "class Solution {\n    public int coinChange(int[] coins, int amount) {\n        // 状态定义：dp[i] = 凑出金额 i 所需的最少硬币枚数\n        // 转移方程：dp[i] = min(dp[i-c] + 1)，对所有面额 c <= i\n        //   （『最后一枚硬币』若是面额 c，则剩余 i-c 由子问题最优解决）\n        final int INF = amount + 1;    // 「凑不出」哨兵：任何合法方案枚数都 <= amount\n        int[] dp = new int[amount + 1];\n        Arrays.fill(dp, INF);\n        dp[0] = 0;                     // 边界：金额 0 不需要任何硬币，是递推种子\n        for (int i = 1; i <= amount; i++) {\n            for (int c : coins) {      // 枚举最后一枚硬币的面额\n                if (c <= i && dp[i - c] + 1 < dp[i])\n                    dp[i] = dp[i - c] + 1;   // 用一枚 c，剩余金额交给子问题\n            }\n        }\n        return dp[amount] != INF ? dp[amount] : -1;   // 仍是 INF 说明无解\n    }\n}",
+      "codeJs": "/**\n * @param {number[]} coins\n * @param {number} amount\n * @return {number}\n */\nvar coinChange = function (coins, amount) {\n  // 状态定义：dp[i] = 凑出金额 i 所需的最少硬币枚数\n  // 转移方程：dp[i] = min(dp[i-c] + 1)，对所有面额 c <= i\n  const INF = amount + 1;          // 「凑不出」哨兵：任何合法方案枚数都 <= amount\n  const dp = new Array(amount + 1).fill(INF);\n  dp[0] = 0;                       // 边界：金额 0 不需要任何硬币，是递推种子\n  for (let i = 1; i <= amount; i++) {\n    for (const c of coins) {       // 枚举最后一枚硬币的面额\n      if (c <= i && dp[i - c] + 1 < dp[i]) {\n        dp[i] = dp[i - c] + 1;     // 用一枚 c，剩余金额交给子问题\n      }\n    }\n  }\n  return dp[amount] === INF ? -1 : dp[amount];   // 仍是 INF 说明无解\n};",
+      "codeGo": "func coinChange(coins []int, amount int) int {\n\t// 状态定义：dp[i] = 凑出金额 i 所需的最少硬币枚数\n\t// 转移方程：dp[i] = min(dp[i-c] + 1)，对所有面额 c <= i\n\tINF := amount + 1               // 「凑不出」哨兵：任何合法方案枚数都 <= amount\n\tdp := make([]int, amount+1)\n\tfor i := 1; i <= amount; i++ {\n\t\tdp[i] = INF                 // 初始化为「凑不出」\n\t}\n\tdp[0] = 0                       // 边界：金额 0 不需要任何硬币，是递推种子\n\tfor i := 1; i <= amount; i++ {\n\t\tfor _, c := range coins {   // 枚举最后一枚硬币的面额\n\t\t\tif c <= i && dp[i-c]+1 < dp[i] {\n\t\t\t\tdp[i] = dp[i-c] + 1 // 用一枚 c，剩余金额交给子问题\n\t\t\t}\n\t\t}\n\t}\n\tif dp[amount] == INF {          // 仍是 INF 说明无解\n\t\treturn -1\n\t}\n\treturn dp[amount]\n}"
+    },
+    {
+      "id": 300,
+      "title": "Longest Increasing Subsequence",
+      "titleCn": "最长递增子序列",
+      "difficulty": "medium",
+      "frequency": 5,
+      "question": "给你一个整数数组 nums，找到其中最长严格递增子序列的长度。\n\n子序列是由数组派生而来的序列，删除（或不删除）数组中的元素而不改变其余元素的顺序。例如 [3,6,2,7] 是数组 [0,3,1,6,2,2,7] 的子序列。\n\n示例 1：输入 nums = [10,9,2,5,3,7,101,18]，输出 4（最长递增子序列之一是 [2,3,7,101]，长度为 4）。\n示例 2：输入 nums = [0,1,0,3,2,3]，输出 4（如 [0,1,2,3]）。\n示例 3：输入 nums = [7,7,7,7,7,7,7]，输出 1（严格递增，相等元素不能重复选）。\n\n提示：1 <= nums.length <= 2500，-10^4 <= nums[i] <= 10^4。\n\n进阶：你能将算法的时间复杂度降低到 O(n log n) 吗？",
+      "hints": [
+        "审题诀窍：子序列可以跳着选 -> 经典套路是把状态挂在『结尾』上：dp[i] = 以 nums[i] 结尾的最长递增子序列长度；转移枚举所有比 nums[i] 小的前驱 j，取 dp[j] + 1 的最大值。",
+        "审题诀窍：答案是 max(dp) 而非 dp[n-1]（最长段未必以末尾元素结尾）；『严格递增』意味着相等元素不能接，前驱条件是 nums[j] < nums[i] 而非 <=。",
+        "审题诀窍：优化到 O(n log n) 要换一个更聪明的状态：dp[k] = 长度为 k+1 的递增子序列的最小结尾——它单调递增，使每个新元素都能二分定位；tails 的长度就是答案（内容不一定是某个 LIS 本身）。",
+        "追问预备：要输出一个具体的 LIS 怎么办？（tails 替换时记录前驱，最后回溯）；若允许修改一个元素呢？（前缀 LIS + 后缀 LIS 拼接）；俄罗斯套娃信封怎么做？（二维 LIS：一维排序、二维严格递增转 LIS）"
+      ],
+      "keyPoints": [
+        "O(n²) 状态：dp[i] = 以 i 结尾的 LIS 长度，转移枚举前驱 j（nums[j] < nums[i]）",
+        "O(n log n) 状态：dp[k] = 长度为 k+1 的 LIS 的最小结尾元素，天然单调递增可二分",
+        "二分目标：第一个 >= x 的位置（bisect_left 语义），命中则替换、越界则追加",
+        "tails 数组不是 LIS 本身，但长度恒等于 LIS 长度；严格递增对应左边界二分"
+      ],
+      "structureTags": [
+        "dp",
+        "greedy",
+        "binary_search"
+      ],
+      "approaches": [
+        {
+          "name": "递归记忆化",
+          "idea": "dfs(i) 表示从 i 出发（必选 nums[i]）的最长递增子序列长度：dfs(i) = 1 + max(dfs(j))，其中 j > i 且 nums[j] > nums[i]；答案取所有 dfs(i) 的最大值。子问题 O(n²) 对，加 memo 消除重复。",
+          "complexity": "时间 O(n²)，空间 O(n)",
+          "detail": "状态定义：dfs(i) = 从 i 出发（必选 nums[i]）的最长严格递增子序列长度。转移推导（下一个元素分类）：LIS 的下一个元素是某个 j>i 且 nums[j]>nums[i]——dfs(i) = 1 + max(dfs(j))，无合法后继时为 1；答案 = max(dfs(i)) 对所有起点 i。\n\n示例走查：nums=[10,9,2,5,3,7,101,18]。dfs(6)=dfs(7)=1 → dfs(5)=1+max(dfs(6),dfs(7))=2 → dfs(3)=dfs(4)=1+dfs(5)=3 → dfs(2)=1+max(dfs(3),dfs(4),...)=4，全局 max=4 ✓。\n\n为什么正确：LIS 的第一个元素只有 n 种选择，选定后剩余部分是更短的同类问题，无后效性成立；缓存后每个 dfs(i) 只算一次，O(n²) 状态转移。易错点：\n- 『严格递增』条件是 nums[j] > nums[i]，写成 >= 会把相等元素串起来（[7,7,7,7] 应输出 1）。\n- 答案必须对每个起点取 max，不是 dfs(0)。\n- 递归深度 O(n)，n=2500 超过 Python 默认递归上限（1000），需 sys.setrecursionlimit 或改递推。",
+          "code": "def lis_memo(nums):\n    n = len(nums)\n    from functools import lru_cache\n    @lru_cache(maxsize=None)\n    def dfs(i):\n        best = 1                      # 至少含 nums[i] 自己\n        for j in range(i + 1, n):\n            if nums[j] > nums[i]:     # 严格递增：相等不能接\n                best = max(best, 1 + dfs(j))\n        return best\n    return max(dfs(i) for i in range(n))"
+        },
+        {
+          "name": "递推 dp（O(n²) 经典解）",
+          "idea": "dp[i] = 以 nums[i] 结尾的 LIS 长度：dp[i] = max(dp[j] + 1)，其中 j < i 且 nums[j] < nums[i]；答案为 max(dp)。LIS 最经典的写法，也是面试必须先写对的基线。",
+          "complexity": "时间 O(n²)，空间 O(n)",
+          "detail": "状态定义：dp[i] = 以 nums[i] 结尾（必选）的最长严格递增子序列长度。转移推导（前驱分类）：以 i 结尾的 LIS 的前一个元素是某个 j<i 且 nums[j]<nums[i]——dp[i] = 1 + max(dp[j])，无合法前驱时 dp[i]=1；答案 = max(dp)。\n\n示例走查：nums=[10,9,2,5,3,7,101,18]。dp 依次：1 →1 →1 →2(2,5) →2(2,3) →3(2,3,7) →4(2,3,7,101) →4(2,3,7,18)；max=4 ✓。nums=[7]*7：所有 dp[i]=1（无更小前驱），答案 1 ✓。\n\n为什么正确：『以 i 结尾』让前驱枚举范围固定为左侧更小元素，子问题重叠且无后效性；答案取 max(dp) 因为 LIS 可以结尾在任意位置。易错点：\n- dp 全初始化为 1（自己单独成段），不是 0。\n- 前驱条件严格小于，且 j 枚举『所有 j<i』不是『最近一个』。\n- 外层 i 从 1 到 n-1 正序、内层 j<i，保证 dp[j] 已算好；n=2500 时 O(n²)=6*10^6 可过，进阶追问才需要二分版。",
+          "code": "def lis_dp(nums):\n    n = len(nums)\n    dp = [1] * n                      # 每个 dp[i] 至少为 1（自己单独成段）\n    for i in range(1, n):\n        for j in range(i):            # 枚举前驱\n            if nums[j] < nums[i]:     # 严格递增\n                dp[i] = max(dp[i], dp[j] + 1)\n    return max(dp)                    # LIS 可结尾于任意位置"
+        },
+        {
+          "name": "贪心 + 二分（O(n log n)）",
+          "idea": "维护 dp[k] = 长度为 k+1 的 LIS 的最小结尾元素（贪心：同样长度下结尾越小越容易扩展）。dp 单调递增，对每个新元素 x 二分找第一个 >= x 的位置：越界则 LIS 增长 1，否则用 x 替换使结尾更小。dp 的长度即答案。",
+          "complexity": "时间 O(n log n)，空间 O(n)",
+          "optimal": true,
+          "detail": "状态定义：tails[k] = 所有长度为 k+1 的严格递增子序列中最小的结尾元素。转移推导（新元素 x 分类）：tails 恒单调递增，二分找第一个 >= x 的位置 pos——pos 越界说明 x 比所有结尾都大，LIS 增长 1（append x）；否则 tails[pos] >= x，用 x 替换让该长度的结尾更小（贪心：同长度下结尾越小越容易扩展）。\n\n示例走查：nums=[10,9,2,5,3,7,101,18]。tails 演化：[10] → [9] → [2] → [2,5] → [2,3] → [2,3,7] → [2,3,7,101] → [2,3,7,18]（101 被 18 替换，长度不变），len(tails)=4 ✓。\n\n为什么正确：tails 单调保证二分定位 O(log n)；替换不改变已达长度、只优化未来扩展空间，append 是长度真正增长的唯一途径，故 len(tails) 恒等于 LIS 长度。易错点：\n- 二分目标是『第一个 >= x』（bisect_left 语义）：dp[mid] < x 则 lo=mid+1 否则 hi=mid；用 bisect_right 会在相等元素上错误增长（[7,7,7] 应为 1）。\n- tails 的内容不是某个 LIS 本身（上例最终 [2,3,7,18] 并未作为子序列出现过），只有长度可信。\n- 遍历从左到右逐个处理，顺序不可换。",
+          "code": "def lis_binary(nums):\n    dp = []                           # dp[k] = 长度 k+1 的 LIS 的最小结尾元素\n    for x in nums:\n        lo, hi = 0, len(dp)           # 在 [lo, hi) 内找第一个 >= x 的下标\n        while lo < hi:\n            mid = (lo + hi) // 2\n            if dp[mid] < x:\n                lo = mid + 1          # dp[mid] < x：可行位置在右侧\n            else:\n                hi = mid              # dp[mid] >= x：答案在左侧（含 mid）\n        if lo == len(dp):\n            dp.append(x)              # x 比所有结尾大：LIS 增长 1\n        else:\n            dp[lo] = x                # 替换：让该长度结尾更小、更易扩展\n    return len(dp)"
+        }
+      ],
+      "code": "class Solution:\n    def lengthOfLIS(self, nums: List[int]) -> int:\n        # 贪心 + 二分（O(n log n) LIS 模板）\n        # 状态定义：dp[k] = 所有长度为 k+1 的严格递增子序列中最小的结尾元素\n        #   （贪心：同长度下结尾越小，越容易被后续元素扩展）\n        # dp 单调递增 -> 对每个 x 二分找第一个 >= x 的位置：替换或追加\n        dp = []\n        for x in nums:\n            lo, hi = 0, len(dp)         # 在 [lo, hi) 内找第一个 >= x 的下标\n            while lo < hi:\n                mid = (lo + hi) // 2\n                if dp[mid] < x:\n                    lo = mid + 1        # dp[mid] < x：可行位置在右侧\n                else:\n                    hi = mid            # dp[mid] >= x：答案在左侧（含 mid）\n            if lo == len(dp):\n                dp.append(x)            # x 比所有结尾都大：LIS 长度增加 1\n            else:\n                dp[lo] = x              # 用更小的 x 替换，让后续元素更容易接上\n        return len(dp)                  # dp 的长度即 LIS 长度（dp 内容不一定是某个 LIS）",
+      "templates": [
+        "LIS 两个模板：① O(n²)：dp[i] = 以 i 结尾的最长长度，转移枚举所有 j < i 且 nums[j] < nums[i]；② O(n log n)：贪心维护 tails 数组（长度 k 的最小结尾），每个元素二分替换或追加，tails 长度即答案（tails 不一定是 LIS 本身，但长度恒正确）。"
+      ],
+      "companies": [
+        "字节跳动",
+        "Momenta"
+      ],
+      "samples": [
+        {
+          "input": "nums = [10,9,2,5,3,7,101,18]",
+          "output": "4",
+          "explain": "最长递增子序列之一是 [2,3,7,101]"
+        },
+        {
+          "input": "nums = [7,7,7,7,7,7,7]",
+          "output": "1",
+          "explain": "严格递增，相等元素不能重复选"
+        }
+      ],
+      "acmCode": "# ACM 模式：完整可运行程序（stdin -> stdout）\n# 输入格式：\n#   第一行：n（数组长度）\n#   第二行：n 个整数（数组）\n# 输出格式：一行一个整数，最长严格递增子序列的长度\nimport sys\n\ndef main():\n    data = sys.stdin.read().split()\n    n = int(data[0])\n    nums = [int(x) for x in data[1:1 + n]]\n    dp = []                           # dp[k] = 长度 k+1 的 LIS 最小结尾\n    for x in nums:\n        lo, hi = 0, len(dp)           # 找第一个 >= x 的位置\n        while lo < hi:\n            mid = (lo + hi) // 2\n            if dp[mid] < x:\n                lo = mid + 1\n            else:\n                hi = mid\n        if lo == len(dp):\n            dp.append(x)\n        else:\n            dp[lo] = x\n    print(len(dp))\n\nif __name__ == '__main__':\n    main()",
+      "codeCpp": "class Solution {\npublic:\n    int lengthOfLIS(vector<int>& nums) {\n        // 贪心 + 二分（O(n log n) LIS 模板）\n        // 状态定义：dp[k] = 所有长度为 k+1 的严格递增子序列中最小的结尾元素\n        //   （贪心：同长度下结尾越小，越容易被后续元素扩展）\n        vector<int> dp;                // dp 单调递增，长度即当前 LIS 长度\n        for (int x : nums) {\n            // 对每个 x 二分找 dp 中第一个 >= x 的位置：替换或追加\n            auto it = lower_bound(dp.begin(), dp.end(), x);\n            if (it == dp.end())\n                dp.push_back(x);       // x 比所有结尾都大：LIS 长度增加 1\n            else\n                *it = x;               // 用更小的 x 替换，让后续元素更容易接上\n        }\n        return (int)dp.size();         // dp 的长度即 LIS 长度（内容不一定是某个 LIS）\n    }\n};",
+      "acmCodeCpp": "// ACM 模式：完整可运行程序（stdin -> stdout）\n// 输入格式：\n//   第一行：n（数组长度）\n//   第二行：n 个整数（数组）\n// 输出格式：一行一个整数，最长严格递增子序列的长度\n#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);   // 关闭同步，读入更快\n    cin.tie(nullptr);\n\n    int n;\n    cin >> n;\n    vector<int> nums(n);\n    for (auto& x : nums) cin >> x;\n\n    // 贪心 + 二分（O(n log n) LIS 模板）\n    // 状态定义：dp[k] = 所有长度为 k+1 的严格递增子序列中最小的结尾元素\n    vector<int> dp;                // dp 单调递增，长度即当前 LIS 长度\n    for (int x : nums) {\n        auto it = lower_bound(dp.begin(), dp.end(), x);  // 第一个 >= x 的位置\n        if (it == dp.end())\n            dp.push_back(x);       // x 比所有结尾都大：LIS 长度增加 1\n        else\n            *it = x;               // 用更小的 x 替换，让后续元素更容易接上\n    }\n    cout << dp.size() << endl;\n    return 0;\n}",
+      "codeJava": "class Solution {\n    public int lengthOfLIS(int[] nums) {\n        // 贪心 + 二分（O(n log n) LIS 模板）\n        // 状态定义：dp[k] = 所有长度为 k+1 的严格递增子序列中最小的结尾元素\n        //   （贪心：同长度下结尾越小，越容易被后续元素扩展）\n        int[] dp = new int[nums.length];\n        int len = 0;                   // 当前 LIS 长度，dp 的有效区间为 [0, len)\n        for (int x : nums) {\n            int lo = 0, hi = len;      // 在 [lo, hi) 内找第一个 >= x 的下标\n            while (lo < hi) {\n                int mid = (lo + hi) >>> 1;    // 无符号右移，防 lo+hi 相加溢出\n                if (dp[mid] < x) lo = mid + 1;   // dp[mid] < x：可行位置在右侧\n                else hi = mid;                   // dp[mid] >= x：答案在左侧（含 mid）\n            }\n            dp[lo] = x;                // lo==len 时等价于追加，否则用更小的 x 替换\n            if (lo == len) len++;      // x 比所有结尾都大：LIS 长度增加 1\n        }\n        return len;\n    }\n}",
+      "codeJs": "/**\n * @param {number[]} nums\n * @return {number}\n */\nvar lengthOfLIS = function (nums) {\n  // 贪心 + 二分（O(n log n) LIS 模板）\n  // 状态定义：dp[k] = 所有长度为 k+1 的严格递增子序列中最小的结尾元素\n  //   （贪心：同长度下结尾越小，越容易被后续元素扩展）\n  const dp = [];                   // dp 单调递增，长度即当前 LIS 长度\n  for (const x of nums) {\n    let lo = 0, hi = dp.length;    // 在 [lo, hi) 内找第一个 >= x 的下标\n    while (lo < hi) {\n      const mid = (lo + hi) >> 1;\n      if (dp[mid] < x) lo = mid + 1;   // dp[mid] < x：可行位置在右侧\n      else hi = mid;                   // dp[mid] >= x：答案在左侧（含 mid）\n    }\n    if (lo === dp.length) dp.push(x);  // x 比所有结尾都大：LIS 长度增加 1\n    else dp[lo] = x;                   // 用更小的 x 替换，让后续元素更容易接上\n  }\n  return dp.length;                // dp 的长度即 LIS 长度（内容不一定是某个 LIS）\n};",
+      "codeGo": "func lengthOfLIS(nums []int) int {\n\t// 贪心 + 二分（O(n log n) LIS 模板）\n\t// 状态定义：dp[k] = 所有长度为 k+1 的严格递增子序列中最小的结尾元素\n\t//   （贪心：同长度下结尾越小，越容易被后续元素扩展）\n\tdp := []int{}                   // dp 单调递增，长度即当前 LIS 长度\n\tfor _, x := range nums {\n\t\tlo, hi := 0, len(dp)        // 在 [lo, hi) 内找第一个 >= x 的下标\n\t\tfor lo < hi {\n\t\t\tmid := (lo + hi) / 2\n\t\t\tif dp[mid] < x {\n\t\t\t\tlo = mid + 1        // dp[mid] < x：可行位置在右侧\n\t\t\t} else {\n\t\t\t\thi = mid            // dp[mid] >= x：答案在左侧（含 mid）\n\t\t\t}\n\t\t}\n\t\tif lo == len(dp) {\n\t\t\tdp = append(dp, x)      // x 比所有结尾都大：LIS 长度增加 1\n\t\t} else {\n\t\t\tdp[lo] = x              // 用更小的 x 替换，让后续元素更容易接上\n\t\t}\n\t}\n\treturn len(dp)                  // dp 的长度即 LIS 长度（内容不一定是某个 LIS）\n}"
+    }
+  ]
+}

@@ -1,0 +1,496 @@
+{
+  "topic": "数组与字符串",
+  "problems": [
+    {
+      "id": 13,
+      "title": "Roman to Integer",
+      "titleCn": "罗马数字转整数",
+      "difficulty": "easy",
+      "frequency": 4,
+      "companies": [
+        "华为",
+        "腾讯",
+        "字节跳动"
+      ],
+      "question": "罗马数字包含以下七种字符：I、V、X、L、C、D、M，分别对应数值 1、5、10、50、100、500、1000。\n\n通常罗马数字中小数字位于大数字右边。但也存在六种特例：I 可以放在 V(5) 和 X(10) 的左边表示 4 和 9；X 可以放在 L(50) 和 C(100) 的左边表示 40 和 90；C 可以放在 D(500) 和 M(1000) 的左边表示 400 和 900。\n\n给定一个罗马数字，将其转换成整数。输入保证 1 <= n <= 3999。\n\n示例 1：输入 s = \"III\"，输出 3。\n示例 2：输入 s = \"LVIII\"，输出 58（L=50, V=5, III=3）。\n示例 3：输入 s = \"MCMXCIV\"，输出 1994（M=1000, CM=900, XC=90, IV=4）。",
+      "samples": [
+        {
+          "input": "s = \"III\"",
+          "output": "3",
+          "explain": "三个 1 相加"
+        },
+        {
+          "input": "s = \"LVIII\"",
+          "output": "58",
+          "explain": "L=50, V=5, III=3"
+        },
+        {
+          "input": "s = \"MCMXCIV\"",
+          "output": "1994",
+          "explain": "M=1000, CM=900, XC=90, IV=4，后三组是减法特例"
+        }
+      ],
+      "hints": [
+        "审题诀窍：题面只给了 7 个基本符号和 6 个减法特例——不要去背复杂的组合规则，核心规律只有一条：小值出现在大值左边时做减法。",
+        "审题诀窍：输入保证 1~3999 且一定合法，不需要处理非法串、0 或负数，专注核心转换逻辑即可。",
+        "突破口：比较『相邻两个符号』的数值大小就能统一判定减法特例，无需逐个枚举 IV、IX、XL 等六种情况。",
+        "追问预备：整数转罗马数字怎么做？（12 题，贪心 + 含 6 个复合面值的降序面值表）；如何校验一个串是不是合法罗马数字？（逐位检查重复上限与减法组合白名单）；两个罗马数字相加怎么实现？（各自转整数相加再转回，不要在符号层面硬算）"
+      ],
+      "keyPoints": [
+        "用哈希表建立『符号 -> 数值』映射，O(1) 查值",
+        "从右往左遍历：当前值小于右侧值说明处于减法特例，做减法；否则做加法",
+        "减法特例只可能由『小值紧跟大值』触发，一个位置最多被减一次，无需复杂分类",
+        "一次遍历完成，时间 O(n)，映射表大小恒定，空间 O(1)"
+      ],
+      "structureTags": [
+        "hashmap",
+        "math"
+      ],
+      "approaches": [
+        {
+          "name": "替换特例法",
+          "idea": "把 6 个减法特例当两个字符的组合逐段匹配（如先找 \"CM\" 再找 \"C\"），或把 s 中的 \"IV\" 替换成 \"IIII\" 后按 7 个符号累加。分支多、容易漏判，是理解题意后的第一版。",
+          "detail": "步骤拆解：\n1. 准备 6 条替换规则：IV→IIII、IX→VIIII、XL→XXXX、XC→LXXXX、CD→CCCC、CM→DCCCC。\n2. 对 s 逐条执行 replace，把所有减法形式展开成纯加法。\n3. 按 7 个基本符号的映射逐字符累加求和。\n\n示例走查：s=\"MCMXCIV\"。替换 CM→DCCCC 得 \"MDCCCCXCIV\"；替换 XC→LXXXX 得 \"MDCCCCLXXXXIV\"；替换 IV→IIII 得 \"MDCCCCLXXXXIIII\"。累加 1000+500+4*100+50+4*10+4*1 = 1994 ✓。\n\n为什么正确：6 个减法特例的值恰好等于「把小符号重复若干次」的加法结果（如 CM=900=DCCCC=500+4*100），替换后串中只剩加法关系，逐字符累加即可。\n\n易错点：\n- 6 条规则的左串互不为对方的展开产物，替换顺序本题恰好无关；但养成「先长后短」的稳妥习惯不吃亏；\n- 漏掉任何一条规则都会算错对应数字：漏 CM 则 \"MCM\" 被算成 1000+100+1000=2100；\n- replace 产生中间字符串，O(n) 额外空间，且要循环 6 遍，效率不如相邻比较法。",
+          "complexity": "时间 O(n)，空间 O(1)",
+          "code": "def romanToInt_replace(s):\n    # 替换特例法：把 6 个减法特例展开成纯加法后统一累加\n    reps = {\"IV\": \"IIII\", \"IX\": \"VIIII\", \"XL\": \"XXXX\",\n            \"XC\": \"LXXXX\", \"CD\": \"CCCC\", \"CM\": \"DCCCC\"}\n    for a, b in reps.items():\n        s = s.replace(a, b)\n    vals = dict(I=1, V=5, X=10, L=50, C=100, D=500, M=1000)\n    return sum(vals[ch] for ch in s)"
+        },
+        {
+          "name": "相邻比较一次遍历",
+          "idea": "从右往左扫：维护右侧字符的数值 prev，当前值 v < prev 时 ans -= v（触发减法特例），否则 ans += v。一次符号映射 + 一次相邻比较，统一覆盖全部 13 种面值。",
+          "detail": "步骤拆解：\n1. vals 字典建立 7 个符号到数值的映射；ans=0，prev=0（prev 记录右边一个字符的数值）。\n2. 从右往左遍历（reversed(s)）：取当前字符数值 v；v < prev 则 ans -= v（减法特例），否则 ans += v；随后 prev = v。\n3. 返回 ans。\n\n示例走查：s=\"MCMXCIV\"，从右往左扫 V,I,C,X,M,C,M：V=5：ans=5，prev=5；I=1<5：ans=4，prev=1；C=100：ans=104，prev=100；X=10<100：ans=94，prev=10；M=1000：ans=1094，prev=1000；C=100<1000：ans=994，prev=100；M=1000：ans=1994，prev=1000。返回 1994 ✓。\n\n为什么正确：罗马数字的减法只发生在「小值紧贴大值左边」的位置，从右往左看就是「当前值比右边小」；每个位置最多触发一次减法，比较相邻两个值即可统一判定全部 6 种特例，无需逐个枚举 IV/IX/XL/XC/CD/CM。\n\n易错点：\n- 方向别搞反：从左往右扫需要「偷看后一个字符」，下标容易越界；从右往左 prev 天然从 0 起步，首轮必走加法；\n- 判定用严格小于 v < prev：相等（如 II）必须走加法；\n- prev 的更新写在循环末尾、if/else 之外，两种分支共用一次赋值，漏写会沿用上一轮的旧值。",
+          "complexity": "时间 O(n)，空间 O(1)",
+          "optimal": true,
+          "code": "def romanToInt(s):\n    # 相邻比较：从右往左，cur < prev 则减，否则加\n    vals = dict(I=1, V=5, X=10, L=50, C=100, D=500, M=1000)\n    ans, prev = 0, 0                # prev：右边一个字符的数值\n    for ch in reversed(s):\n        v = vals[ch]\n        if v < prev:                # 触发特例：IV/IX/XL/XC/CD/CM\n            ans -= v\n        else:\n            ans += v\n        prev = v                    # 两种分支都要更新\n    return ans"
+        }
+      ],
+      "code": "class Solution:\n    def romanToInt(self, s: str) -> int:\n        # 符号 -> 数值 的哈希映射表（dict 构造），7 个基本符号\n        vals = dict(I=1, V=5, X=10, L=50, C=100, D=500, M=1000)\n        ans, prev = 0, 0           # prev 记录右边一个字符的数值\n        # 从右往左遍历：小值在大值左边 => 减法；否则加法\n        for ch in reversed(s):\n            v = vals[ch]\n            if v < prev:           # 触发特例：IV、IX、XL、XC、CD、CM\n                ans -= v\n            else:\n                ans += v\n            prev = v\n        return ans",
+      "acmCode": "# ACM 模式：完整可运行程序（stdin -> stdout）\n# 输入格式：一行一个罗马数字（1~3999，保证合法）\n# 输出格式：一行，对应的整数\nimport sys\n\n\ndef main():\n    s = sys.stdin.readline().strip()\n    vals = dict(I=1, V=5, X=10, L=50, C=100, D=500, M=1000)\n    ans, prev = 0, 0\n    for ch in reversed(s):          # 从右往左，小值在大值左侧则减\n        v = vals[ch]\n        if v < prev:\n            ans -= v\n        else:\n            ans += v\n        prev = v\n    print(ans)\n\n\nif __name__ == '__main__':\n    main()",
+      "templates": [
+        "『相邻比较』模板：从右往左扫，cur < prev 则减 cur，否则加 cur；适用于所有『小减大』型符号/进制转换题。"
+      ],
+      "codeCpp": "class Solution {\npublic:\n    int romanToInt(string s) {\n        // 符号 -> 数值 的哈希映射表，7 个基本符号\n        unordered_map<char, int> vals = {{'I', 1}, {'V', 5}, {'X', 10},\n                                         {'L', 50}, {'C', 100}, {'D', 500}, {'M', 1000}};\n        int ans = 0, prev = 0;      // prev 记录右边一个字符的数值\n        // 从右往左遍历：小值在大值左边 => 减法；否则加法\n        for (int i = (int)s.size() - 1; i >= 0; --i) {\n            int v = vals[s[i]];\n            if (v < prev) ans -= v; // 触发特例：IV、IX、XL、XC、CD、CM\n            else ans += v;\n            prev = v;\n        }\n        return ans;\n    }\n};",
+      "acmCodeCpp": "// ACM 模式：完整可运行程序（stdin -> stdout）\n// 输入格式：一行一个罗马数字（1~3999，保证合法）\n// 输出格式：一行，对应的整数\n#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);   // 关闭同步，读入更快\n    cin.tie(nullptr);\n\n    string s;\n    cin >> s;                      // 罗马数字不含空白，>> 读入即可\n\n    // 符号 -> 数值 的哈希映射表，7 个基本符号\n    unordered_map<char, int> vals = {{'I', 1}, {'V', 5}, {'X', 10},\n                                     {'L', 50}, {'C', 100}, {'D', 500}, {'M', 1000}};\n    int ans = 0, prev = 0;         // prev 记录右边一个字符的数值\n    for (int i = (int)s.size() - 1; i >= 0; --i) {\n        int v = vals[s[i]];\n        if (v < prev) ans -= v;    // 从右往左：小值在大值左侧则减\n        else ans += v;\n        prev = v;\n    }\n    cout << ans << endl;\n    return 0;\n}",
+      "codeJava": "class Solution {\n    public int romanToInt(String s) {\n        // 符号 -> 数值 的哈希映射表，7 个基本符号\n        Map<Character, Integer> vals = new HashMap<>();\n        vals.put('I', 1); vals.put('V', 5); vals.put('X', 10);\n        vals.put('L', 50); vals.put('C', 100); vals.put('D', 500); vals.put('M', 1000);\n        int ans = 0, prev = 0;      // prev 记录右边一个字符的数值\n        // 从右往左遍历：小值在大值左边 => 减法；否则加法\n        for (int i = s.length() - 1; i >= 0; i--) {\n            int v = vals.get(s.charAt(i));\n            if (v < prev) ans -= v; // 触发特例：IV、IX、XL、XC、CD、CM\n            else ans += v;\n            prev = v;\n        }\n        return ans;\n    }\n}",
+      "codeJs": "/**\n * @param {string} s\n * @return {number}\n */\nvar romanToInt = function (s) {\n  // 符号 -> 数值 的哈希映射表，7 个基本符号\n  const vals = { I: 1, V: 5, X: 10, L: 50, C: 100, D: 500, M: 1000 };\n  let ans = 0, prev = 0; // prev 记录右边一个字符的数值\n  // 从右往左遍历：小值在大值左边 => 减法；否则加法\n  for (let i = s.length - 1; i >= 0; i--) {\n    const v = vals[s[i]];\n    if (v < prev) ans -= v; // 触发特例：IV、IX、XL、XC、CD、CM\n    else ans += v;\n    prev = v;\n  }\n  return ans;\n};",
+      "codeGo": "func romanToInt(s string) int {\n\t// 符号 -> 数值 的哈希映射表，7 个基本符号\n\tvals := map[byte]int{'I': 1, 'V': 5, 'X': 10, 'L': 50, 'C': 100, 'D': 500, 'M': 1000}\n\tans, prev := 0, 0 // prev 记录右边一个字符的数值\n\t// 从右往左遍历：小值在大值左边 => 减法；否则加法\n\tfor i := len(s) - 1; i >= 0; i-- {\n\t\tv := vals[s[i]]\n\t\tif v < prev { // 触发特例：IV、IX、XL、XC、CD、CM\n\t\t\tans -= v\n\t\t} else {\n\t\t\tans += v\n\t\t}\n\t\tprev = v\n\t}\n\treturn ans\n}"
+    },
+    {
+      "id": 12,
+      "title": "Integer to Roman",
+      "titleCn": "整数转罗马数字",
+      "difficulty": "medium",
+      "frequency": 3,
+      "companies": [
+        "华为",
+        "腾讯"
+      ],
+      "question": "罗马数字包含七种字符：I、V、X、L、C、D、M，分别对应 1、5、10、50、100、500、1000。通常大数字在左边；六个减法特例：IV=4、IX=9、XL=40、XC=90、CD=400、CM=900（小符号在大符号左边）。\n\n给定一个整数，将其转换为罗马数字。输入保证 1 <= num <= 3999。\n\n示例 1：输入 num = 3，输出 \"III\"。\n示例 2：输入 num = 58，输出 \"LVIII\"（50 + 5 + 3）。\n示例 3：输入 num = 1994，输出 \"MCMXCIV\"（1000 + 900 + 90 + 4）。",
+      "samples": [
+        {
+          "input": "num = 3",
+          "output": "\"III\"",
+          "explain": "同一面值连用 3 次"
+        },
+        {
+          "input": "num = 58",
+          "output": "\"LVIII\"",
+          "explain": "L=50, V=5, III=3"
+        },
+        {
+          "input": "num = 1994",
+          "output": "\"MCMXCIV\"",
+          "explain": "1000 + 900 + 90 + 4，用了三个减法特例面值"
+        }
+      ],
+      "hints": [
+        "审题诀窍：值域只有 1~3999，千位最多到 3——每位表示方式有限，理论上可硬编码查表，但贪心 + 面值表写起来更短、更不易错。",
+        "突破口：把 6 个减法特例（900/400/90/40/9/4）也当成『面值』放进表里，问题就退化成『用降序面值凑数』，每一步贪心取最大面值。",
+        "细节：同一面值最多连续取 3 次（如 III），表里 5 与 4、50 与 40 等成对出现保证了这一点，无需额外判断。",
+        "追问预备：为什么这 13 个面值恰好覆盖 1~3999？（千位 4 种、其余每位 10 种且复合面值处理 4/9 前置）；范围扩到 4000+ 怎么办？（需上划线扩展记法，一般题目不要求）；反过来罗马转整数怎么做？（13 题，相邻比较一次遍历）"
+      ],
+      "keyPoints": [
+        "贪心策略：每次选取不超过剩余数值的最大面值",
+        "面值表必须包含 900、400、90、40、9、4 六个复合面值，才能产出减法形式",
+        "数值表与符号表等长对齐，用 zip 同步遍历",
+        "值域固定 => 时间、空间都是 O(1)"
+      ],
+      "structureTags": [
+        "greedy",
+        "math"
+      ],
+      "approaches": [
+        {
+          "name": "按位拆分硬编码",
+          "idea": "把 num 拆成千/百/十/个位，每位用一组 if-else 或查 [\"\",\"I\",\"II\",...,\"IX\"] 这样的表后拼接。直白但表格冗长，容易抄错。",
+          "detail": "步骤拆解：\n1. 千/百/十/个位各备一张表：thousands 4 项、hundreds/tens/ones 各 10 项（都含空串兜底）。\n2. 取位：num // 1000 得千位，num // 100 % 10 得百位，num // 10 % 10 得十位，num % 10 得个位。\n3. 四段查表后直接拼接。\n\n示例走查：num=1994。千位 1994//1000=1 → \"M\"；百位 1994//100%10=9 → \"CM\"；十位 1994//10%10=9 → \"XC\"；个位 1994%10=4 → \"IV\"。拼成 \"MCMXCIV\" ✓。\n\n为什么正确：罗马数字按十进制对位独立表示，每位 0~9 的写法固定，查表即得；值域 1~3999 保证千位表只需 4 项。\n\n易错点：\n- 取位公式 num // 100 % 10 容易漏掉 % 10，写成 num // 100 后百位以上全部错位；\n- 每张表必须含空串（0 的占位），漏了会在缺位数字（如 1050）上拼出错误结果；\n- 四张表共 34 项，手抄极易错一两个符号；时间紧张时不如贪心面值表短平快。",
+          "complexity": "时间 O(1)，空间 O(1)",
+          "code": "def intToRoman_lookup(num):\n    # 按位查表：千/百/十/个位各自一张表，注意空串占位\n    thousands = [\"\", \"M\", \"MM\", \"MMM\"]\n    hundreds = [\"\", \"C\", \"CC\", \"CCC\", \"CD\", \"D\", \"DC\", \"DCC\", \"DCCC\", \"CM\"]\n    tens = [\"\", \"X\", \"XX\", \"XXX\", \"XL\", \"L\", \"LX\", \"LXX\", \"LXXX\", \"XC\"]\n    ones = [\"\", \"I\", \"II\", \"III\", \"IV\", \"V\", \"VI\", \"VII\", \"VIII\", \"IX\"]\n    return (thousands[num // 1000] + hundreds[num // 100 % 10]\n            + tens[num // 10 % 10] + ones[num % 10])"
+        },
+        {
+          "name": "贪心 + 面值表",
+          "idea": "把 13 个面值（7 个基本符号 + 6 个减法组合）从大到小排列，循环用 divmod 求当前面值可用次数并拼接对应符号，剩余值继续向下处理。代码短、覆盖全部情况。",
+          "detail": "步骤拆解：\n1. vals 与 syms 两张表按序对齐，13 个面值从大到小（含 900/400/90/40/9/4 六个复合面值）。\n2. 遍历面值：cnt, num = divmod(num, v)，把 sym 重复 cnt 次拼入结果；num 归零可提前 break。\n\n示例走查：num=1994。1000：cnt=1 剩 994，拼 \"M\"；900：cnt=1 剩 94，拼 \"CM\"；500/400/100/90：cnt=0 跳过；50：cnt=1 剩 44，拼 \"L\"；40：cnt=1 剩 4，拼 \"XL\"；10/9/5：cnt=0 跳过；4：cnt=1 剩 0，拼 \"IV\"；num=0 提前结束。结果 \"MCMXCIV\" ✓。\n\n为什么正确：13 个面值中任意大面值都不能被若干小面值以更短的形式替代（如 900 用 CM 一个符号，拆成 D+4*C 要 5 个），所以每步贪心取最大面值必得最短表示；5 与 4、50 与 40 等成对出现保证同一面值最多连用 3 次，不会产出 IIII 这类非法形式。\n\n易错点：\n- 面值表漏掉任何一个复合面值都会错：漏 90 时 94 会退化成 \"LXXXXIIII\" 的加法形式，判题直接挂；\n- vals 与 syms 必须等长且逐位对齐，用 zip 绑定遍历比两套下标稳得多；\n- num == 0 的 break 只是加速，不写也能跑完（后续 cnt 全 0 拼空串）；真正致命的是忘了它需要 O(1) 值域这个前提——num 超过 3999 时千位会输出 MMMM，题目保证不会发生。",
+          "complexity": "时间 O(1)，空间 O(1)",
+          "optimal": true,
+          "code": "def intToRoman(num):\n    # 贪心 + 面值表：13 个面值从大到小，每次取不超过剩余值的最大面值\n    vals = [1000, 900, 500, 400, 100, 90, 50, 40, 10, 9, 5, 4, 1]\n    syms = ['M', 'CM', 'D', 'CD', 'C', 'XC', 'L', 'XL', 'X', 'IX', 'V', 'IV', 'I']\n    ans = []\n    for v, sym in zip(vals, syms):  # zip 保证两表逐位对齐\n        if num == 0:\n            break\n        cnt, num = divmod(num, v)   # 当前面值能用几次，剩多少\n        ans.append(sym * cnt)       # 拼接 cnt 个该符号（cnt 可为 0）\n    return ''.join(ans)"
+        }
+      ],
+      "code": "class Solution:\n    def intToRoman(self, num: int) -> str:\n        # 面值从大到小排列，必须包含 900/400/90/40/9/4 六个减法组合\n        vals = [1000, 900, 500, 400, 100, 90, 50, 40, 10, 9, 5, 4, 1]\n        syms = ['M', 'CM', 'D', 'CD', 'C', 'XC', 'L', 'XL', 'X', 'IX', 'V', 'IV', 'I']\n        ans = []\n        # 贪心：每次取不超过剩余 num 的最大面值，直到 num 归零\n        for v, sym in zip(vals, syms):\n            if num == 0:\n                break\n            cnt, num = divmod(num, v)   # 当前面值能用几次，剩多少\n            ans.append(sym * cnt)       # 拼接 cnt 个该符号（cnt 可为 0）\n        return ''.join(ans)",
+      "acmCode": "# ACM 模式：完整可运行程序（stdin -> stdout）\n# 输入格式：一行一个整数 num（1 <= num <= 3999）\n# 输出格式：一行，对应的罗马数字\nimport sys\n\n\ndef main():\n    num = int(sys.stdin.readline().strip())\n    vals = [1000, 900, 500, 400, 100, 90, 50, 40, 10, 9, 5, 4, 1]\n    syms = ['M', 'CM', 'D', 'CD', 'C', 'XC', 'L', 'XL', 'X', 'IX', 'V', 'IV', 'I']\n    ans = []\n    for v, sym in zip(vals, syms):\n        if num == 0:\n            break\n        cnt, num = divmod(num, v)   # 贪心取最大面值\n        ans.append(sym * cnt)\n    print(''.join(ans))\n\n\nif __name__ == '__main__':\n    main()",
+      "templates": [
+        "『贪心凑面值』模板：面值降序表 + for v in vals: cnt = num // v; num %= v; 拼接 cnt 次。适用于罗马数字、找零钱等可贪心场景。"
+      ],
+      "codeCpp": "class Solution {\npublic:\n    string intToRoman(int num) {\n        // 面值从大到小排列，必须包含 900/400/90/40/9/4 六个减法组合\n        const int vals[] = {1000, 900, 500, 400, 100, 90, 50, 40, 10, 9, 5, 4, 1};\n        const string syms[] = {\"M\", \"CM\", \"D\", \"CD\", \"C\", \"XC\",\n                               \"L\", \"XL\", \"X\", \"IX\", \"V\", \"IV\", \"I\"};\n        string ans;\n        // 贪心：每次取不超过剩余 num 的最大面值，直到 num 归零\n        for (int i = 0; i < 13 && num > 0; ++i) {\n            while (num >= vals[i]) {   // 当前面值能用几次就拼几次\n                ans += syms[i];\n                num -= vals[i];\n            }\n        }\n        return ans;\n    }\n};",
+      "acmCodeCpp": "// ACM 模式：完整可运行程序（stdin -> stdout）\n// 输入格式：一行一个整数 num（1 <= num <= 3999）\n// 输出格式：一行，对应的罗马数字\n#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);   // 关闭同步，读入更快\n    cin.tie(nullptr);\n\n    int num;\n    cin >> num;\n\n    // 面值从大到小排列，必须包含 900/400/90/40/9/4 六个减法组合\n    const int vals[] = {1000, 900, 500, 400, 100, 90, 50, 40, 10, 9, 5, 4, 1};\n    const string syms[] = {\"M\", \"CM\", \"D\", \"CD\", \"C\", \"XC\",\n                           \"L\", \"XL\", \"X\", \"IX\", \"V\", \"IV\", \"I\"};\n    string ans;\n    for (int i = 0; i < 13 && num > 0; ++i) {\n        while (num >= vals[i]) {   // 贪心：当前面值能用几次就拼几次\n            ans += syms[i];\n            num -= vals[i];\n        }\n    }\n    cout << ans << endl;\n    return 0;\n}",
+      "codeJava": "class Solution {\n    public String intToRoman(int num) {\n        // 面值从大到小排列，必须包含 900/400/90/40/9/4 六个减法组合\n        int[] vals = {1000, 900, 500, 400, 100, 90, 50, 40, 10, 9, 5, 4, 1};\n        String[] syms = {\"M\", \"CM\", \"D\", \"CD\", \"C\", \"XC\",\n                         \"L\", \"XL\", \"X\", \"IX\", \"V\", \"IV\", \"I\"};\n        StringBuilder ans = new StringBuilder();\n        // 贪心：每次取不超过剩余 num 的最大面值，直到 num 归零\n        for (int i = 0; i < vals.length && num > 0; i++) {\n            int cnt = num / vals[i];   // 当前面值能用几次\n            num %= vals[i];            // 剩余多少（等价 Python 的 divmod）\n            for (int j = 0; j < cnt; j++) ans.append(syms[i]);  // 拼接 cnt 个符号\n        }\n        return ans.toString();\n    }\n}",
+      "codeJs": "/**\n * @param {number} num\n * @return {string}\n */\nvar intToRoman = function (num) {\n  // 面值从大到小排列，必须包含 900/400/90/40/9/4 六个减法组合\n  const vals = [1000, 900, 500, 400, 100, 90, 50, 40, 10, 9, 5, 4, 1];\n  const syms = ['M', 'CM', 'D', 'CD', 'C', 'XC', 'L', 'XL', 'X', 'IX', 'V', 'IV', 'I'];\n  let ans = '';\n  // 贪心：每次取不超过剩余 num 的最大面值，直到 num 归零\n  for (let i = 0; i < vals.length && num > 0; i++) {\n    const cnt = Math.floor(num / vals[i]); // 当前面值能用几次\n    num %= vals[i];                        // 剩余多少\n    ans += syms[i].repeat(cnt);            // 拼接 cnt 个该符号（cnt 可为 0）\n  }\n  return ans;\n};",
+      "codeGo": "func intToRoman(num int) string {\n\t// 面值从大到小排列，必须包含 900/400/90/40/9/4 六个减法组合\n\tvals := []int{1000, 900, 500, 400, 100, 90, 50, 40, 10, 9, 5, 4, 1}\n\tsyms := []string{\"M\", \"CM\", \"D\", \"CD\", \"C\", \"XC\", \"L\", \"XL\", \"X\", \"IX\", \"V\", \"IV\", \"I\"}\n\tans := \"\"\n\tfor i := 0; i < len(vals) && num > 0; i++ {\n\t\t// 贪心：每次取不超过剩余 num 的最大面值\n\t\tcnt := num / vals[i] // 当前面值能用几次\n\t\tnum %= vals[i]       // 剩余多少\n\t\tfor j := 0; j < cnt; j++ {\n\t\t\tans += syms[i] // 拼接 cnt 个该符号\n\t\t}\n\t}\n\treturn ans\n}"
+    },
+    {
+      "id": 58,
+      "title": "Length of Last Word",
+      "titleCn": "最后一个单词的长度",
+      "difficulty": "easy",
+      "frequency": 2,
+      "companies": [
+        "腾讯",
+        "美团"
+      ],
+      "question": "给你一个字符串 s，由若干单词组成，单词之间用空格分隔。返回字符串中最后一个单词的长度。单词是指仅由字母组成、不包含任何空格字符的最大子字符串。题目保证 s 至少存在一个单词。\n\n示例 1：输入 s = \"Hello World\"，输出 5。\n示例 2：输入 s = \"   fly me   to   the moon  \"，输出 4（最后一个单词是 \"moon\"）。\n示例 3：输入 s = \"luffy is still joyboy\"，输出 6。",
+      "samples": [
+        {
+          "input": "s = \"Hello World\"",
+          "output": "5",
+          "explain": "最后一个单词是 World"
+        },
+        {
+          "input": "s = \"   fly me   to   the moon  \"",
+          "output": "4",
+          "explain": "先跳过尾部空格，最后一个单词是 moon"
+        },
+        {
+          "input": "s = \"luffy is still joyboy\"",
+          "output": "6",
+          "explain": "最后一个单词是 joyboy"
+        }
+      ],
+      "hints": [
+        "审题诀窍：示例 2 是关键——末尾可能有若干空格，中间可能有连续空格，直接按『最后一个空格切一刀』会得到 0，先跳过尾部空格再统计。",
+        "突破口：从右往左看：先跳过末尾所有空格，再数连续字母的个数，撞到空格或到头即停，天然兼容各种空格情况。",
+        "一行解法 len(s.split()[-1]) 也能过，但面试更想看 O(1) 额外空间的指针扫描。",
+        "追问预备：若分隔符不止空格、还混有制表符呢？（不带参 split() 天然支持，或逐字符 isspace() 判断）；求第一个单词的长度怎么改？（从左往右对称的两段式）；能不能 O(1) 时间完成？（不能，最坏仍需看到最后一个单词的起点，O(n) 是下界）"
+      ],
+      "keyPoints": [
+        "从右往左两阶段扫描：先跳尾部空格，再数字母",
+        "第二个循环在撞到空格或越过开头时停止，长度 = 结尾下标 - 停止下标",
+        "不复制任何子串，额外空间 O(1)",
+        "最坏情况只扫到字符串中最后一个单词的起点，时间 O(n)"
+      ],
+      "structureTags": [
+        "single_pass"
+      ],
+      "approaches": [
+        {
+          "name": "切分取末尾",
+          "idea": "s.split() 按任意空白切分并自动丢弃空串，取最后一个单词求长度。两行解决，但切分需要 O(n) 额外空间存所有单词。",
+          "detail": "步骤拆解：\n1. words = s.split()：不带参数的 split 按连续空白切分并自动丢弃空串，直接得到干净单词表。\n2. 取 words[-1] 的长度返回。\n\n示例走查：s=\"   fly me   to   the moon  \"。split 后 ['fly','me','to','the','moon']，最后一个是 'moon'，长度 4 ✓。s=\"Hello World\" → ['Hello','World'] → 5 ✓。\n\n为什么正确：split() 的「丢弃空串」语义一次性解决了前导、尾随、连续空格三个坑，最后一个元素必然是最后一个单词。\n\n易错点：\n- 用 s.split(' ')（显式单空格分隔）不会丢弃空串：尾随空格会产生 ['...','']，取到空串得 0——必须用不带参数的 split()；\n- 题目保证至少一个单词，words[-1] 不会越界，但工程上仍应考虑空输入的防御；\n- 切分要复制全部单词，O(n) 额外空间；被要求 O(1) 空间时换指针扫描。",
+          "complexity": "时间 O(n)，空间 O(n)",
+          "code": "def lengthOfLastWord_split(s):\n    # 切分取末尾：split() 自动处理各种空格情况\n    words = s.split()               # 按连续空白切分并丢弃空串\n    return len(words[-1])           # 题目保证至少存在一个单词"
+        },
+        {
+          "name": "从右往左指针扫描",
+          "idea": "指针 i 从末尾出发：第一段 while 跳过所有尾部空格；第二段 while 越过最后一个单词的字母。两个下标之差即答案，不复制任何子串。",
+          "detail": "步骤拆解：\n1. i 从 len(s)-1 出发，第一阶段 while s[i] == ' ' 只管左移，跳过全部尾部空格。\n2. 记 end = i（最后一个单词的结尾下标）。\n3. 第二阶段 while s[i] != ' ' 继续左移，撞到空格或 i < 0 停；返回 end - i。\n\n示例走查：s=\"   fly me   to   the moon  \"（末尾 2 空格）。第一阶段：i 从末尾左移到 'n'；end=25。第二阶段：越过 m,o,o,n 停在下标 21 的空格上。返回 25-21=4 ✓。s=\"Hello World\"：无尾部空格，end=10，第二阶段停在 5 的空格，返回 5 ✓。\n\n为什么正确：两阶段分别清除「尾部空格」与「单词字母」，end - i 恰是开区间 (i, end] 的字符个数；全程不复制任何子串，额外空间 O(1)。\n\n易错点：\n- 第二阶段的条件必须同时含 i >= 0 与 s[i] != ' '，且下标判断在前：只判字符的话，单个单词的串（如 \"hello\"）会让 i 减到 -1 后经 Python 负下标继续读串尾字符，最终 IndexError；\n- 返回 end - i 而不是 end - i + 1：i 停在空格上（或 -1），(i, end] 恰有 end-i 个字符；\n- 两个 while 各司其职，第一阶段只跳空格不数字母，混在一起写边界极易错。",
+          "complexity": "时间 O(n)，空间 O(1)",
+          "optimal": true,
+          "code": "def lengthOfLastWord(s):\n    # 从右往左两阶段：先跳尾部空格，再数字母\n    i = len(s) - 1\n    while i >= 0 and s[i] == ' ':   # 第一阶段：跳过尾部空格\n        i -= 1\n    end = i                         # 最后一个单词的结尾下标\n    while i >= 0 and s[i] != ' ':   # 第二阶段：越过单词字母\n        i -= 1\n    return end - i                  # 长度 = (i, end] 区间字符数"
+        }
+      ],
+      "code": "class Solution:\n    def lengthOfLastWord(self, s: str) -> int:\n        i = len(s) - 1\n        # 第一阶段：跳过字符串末尾的所有空格\n        while i >= 0 and s[i] == ' ':\n            i -= 1\n        end = i                      # 最后一个单词的结尾下标\n        # 第二阶段：继续往左走，直到撞上空格或越过开头\n        while i >= 0 and s[i] != ' ':\n            i -= 1\n        return end - i               # 单词长度 = 结尾 - 停止位置",
+      "acmCode": "# ACM 模式：完整可运行程序（stdin -> stdout）\n# 输入格式：一行字符串（可含前导/尾随/连续空格，保证至少一个单词）\n# 输出格式：一行，最后一个单词的长度\n# 注意：必须整行读入（readline），不能用 read().split()，否则空格信息丢失\nimport sys\n\n\ndef main():\n    s = sys.stdin.readline().rstrip('\\n')   # 只去掉换行符，保留空格\n    i = len(s) - 1\n    while i >= 0 and s[i] == ' ':   # 第一阶段：跳过尾部空格\n        i -= 1\n    end = i\n    while i >= 0 and s[i] != ' ':   # 第二阶段：越过单词字母\n        i -= 1\n    print(end - i)\n\n\nif __name__ == '__main__':\n    main()",
+      "templates": [
+        "『从右往左两段式』模板：while 跳过无关字符 -> 记录终点 -> while 收集目标 -> 差值即答案；适用于尾部定位类字符串题。"
+      ],
+      "codeCpp": "class Solution {\npublic:\n    int lengthOfLastWord(string s) {\n        int i = (int)s.size() - 1;\n        while (i >= 0 && s[i] == ' ') --i;   // 第一阶段：跳过字符串末尾的所有空格\n        int end = i;                         // 最后一个单词的结尾下标\n        // 第二阶段：继续往左走，直到撞上空格或越过开头\n        while (i >= 0 && s[i] != ' ') --i;\n        return end - i;                      // 单词长度 = 结尾 - 停止位置\n    }\n};",
+      "acmCodeCpp": "// ACM 模式：完整可运行程序（stdin -> stdout）\n// 输入格式：一行字符串（可含前导/尾随/连续空格，保证至少一个单词）\n// 输出格式：一行，最后一个单词的长度\n// 注意：必须整行读入（getline），不能用 >> 切分，否则空格信息丢失\n#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    string s;\n    getline(cin, s);                       // 整行读入，保留全部空格\n    while (!s.empty() && s.back() == '\\r') s.pop_back();  // 去掉行尾残留的 \\r\n\n    int i = (int)s.size() - 1;\n    while (i >= 0 && s[i] == ' ') --i;     // 第一阶段：跳过尾部空格\n    int end = i;                           // 最后一个单词的结尾下标\n    while (i >= 0 && s[i] != ' ') --i;     // 第二阶段：越过单词字母\n    cout << end - i << endl;               // 单词长度 = 结尾 - 停止位置\n    return 0;\n}",
+      "codeJava": "class Solution {\n    public int lengthOfLastWord(String s) {\n        int i = s.length() - 1;\n        while (i >= 0 && s.charAt(i) == ' ') i--;  // 第一阶段：跳过字符串末尾的所有空格\n        int end = i;                               // 最后一个单词的结尾下标\n        // 第二阶段：继续往左走，直到撞上空格或越过开头\n        while (i >= 0 && s.charAt(i) != ' ') i--;\n        return end - i;                            // 单词长度 = 结尾 - 停止位置\n    }\n}",
+      "codeJs": "/**\n * @param {string} s\n * @return {number}\n */\nvar lengthOfLastWord = function (s) {\n  let i = s.length - 1;\n  while (i >= 0 && s[i] === ' ') i--; // 第一阶段：跳过字符串末尾的所有空格\n  const end = i; // 最后一个单词的结尾下标\n  // 第二阶段：继续往左走，直到撞上空格或越过开头\n  while (i >= 0 && s[i] !== ' ') i--;\n  return end - i; // 单词长度 = 结尾 - 停止位置\n};",
+      "codeGo": "func lengthOfLastWord(s string) int {\n\ti := len(s) - 1\n\tfor i >= 0 && s[i] == ' ' { // 第一阶段：跳过字符串末尾的所有空格\n\t\ti--\n\t}\n\tend := i // 最后一个单词的结尾下标\n\t// 第二阶段：继续往左走，直到撞上空格或越过开头\n\tfor i >= 0 && s[i] != ' ' {\n\t\ti--\n\t}\n\treturn end - i // 单词长度 = 结尾 - 停止位置\n}"
+    },
+    {
+      "id": 14,
+      "title": "Longest Common Prefix",
+      "titleCn": "最长公共前缀",
+      "difficulty": "easy",
+      "frequency": 3,
+      "companies": [
+        "腾讯",
+        "字节跳动",
+        "百度"
+      ],
+      "question": "编写一个函数来查找字符串数组中的最长公共前缀。如果不存在公共前缀，返回空字符串 \"\"。\n\n示例 1：输入 strs = [\"flower\",\"flow\",\"flight\"]，输出 \"fl\"。\n示例 2：输入 strs = [\"dog\",\"racecar\",\"car\"]，输出 \"\"（所有串不以相同字符开头）。\n\n提示：1 <= strs.length <= 200，0 <= strs[i].length <= 200。",
+      "samples": [
+        {
+          "input": "strs = [\"flower\",\"flow\",\"flight\"]",
+          "output": "\"fl\"",
+          "explain": "前两个字符所有串都相同"
+        },
+        {
+          "input": "strs = [\"dog\",\"racecar\",\"car\"]",
+          "output": "\"\"",
+          "explain": "首字符就不一致，公共前缀为空"
+        }
+      ],
+      "hints": [
+        "审题诀窍：注意 strs[i] 可能为空串，且数组至少有 1 个元素——任何一个空串都意味着公共前缀必为空，代码要天然覆盖这种情况。",
+        "突破口：公共前缀不会超过最短的字符串，按『列』比较所有串的第 i 个字符，第一次失配或越界就是答案边界。",
+        "进阶视角：LCP 满足结合律 LCP(a,b,c) = LCP(LCP(a,b),c)，还可以对长度二分，或对数组排序后只比较首尾两个串。",
+        "追问预备：求最长公共子串（不要求前缀）呢？（后缀数组 / 二分答案+哈希 / DP，难度陡增）；为什么对字符串数组排序后只需比较首尾两串？（字典序最小与最大的公共前缀即为全体公共前缀）；对超长字符串组怎么提速？（按长度二分 + 哈希比较）"
+      ],
+      "keyPoints": [
+        "纵向扫描：以第一个串为基准，外层按列 i、内层比较每个串",
+        "任一串到达末尾或字符不等，立即返回前 i 个字符",
+        "外层循环完整走完说明第一个串本身就是公共前缀",
+        "时间 O(S)，S 为所有字符总数；比较次数被最短串截断"
+      ],
+      "structureTags": [
+        "single_pass"
+      ],
+      "approaches": [
+        {
+          "name": "横向两两归并",
+          "idea": "维护当前公共前缀 prefix，依次与每个串重新计算 LCP（双指针逐字符比较），prefix 只会越缩越短。LCP 的结合律保证正确性。",
+          "detail": "步骤拆解：\n1. 内部函数 lcp_two(a, b)：双指针 i 从 0 起，a[i] == b[i] 且双方都未越界时 i += 1，返回 a[:i]。\n2. prefix 初始化为 strs[0]，依次与 strs[1:] 每个串重新求 LCP。\n3. prefix 变空立即 break 剪枝；返回 prefix。\n\n示例走查：strs=[\"flower\",\"flow\",\"flight\"]。prefix=\"flower\"；与 \"flow\" 求 LCP → \"flow\"；与 \"flight\" 求 LCP → \"fl\"。返回 \"fl\" ✓。\n\n为什么正确：LCP 满足结合律 LCP(a,b,c) = LCP(LCP(a,b),c)，两两归并的最终结果就是全体串的公共前缀；prefix 单调不增，中途为空可提前终止。\n\n易错点：\n- lcp_two 里「任一串到头即停」的越界判断要先于字符比较，顺序反了下标越界；\n- prefix 每轮都重建字符串（Python 字符串不可变），比纵向扫描多产生中间对象；\n- 数组只有 1 个串时循环体不执行，直接返回 strs[0]，天然正确，别画蛇添足特判。",
+          "complexity": "时间 O(S)，空间 O(1)",
+          "code": "def longestCommonPrefix_horizontal(strs):\n    # 横向两两归并：prefix 与每个串重新求 LCP，单调不增\n    def lcp_two(a, b):\n        i = 0\n        while i < len(a) and i < len(b) and a[i] == b[i]:\n            i += 1                  # 越界判断必须先于字符比较\n        return a[:i]\n\n    prefix = strs[0]\n    for s in strs[1:]:\n        prefix = lcp_two(prefix, s)  # LCP 结合律保证正确\n        if not prefix:               # 提前剪枝\n            break\n    return prefix"
+        },
+        {
+          "name": "纵向按列扫描",
+          "idea": "按列比较：第 i 列上所有字符串的字符若不全相同，公共前缀长度就是 i。一次失配即可提前返回，无需生成中间 prefix 字符串。",
+          "detail": "步骤拆解：\n1. 以第一个串为基准：外层 enumerate(strs[0]) 按列 i 取字符 ch。\n2. 内层遍历其余串：i == len(s)（该串太短）或 s[i] != ch（该列失配）→ 公共前缀止于 i，返回 strs[0][:i]。\n3. 外层走完说明第一个串整体都是公共前缀，返回 strs[0]。\n\n示例走查：strs=[\"dog\",\"racecar\",\"car\"]。i=0, ch='d'：\"racecar\"[0]='r' != 'd' → 返回 strs[0][:0]=\"\" ✓。strs=[\"flower\",\"flow\",\"flight\"]：i=0 'f' 全过；i=1 'l' 全过；i=2 'o'：\"flight\"[2]='i' 失配 → 返回 \"fl\" ✓。\n\n为什么正确：公共前缀的第 i 列必须所有串都相同；第一个失配列之前的部分就是答案。空串成员会让内层第一次就命中 i == len(s) 返回空串，天然覆盖这种情况。\n\n易错点：\n- 内层必须同时判断「越界」与「失配」两种终止：漏掉越界判断会在短串上 IndexError；\n- 返回切片 strs[0][:i]，语义清晰且失配时立即返回，不要手动维护结果串；\n- 外层用 strs[0] 做基准即可，不必先求最短串——越界判断已经兜底，先求最短串只是微优化。",
+          "complexity": "时间 O(S)，空间 O(1)",
+          "optimal": true,
+          "code": "def longestCommonPrefix(strs):\n    # 纵向按列扫描：以第一个串为基准，逐列比较所有串\n    for i, ch in enumerate(strs[0]):\n        for s in strs[1:]:\n            # 任一串已到头，或该列字符不一致 => 公共前缀止于 i\n            if i == len(s) or s[i] != ch:\n                return strs[0][:i]\n    # 循环走完说明第一个串本身就是所有串的公共前缀\n    return strs[0]"
+        }
+      ],
+      "code": "class Solution:\n    def longestCommonPrefix(self, strs: List[str]) -> str:\n        # 以第一个串为基准，按列（下标 i）逐字符比较所有串\n        for i, ch in enumerate(strs[0]):\n            for s in strs[1:]:\n                # 任一串已到头，或该列字符不一致 => 公共前缀到此为止\n                if i == len(s) or s[i] != ch:\n                    return strs[0][:i]\n        # 循环走完说明第一个串本身就是所有串的公共前缀\n        return strs[0]",
+      "acmCode": "# ACM 模式：完整可运行程序（stdin -> stdout）\n# 输入格式：\n#   第一行：n（字符串个数）\n#   接下来 n 行：每行一个字符串（不含空白字符）\n# 输出格式：一行，最长公共前缀（可能为空行）\nimport sys\n\n\ndef main():\n    data = sys.stdin.read().split()\n    n = int(data[0])\n    strs = data[1:1 + n]            # 本题字符串不含空格，split() 切分即可\n    base = strs[0]\n    for i, ch in enumerate(base):\n        for s in strs[1:]:\n            if i == len(s) or s[i] != ch:   # 越界或失配即停\n                print(base[:i])\n                return\n    print(base)                     # 第一个串本身就是公共前缀\n\n\nif __name__ == '__main__':\n    main()",
+      "templates": [
+        "『按列比较』模板：for i, ch in enumerate(strs[0])，内层任一串失配/越界即 return strs[0][:i]；求多个串的公共前缀/后缀通用。"
+      ],
+      "codeCpp": "class Solution {\npublic:\n    string longestCommonPrefix(vector<string>& strs) {\n        // 以第一个串为基准，按列（下标 i）逐字符比较所有串\n        const string& base = strs[0];\n        for (int i = 0; i < (int)base.size(); ++i) {\n            for (int j = 1; j < (int)strs.size(); ++j) {\n                // 任一串已到头，或该列字符不一致 => 公共前缀到此为止\n                if (i == (int)strs[j].size() || strs[j][i] != base[i]) {\n                    return base.substr(0, i);\n                }\n            }\n        }\n        return base;    // 循环走完说明第一个串本身就是所有串的公共前缀\n    }\n};",
+      "acmCodeCpp": "// ACM 模式：完整可运行程序（stdin -> stdout）\n// 输入格式：\n//   第一行：n（字符串个数）\n//   接下来 n 行：每行一个字符串（不含空白字符）\n// 输出格式：一行，最长公共前缀（可能为空行）\n#include <bits/stdc++.h>\nusing namespace std;\n\n// 纵向按列扫描：以第一个串为基准\nstring lcp(const vector<string>& strs) {\n    const string& base = strs[0];\n    for (int i = 0; i < (int)base.size(); ++i) {\n        for (int j = 1; j < (int)strs.size(); ++j) {\n            // 任一串已到头，或该列字符不一致 => 公共前缀到此为止\n            if (i == (int)strs[j].size() || strs[j][i] != base[i]) {\n                return base.substr(0, i);\n            }\n        }\n    }\n    return base;    // 第一个串本身就是所有串的公共前缀\n}\n\nint main() {\n    ios::sync_with_stdio(false);   // 关闭同步，读入更快\n    cin.tie(nullptr);\n\n    int n;\n    cin >> n;\n    vector<string> strs(n);\n    for (auto& s : strs) cin >> s; // 本题字符串不含空白，>> 切分即可\n\n    cout << lcp(strs) << \"\\n\";     // 公共前缀可能为空，照样输出一个空行\n    return 0;\n}",
+      "codeJava": "class Solution {\n    public String longestCommonPrefix(String[] strs) {\n        // 以第一个串为基准，按列（下标 i）逐字符比较所有串\n        String base = strs[0];\n        for (int i = 0; i < base.length(); i++) {\n            for (int j = 1; j < strs.length; j++) {\n                // 任一串已到头，或该列字符不一致 => 公共前缀到此为止\n                if (i == strs[j].length() || strs[j].charAt(i) != base.charAt(i)) {\n                    return base.substring(0, i);\n                }\n            }\n        }\n        return base;    // 循环走完说明第一个串本身就是所有串的公共前缀\n    }\n}",
+      "codeJs": "/**\n * @param {string[]} strs\n * @return {string}\n */\nvar longestCommonPrefix = function (strs) {\n  // 以第一个串为基准，按列（下标 i）逐字符比较所有串\n  const base = strs[0];\n  for (let i = 0; i < base.length; i++) {\n    for (let j = 1; j < strs.length; j++) {\n      // 任一串已到头，或该列字符不一致 => 公共前缀到此为止\n      if (i === strs[j].length || strs[j][i] !== base[i]) {\n        return base.slice(0, i);\n      }\n    }\n  }\n  return base; // 循环走完说明第一个串本身就是所有串的公共前缀\n};",
+      "codeGo": "func longestCommonPrefix(strs []string) string {\n\t// 以第一个串为基准，按列（下标 i）逐字符比较所有串\n\tbase := strs[0]\n\tfor i := 0; i < len(base); i++ {\n\t\tfor j := 1; j < len(strs); j++ {\n\t\t\t// 任一串已到头，或该列字符不一致 => 公共前缀到此为止\n\t\t\tif i == len(strs[j]) || strs[j][i] != base[i] {\n\t\t\t\treturn base[:i]\n\t\t\t}\n\t\t}\n\t}\n\treturn base // 循环走完说明第一个串本身就是所有串的公共前缀\n}"
+    },
+    {
+      "id": 151,
+      "title": "Reverse Words in a String",
+      "titleCn": "反转字符串中的单词",
+      "difficulty": "medium",
+      "frequency": 4,
+      "companies": [
+        "字节跳动",
+        "华为",
+        "腾讯"
+      ],
+      "question": "给你一个字符串 s，请你反转字符串中单词的顺序。单词是由非空格字符组成的字符串，s 中使用至少一个空格将单词分隔开。返回由单个空格分隔、单词顺序反转后的字符串。\n\n注意：输入字符串中可能存在前导空格、尾随空格或单词间的多个空格。返回的结果字符串中，单词间应当仅用单个空格分隔，且不包含任何额外的空格。\n\n示例 1：输入 s = \"the sky is blue\"，输出 \"blue is sky the\"。\n示例 2：输入 s = \"  hello world  \"，输出 \"world hello\"。\n示例 3：输入 s = \"a good   example\"，输出 \"example good a\"。",
+      "samples": [
+        {
+          "input": "s = \"the sky is blue\"",
+          "output": "\"blue is sky the\"",
+          "explain": "单词顺序反转"
+        },
+        {
+          "input": "s = \"  hello world  \"",
+          "output": "\"world hello\"",
+          "explain": "前导/尾随空格被清理，单词间只留一个空格"
+        },
+        {
+          "input": "s = \"a good   example\"",
+          "output": "\"example good a\"",
+          "explain": "连续多个空格压缩为单个"
+        }
+      ],
+      "hints": [
+        "审题诀窍：本题一半的考点在空格——前导、尾随、连续多个空格都要清理，结果只能有单词间的单个空格，先想清楚再动手。",
+        "突破口：『清理空格 -> 切出单词 -> 逆序拼接』三步走；split() 默认按连续空白切分并丢弃空串，Python 一行即可完成前两步。",
+        "面试追问 O(1) 额外空间时：双指针压缩空格 + 整体反转 + 逐单词反转，在可变字符数组上原地完成（Python 字符串不可变，需先转列表模拟）。",
+        "追问预备：三次反转各步的复杂度？（压缩 O(n)、整体反转 O(n)、逐词反转 O(n)，总计 O(n)）；「左旋字符串」等价变形怎么做？（剑指 58-II：先翻前 k 个与后 n-k 个，再整体反转）；分隔符不是空格而是逗号呢？（先替换或扫描时按分隔符切段）"
+      ],
+      "keyPoints": [
+        "split() 或手动双指针都能完成『去多余空格 + 切词』，结果不含空串",
+        "单词顺序反转 = 单词列表逆序后用单空格 join",
+        "原地解法三次反转：先压缩空格，再整串反转，最后每个单词内部反转回来",
+        "时间 O(n)；原地版本额外空间 O(1)（Python 中转列表的 O(n) 因字符串不可变无法避免）"
+      ],
+      "structureTags": [
+        "two_pointer"
+      ],
+      "approaches": [
+        {
+          "name": "切分 + 逆序拼接",
+          "idea": "words = s.split() 得到所有干净单词，再 \" \".join(reversed(words))。简洁且天然处理各种空格情况，是 Python 的惯用解。",
+          "detail": "步骤拆解：\n1. words = s.split()：不带参数切分，前导/尾随/连续空格全部消失，得到干净单词列表。\n2. reversed(words) 逆序，' '.join 用单空格拼接。\n\n示例走查：s=\"a good   example\"。split → ['a','good','example']；逆序 → ['example','good','a']；join → \"example good a\" ✓。s=\"  hello world  \" → ['hello','world'] → \"world hello\" ✓。\n\n为什么正确：split 的「丢弃空串」语义与 join 的「单空格连接」恰好把题目的空格清理要求一并完成；单词集合不变、顺序颠倒，正是题意。\n\n易错点：\n- 同 58 题：s.split(' ') 会保留空串，join 后出现多余空格——必须用不带参数的 split()；\n- reversed 返回迭代器，join 可以直接消费；若还要二次使用需 list() 固化；\n- O(n) 辅助空间；被追问 O(1) 时立即切换到三次反转写法（approach 2），这是本题的标准追问路径。",
+          "complexity": "时间 O(n)，空间 O(n)",
+          "code": "def reverseWords_split(s):\n    # 切分 + 逆序拼接：Python 惯用解，天然处理各种空格\n    words = s.split()               # 按连续空白切分并丢弃空串\n    return ' '.join(reversed(words))    # 单空格拼接逆序单词"
+        },
+        {
+          "name": "原地双指针三次反转",
+          "idea": "① 双指针把字符压缩为『单词间单空格』的干净数组；② 整串反转；③ 每个单词内部再反转恢复顺序。只使用 O(1) 辅助空间，是面试要求的标准答案。",
+          "detail": "步骤拆解：\n1. 压缩空格：写指针 l、读指针 r。r 跳过连续空格；遇到单词开头时，若 l > 0 先写一个分隔空格；随后把整个单词拷到 l 位置。最后 del chars[l:] 截断残留。\n2. 整体反转 chars.reverse()：单词顺序颠倒，但每个单词内部字母也反了。\n3. 逐单词反转回来：扫描，遇空格或到尾就对 [start, i) 段执行 chars[start:i] = reversed(...)，start 更新为 i+1。\n\n示例走查：s=\"a good   example\"。压缩后 14 个字符 [a,' ',g,o,o,d,' ',e,x,a,m,p,l,e]；整体反转 → [e,l,p,m,a,x,e,' ',d,o,o,g,' ',a]；再对 3 段分别反转 → \"example good a\" ✓。\n\n为什么正确：压缩保证单词间恰好一个空格、无前导尾随空格；「整体反转 + 局部反转」是按块逆序的通用手法（同 189 轮转数组），局部反转把每个单词内部的字母序还原。\n\n易错点：\n- 压缩阶段只有 l > 0 才补空格：首个单词前补空格会让结果带前导空格；\n- 忘记 del chars[l:] 会在反转后多出尾部垃圾字符；\n- 第三步的分段区间是 [start, i)（不含空格位），start 更新为 i+1；切片赋值 chars[start:i] = reversed(chars[start:i]) 是原地语义；\n- Python 字符串不可变，必须先 list(s) 转字符列表、返回时 join——这层 O(n) 无法避免，面试要说明「除转换外 O(1)」。",
+          "complexity": "时间 O(n)，空间 O(1)",
+          "optimal": true,
+          "code": "def reverseWords_inplace(chars):\n    # 原地三次反转：chars 是字符列表（模拟可变字符串）\n    n = len(chars)\n    l, r = 0, 0                     # l: 下一个写入位置；r: 读指针\n    while r < n:                    # 第一步：压缩空格\n        while r < n and chars[r] == ' ':   # 跳过连续空格\n            r += 1\n        if r == n:\n            break\n        if l > 0:                   # 非第一个单词，先补一个分隔空格\n            chars[l] = ' '\n            l += 1\n        while r < n and chars[r] != ' ':   # 拷贝整个单词\n            chars[l] = chars[r]\n            l += 1\n            r += 1\n    del chars[l:]                   # 截掉压缩后残留的尾部\n    chars.reverse()                 # 第二步：整体反转，单词顺序颠倒\n    start = 0\n    for i in range(len(chars) + 1): # 第三步：每个单词内部反转回来\n        if i == len(chars) or chars[i] == ' ':\n            chars[start:i] = reversed(chars[start:i])\n            start = i + 1\n    return ''.join(chars)"
+        }
+      ],
+      "code": "class Solution:\n    def reverseWords(self, s: str) -> str:\n        chars = list(s)              # Python 字符串不可变，转字符数组模拟原地操作\n        n = len(chars)\n        l, r = 0, 0                  # l: 下一个写入位置；r: 读指针\n        # 第一步：压缩空格——单词之间保留且仅保留一个空格\n        while r < n:\n            while r < n and chars[r] == ' ':   # 跳过连续空格\n                r += 1\n            if r == n:\n                break\n            if l > 0:                # 不是第一个单词，先补一个分隔空格\n                chars[l] = ' '\n                l += 1\n            while r < n and chars[r] != ' ':   # 拷贝整个单词\n                chars[l] = chars[r]\n                l += 1\n                r += 1\n        del chars[l:]                # 截掉压缩后残留的尾部\n        # 第二步：整体反转，单词顺序颠倒\n        chars.reverse()\n        # 第三步：把每个单词内部再反转回来\n        start = 0\n        for i in range(len(chars) + 1):\n            if i == len(chars) or chars[i] == ' ':\n                chars[start:i] = reversed(chars[start:i])\n                start = i + 1\n        return ''.join(chars)",
+      "acmCode": "# ACM 模式：完整可运行程序（stdin -> stdout）\n# 输入格式：一行字符串（可含前导/尾随/连续多个空格）\n# 输出格式：一行，单词顺序反转、单词间单空格分隔的结果\n# 注意：必须整行读入（readline），不能用 read().split() 重组输入\nimport sys\n\n\ndef main():\n    s = sys.stdin.readline().rstrip('\\n')\n    words = s.split()               # 去多余空格并切词\n    print(' '.join(reversed(words)))    # 逆序拼接\n\n\nif __name__ == '__main__':\n    main()",
+      "templates": [
+        "『三次反转』模板：整体反转 + 局部反转，可在 O(1) 空间完成『按块逆序』；局部边界用分隔符定位。",
+        "字符串原地清理模板：写指针 l + 读指针 r，跳过冗余字符再拷贝有效段，最后 del chars[l:] 截断。"
+      ],
+      "codeCpp": "class Solution {\npublic:\n    string reverseWords(string s) {\n        int n = (int)s.size(), l = 0, r = 0;   // l: 下一个写入位置；r: 读指针\n        // 第一步：压缩空格——单词之间保留且仅保留一个空格\n        while (r < n) {\n            while (r < n && s[r] == ' ') ++r;  // 跳过连续空格\n            if (r == n) break;\n            if (l > 0) s[l++] = ' ';           // 不是第一个单词，先补一个分隔空格\n            while (r < n && s[r] != ' ') s[l++] = s[r++];  // 拷贝整个单词\n        }\n        s.resize(l);           // 截掉压缩后残留的尾部\n        // 第二步：整体反转，单词顺序颠倒\n        reverse(s.begin(), s.end());\n        // 第三步：把每个单词内部再反转回来\n        int start = 0;\n        for (int i = 0; i <= (int)s.size(); ++i) {\n            if (i == (int)s.size() || s[i] == ' ') {\n                reverse(s.begin() + start, s.begin() + i);\n                start = i + 1;\n            }\n        }\n        return s;\n    }\n};",
+      "acmCodeCpp": "// ACM 模式：完整可运行程序（stdin -> stdout）\n// 输入格式：一行字符串（可含前导/尾随/连续多个空格）\n// 输出格式：一行，单词顺序反转、单词间单空格分隔的结果\n// 注意：必须整行读入（getline），不能用 >> 切分，否则空格信息丢失\n#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    string line;\n    getline(cin, line);                // 整行读入\n    while (!line.empty() && line.back() == '\\r') line.pop_back();  // 去掉行尾 \\r\n\n    vector<string> words;              // 去多余空格并切词（等价 Python 的 split()）\n    string w;\n    for (char c : line) {\n        if (c == ' ') {\n            if (!w.empty()) {          // 单词结束才入列，天然去掉连续空格\n                words.push_back(w);\n                w.clear();\n            }\n        } else {\n            w += c;\n        }\n    }\n    if (!w.empty()) words.push_back(w);\n\n    for (int i = (int)words.size() - 1; i >= 0; --i) {  // 逆序拼接\n        cout << words[i];\n        if (i) cout << ' ';            // 单词间单空格\n    }\n    cout << \"\\n\";\n    return 0;\n}",
+      "codeJava": "class Solution {\n    public String reverseWords(String s) {\n        char[] chars = s.toCharArray();        // String 不可变，转字符数组模拟原地操作\n        int n = chars.length, l = 0, r = 0;    // l: 下一个写入位置；r: 读指针\n        // 第一步：压缩空格——单词之间保留且仅保留一个空格\n        while (r < n) {\n            while (r < n && chars[r] == ' ') r++;  // 跳过连续空格\n            if (r == n) break;\n            if (l > 0) chars[l++] = ' ';           // 不是第一个单词，先补一个分隔空格\n            while (r < n && chars[r] != ' ') chars[l++] = chars[r++];  // 拷贝整个单词\n        }\n        // 第二步：整体反转 [0, l-1]，单词顺序颠倒\n        reverse(chars, 0, l - 1);\n        // 第三步：把每个单词内部再反转回来\n        int start = 0;\n        for (int i = 0; i <= l; i++) {\n            if (i == l || chars[i] == ' ') {\n                reverse(chars, start, i - 1);\n                start = i + 1;\n            }\n        }\n        return new String(chars, 0, l);\n    }\n\n    // 反转闭区间 [i, j]\n    private void reverse(char[] a, int i, int j) {\n        while (i < j) {\n            char t = a[i];      // 经典三步交换\n            a[i] = a[j];\n            a[j] = t;\n            i++;\n            j--;\n        }\n    }\n}",
+      "codeJs": "/**\n * @param {string} s\n * @return {string}\n */\nvar reverseWords = function (s) {\n  const chars = s.split(''); // 字符串不可变，转字符数组模拟原地操作\n  const n = chars.length;\n  let l = 0, r = 0; // l: 下一个写入位置；r: 读指针\n  // 第一步：压缩空格——单词之间保留且仅保留一个空格\n  while (r < n) {\n    while (r < n && chars[r] === ' ') r++; // 跳过连续空格\n    if (r === n) break;\n    if (l > 0) chars[l++] = ' '; // 不是第一个单词，先补一个分隔空格\n    while (r < n && chars[r] !== ' ') chars[l++] = chars[r++]; // 拷贝整个单词\n  }\n  chars.length = l; // 截掉压缩后残留的尾部\n  // 第二步：整体反转，单词顺序颠倒\n  chars.reverse();\n  // 第三步：把每个单词内部再反转回来\n  let start = 0;\n  for (let i = 0; i <= chars.length; i++) {\n    if (i === chars.length || chars[i] === ' ') {\n      // 反转 [start, i-1] 这一段\n      for (let a = start, b = i - 1; a < b; a++, b--) {\n        [chars[a], chars[b]] = [chars[b], chars[a]];\n      }\n      start = i + 1;\n    }\n  }\n  return chars.join('');\n};",
+      "codeGo": "func reverseWords(s string) string {\n\tchars := []byte(s)             // 字符串不可变，转字符切片模拟原地操作\n\tn := len(chars)\n\tl, r := 0, 0                   // l: 下一个写入位置；r: 读指针\n\t// 第一步：压缩空格——单词之间保留且仅保留一个空格\n\tfor r < n {\n\t\tfor r < n && chars[r] == ' ' { // 跳过连续空格\n\t\t\tr++\n\t\t}\n\t\tif r == n {\n\t\t\tbreak\n\t\t}\n\t\tif l > 0 { // 不是第一个单词，先补一个分隔空格\n\t\t\tchars[l] = ' '\n\t\t\tl++\n\t\t}\n\t\tfor r < n && chars[r] != ' ' { // 拷贝整个单词\n\t\t\tchars[l] = chars[r]\n\t\t\tl++\n\t\t\tr++\n\t\t}\n\t}\n\t// 第二步：整体反转 [0, l-1]，单词顺序颠倒\n\treverseSeg(chars, 0, l-1)\n\t// 第三步：把每个单词内部再反转回来\n\tstart := 0\n\tfor i := 0; i <= l; i++ {\n\t\tif i == l || chars[i] == ' ' {\n\t\t\treverseSeg(chars, start, i-1)\n\t\t\tstart = i + 1\n\t\t}\n\t}\n\treturn string(chars[:l])\n}\n\n// 反转闭区间 [i, j]\nfunc reverseSeg(a []byte, i, j int) {\n\tfor i < j {\n\t\ta[i], a[j] = a[j], a[i]\n\t\ti++\n\t\tj--\n\t}\n}"
+    },
+    {
+      "id": 28,
+      "title": "Find the Index of the First Occurrence in a String",
+      "titleCn": "找出字符串中第一个匹配项的下标",
+      "difficulty": "easy",
+      "frequency": 4,
+      "companies": [
+        "字节跳动",
+        "腾讯",
+        "华为"
+      ],
+      "question": "给你两个字符串 haystack 和 needle，请你在 haystack 字符串中找出 needle 字符串的第一个匹配项的下标（下标从 0 开始）。如果 needle 不是 haystack 的一部分，则返回 -1。约定：当 needle 为空字符串时返回 0。\n\n示例 1：输入 haystack = \"sadbutsad\", needle = \"sad\"，输出 0（\"sad\" 在下标 0 处首次出现）。\n示例 2：输入 haystack = \"leetcode\", needle = \"leeto\"，输出 -1。\n\n提示：1 <= haystack.length, needle.length <= 10^4，仅包含小写英文字母（本题规模下朴素算法也能通过，但面试常追问 KMP）。",
+      "samples": [
+        {
+          "input": "haystack = \"sadbutsad\", needle = \"sad\"",
+          "output": "0",
+          "explain": "\"sad\" 在下标 0 处首次出现"
+        },
+        {
+          "input": "haystack = \"leetcode\", needle = \"leeto\"",
+          "output": "-1",
+          "explain": "needle 不在 haystack 中"
+        }
+      ],
+      "hints": [
+        "审题诀窍：这是『连续子串匹配』，不是子序列——needle 必须整段连续地出现在 haystack 中。",
+        "突破口：朴素做法是每个起点逐字符比对，O(n·m) 在本题规模可过；但要会讲 KMP——主串指针永不回退，失配时模式串按 next 数组跳到最长相等前后缀处。",
+        "理解 next 数组是 KMP 的全部：next[i] = needle[0..i] 中『最长相等前后缀』的长度，它告诉你失配后下一个从哪里继续比较。",
+        "追问预备：Rabin-Karp 字符串哈希怎么做？（滚动哈希逐窗比对 O(n+m)，注意哈希碰撞要二次校验）；Boyer-Moore / Sunday 算法了解吗？（坏字符启发式右移，实践中常数更小）；KMP 的 next 数组物理含义是什么？（needle[0..i] 的最长相等前后缀长度，失配时的下一个比较位置）"
+      ],
+      "keyPoints": [
+        "朴素解法：枚举起点 + 逐字符比较，写对边界即可通过",
+        "KMP 分两步：先 O(m) 构建 next（失配函数），再 O(n) 扫描主串",
+        "构建 next 用模式串自己匹配自己：k 指向当前前缀末尾，失配沿 next[k-1] 回退",
+        "主串扫描中 i 永不回退，j 按 next 跳；j == m 时命中，起始下标为 i - m + 1"
+      ],
+      "structureTags": [
+        "single_pass"
+      ],
+      "approaches": [
+        {
+          "name": "朴素匹配",
+          "idea": "枚举每个起点 i，比较 haystack[i:i+m] 与 needle 是否全等，相等返回 i。思路直白，最坏 O(n·m)（如 haystack=\"aaaa...\"、needle=\"aaab\" 时反复比到最后一个字符才发现失配）。",
+          "detail": "步骤拆解：\n1. n = |haystack|，m = |needle|；起点 i 的合法范围是 0..n-m，即 range(n - m + 1)。\n2. 每个 i 用切片比较 haystack[i:i+m] == needle，命中返回 i。\n3. 循环走完返回 -1。\n\n示例走查：haystack=\"sadbutsad\", needle=\"sad\"。i=0：\"sad\"==\"sad\" → 返回 0 ✓。haystack=\"leetcode\", needle=\"leeto\"：9 个起点全失配 → -1 ✓。\n\n为什么正确：穷举全部可能起点、每个起点完整比对，正确性显然。\n\n易错点：\n- 范围是 n - m + 1 不是 n：i > n-m 时切片长度不足 m，虽然 Python 切片不报错（静默返回短串，比较为 False），但属于逻辑隐患；\n- 最坏 O(n·m)：haystack=\"aaaa...a\"、needle=\"aaab\" 时每个起点都要比到最后一位才失配——这是引出 KMP 的标准例子；\n- m > n 时 range 为空直接返回 -1，天然正确，不必特判。",
+          "complexity": "时间 O(n·m)，空间 O(1)",
+          "code": "def strStr_naive(haystack, needle):\n    # 朴素匹配：枚举起点 + 切片比较\n    n, m = len(haystack), len(needle)\n    for i in range(n - m + 1):      # 合法起点范围\n        if haystack[i:i + m] == needle:\n            return i\n    return -1"
+        },
+        {
+          "name": "KMP",
+          "idea": "先为 needle 构建 next 数组（最长相等前后缀表），再扫描 haystack：字符相等则 i、j 同进；失配则 j 回退到 next[j-1]，i 不动。利用已匹配部分的前后缀信息避免从头重比。",
+          "detail": "步骤拆解：\n1. 构建 next：nxt[i] = needle[0..i] 的最长相等前后缀长度。k 是当前已匹配前缀长度：i 从 1 到 m-1，失配时 k = nxt[k-1] 连续回退（while 循环），相等则 k += 1，最后 nxt[i] = k。\n2. 主串扫描：i 从 0 到 n-1 永不回退；j 是 needle 中已匹配长度。失配时 j = nxt[j-1]（利用已匹配部分的 border 信息跳转），相等则 j += 1。\n3. j == m 时整段命中，起点 = i - m + 1。\n\n示例走查：needle=\"sad\"，无相等前后缀，nxt=[0,0,0]。haystack=\"sadbutsad\"：i=0,1,2 依次匹配到 j=3==m → 返回 0 ✓。再看回退的价值：needle=\"abab\" 的 nxt=[0,0,1,2]，主串 \"ababab\" 在 i=4 时 j=3 失配于 'a'!='b'？——i=4 处 haystack[4]='a'，needle[3]='b' 失配 → j = nxt[2]=1，继续比较 haystack[4] 与 needle[1]='b' 失配 → j = nxt[0]=0，再比 needle[0]='a' 相配 → j=1。全程 i 未回退，避免从 i-2 重比。\n\n为什么正确：next 数组记录「模式串前缀的最长相等前后缀长度」，失配时已匹配部分的后缀恰好等于某个前缀，把 j 直接跳到该前缀长度处继续即可——跳过的位置不可能产生匹配（若有，会与「最长」矛盾）。均摊分析：j 每次增加总数不超过 n，每次回退至少减 1，总回退不超过 n，整体 O(n+m)。\n\n易错点：\n- 构建 next 的内层必须是 while 连续回退，写成 if 只回退一次，在 \"aabaaab\" 型输入上会算错 next；\n- 命中下标是 i - m + 1 不是 i - m；\n- j 的双重语义（已匹配长度 = 下一个待比下标）最容易混，注释里固定用「已匹配长度」称呼；\n- 空模式串约定返回 0，进主流程前特判。",
+          "complexity": "时间 O(n+m)，空间 O(m)",
+          "optimal": true,
+          "code": "def strStr(haystack, needle):\n    # KMP：先构建 next（最长相等前后缀），再扫主串（i 永不回退）\n    n, m = len(haystack), len(needle)\n    if m == 0:\n        return 0\n    nxt = [0] * m                   # nxt[i]：needle[0..i] 的最长相等前后缀长度\n    k = 0                           # k：当前已匹配的前缀长度\n    for i in range(1, m):           # 模式串自匹配构建 next\n        while k and needle[i] != needle[k]:\n            k = nxt[k - 1]          # 失配：回退到次长的相等前后缀\n        if needle[i] == needle[k]:\n            k += 1\n        nxt[i] = k\n    j = 0                           # j：needle 中已匹配的长度\n    for i in range(n):\n        while j and haystack[i] != needle[j]:\n            j = nxt[j - 1]          # 失配：模式串回跳，主串指针不动\n        if haystack[i] == needle[j]:\n            j += 1\n        if j == m:                  # needle 被完整匹配\n            return i - m + 1        # 本次匹配的起点\n    return -1"
+        }
+      ],
+      "code": "class Solution:\n    def strStr(self, haystack: str, needle: str) -> int:\n        n, m = len(haystack), len(needle)\n        if m == 0:\n            return 0\n        # 第一步：构建 next 数组，nxt[i] = needle[0..i] 的最长相等前后缀长度\n        nxt = [0] * m\n        k = 0                        # k：当前已匹配的前缀长度\n        for i in range(1, m):\n            while k and needle[i] != needle[k]:\n                k = nxt[k - 1]       # 失配：回退到次长的相等前后缀\n            if needle[i] == needle[k]:\n                k += 1\n            nxt[i] = k\n        # 第二步：扫描主串，i 永不回退\n        j = 0                        # j：needle 中已匹配的长度\n        for i in range(n):\n            while j and haystack[i] != needle[j]:\n                j = nxt[j - 1]       # 失配：模式串回跳，主串指针不动\n            if haystack[i] == needle[j]:\n                j += 1\n            if j == m:               # needle 被完整匹配\n                return i - m + 1     # 本次匹配的起点\n        return -1",
+      "acmCode": "# ACM 模式：完整可运行程序（stdin -> stdout）\n# 输入格式：\n#   第一行：haystack\n#   第二行：needle\n# 输出格式：一行，needle 首次出现的下标（不存在输出 -1）\nimport sys\n\n\ndef main():\n    lines = sys.stdin.read().split()\n    haystack, needle = lines[0], lines[1]\n    n, m = len(haystack), len(needle)\n    if m == 0:\n        print(0)\n        return\n    nxt = [0] * m                   # 构建 next 数组\n    k = 0\n    for i in range(1, m):\n        while k and needle[i] != needle[k]:\n            k = nxt[k - 1]\n        if needle[i] == needle[k]:\n            k += 1\n        nxt[i] = k\n    j = 0\n    ans = -1\n    for i in range(n):              # 扫主串，i 永不回退\n        while j and haystack[i] != needle[j]:\n            j = nxt[j - 1]\n        if haystack[i] == needle[j]:\n            j += 1\n        if j == m:\n            ans = i - m + 1         # 命中，记录起点\n            break\n    print(ans)\n\n\nif __name__ == '__main__':\n    main()",
+      "templates": [
+        "KMP 模板：build next（模式串自匹配）-> 扫主串（失配 j = nxt[j-1]）；j == m 命中，起点 i - m + 1。",
+        "只求一次出现位置时可直接用语言内置 find/index；多次或循环文本匹配才必须 KMP/字符串哈希。"
+      ],
+      "codeCpp": "class Solution {\npublic:\n    int strStr(string haystack, string needle) {\n        int n = (int)haystack.size(), m = (int)needle.size();\n        if (m == 0) return 0;\n        // 第一步：构建 next 数组，nxt[i] = needle[0..i] 的最长相等前后缀长度\n        vector<int> nxt(m, 0);\n        for (int i = 1, k = 0; i < m; ++i) {\n            while (k && needle[i] != needle[k]) k = nxt[k - 1];  // 失配：回退到次长的相等前后缀\n            if (needle[i] == needle[k]) ++k;\n            nxt[i] = k;\n        }\n        // 第二步：扫描主串，i 永不回退\n        for (int i = 0, j = 0; i < n; ++i) {\n            while (j && haystack[i] != needle[j]) j = nxt[j - 1];  // 失配：模式串回跳，主串指针不动\n            if (haystack[i] == needle[j]) ++j;\n            if (j == m) return i - m + 1;   // needle 被完整匹配，返回本次匹配的起点\n        }\n        return -1;\n    }\n};",
+      "acmCodeCpp": "// ACM 模式：完整可运行程序（stdin -> stdout）\n// 输入格式：\n//   第一行：haystack\n//   第二行：needle\n// 输出格式：一行，needle 首次出现的下标（不存在输出 -1）\n#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);   // 关闭同步，读入更快\n    cin.tie(nullptr);\n\n    string haystack, needle;\n    cin >> haystack >> needle;     // 两串均不含空白，>> 读入即可\n    int n = (int)haystack.size(), m = (int)needle.size();\n    if (m == 0) {\n        cout << 0 << endl;\n        return 0;\n    }\n\n    // 第一步：构建 next 数组，nxt[i] = needle[0..i] 的最长相等前后缀长度\n    vector<int> nxt(m, 0);\n    for (int i = 1, k = 0; i < m; ++i) {\n        while (k && needle[i] != needle[k]) k = nxt[k - 1];\n        if (needle[i] == needle[k]) ++k;\n        nxt[i] = k;\n    }\n    // 第二步：扫描主串，i 永不回退\n    int ans = -1;\n    for (int i = 0, j = 0; i < n; ++i) {\n        while (j && haystack[i] != needle[j]) j = nxt[j - 1];  // 模式串回跳\n        if (haystack[i] == needle[j]) ++j;\n        if (j == m) {                  // 命中，记录起点\n            ans = i - m + 1;\n            break;\n        }\n    }\n    cout << ans << endl;\n    return 0;\n}",
+      "codeJava": "class Solution {\n    public int strStr(String haystack, String needle) {\n        int n = haystack.length(), m = needle.length();\n        if (m == 0) return 0;\n        // 第一步：构建 next 数组，nxt[i] = needle[0..i] 的最长相等前后缀长度\n        int[] nxt = new int[m];\n        for (int i = 1, k = 0; i < m; i++) {\n            while (k > 0 && needle.charAt(i) != needle.charAt(k)) {\n                k = nxt[k - 1];     // 失配：回退到次长的相等前后缀\n            }\n            if (needle.charAt(i) == needle.charAt(k)) k++;\n            nxt[i] = k;\n        }\n        // 第二步：扫描主串，i 永不回退\n        for (int i = 0, j = 0; i < n; i++) {\n            while (j > 0 && haystack.charAt(i) != needle.charAt(j)) {\n                j = nxt[j - 1];     // 失配：模式串回跳，主串指针不动\n            }\n            if (haystack.charAt(i) == needle.charAt(j)) j++;\n            if (j == m) return i - m + 1;   // needle 被完整匹配，返回起点\n        }\n        return -1;\n    }\n}",
+      "codeJs": "/**\n * @param {string} haystack\n * @param {string} needle\n * @return {number}\n */\nvar strStr = function (haystack, needle) {\n  const n = haystack.length, m = needle.length;\n  if (m === 0) return 0;\n  // 第一步：构建 next 数组，nxt[i] = needle[0..i] 的最长相等前后缀长度\n  const nxt = new Array(m).fill(0);\n  for (let i = 1, k = 0; i < m; i++) {\n    while (k > 0 && needle[i] !== needle[k]) k = nxt[k - 1]; // 失配：回退到次长前后缀\n    if (needle[i] === needle[k]) k++;\n    nxt[i] = k;\n  }\n  // 第二步：扫描主串，i 永不回退\n  for (let i = 0, j = 0; i < n; i++) {\n    while (j > 0 && haystack[i] !== needle[j]) j = nxt[j - 1]; // 失配：模式串回跳\n    if (haystack[i] === needle[j]) j++;\n    if (j === m) return i - m + 1; // needle 被完整匹配，返回起点\n  }\n  return -1;\n};",
+      "codeGo": "func strStr(haystack string, needle string) int {\n\tn, m := len(haystack), len(needle)\n\tif m == 0 {\n\t\treturn 0\n\t}\n\t// 第一步：构建 next 数组，nxt[i] = needle[0..i] 的最长相等前后缀长度\n\tnxt := make([]int, m)\n\tfor i, k := 1, 0; i < m; i++ {\n\t\tfor k > 0 && needle[i] != needle[k] {\n\t\t\tk = nxt[k-1] // 失配：回退到次长的相等前后缀\n\t\t}\n\t\tif needle[i] == needle[k] {\n\t\t\tk++\n\t\t}\n\t\tnxt[i] = k\n\t}\n\t// 第二步：扫描主串，i 永不回退\n\tfor i, j := 0, 0; i < n; i++ {\n\t\tfor j > 0 && haystack[i] != needle[j] {\n\t\t\tj = nxt[j-1] // 失配：模式串回跳，主串指针不动\n\t\t}\n\t\tif haystack[i] == needle[j] {\n\t\t\tj++\n\t\t}\n\t\tif j == m { // needle 被完整匹配\n\t\t\treturn i - m + 1\n\t\t}\n\t}\n\treturn -1\n}"
+    },
+    {
+      "id": 380,
+      "title": "Insert Delete GetRandom O(1)",
+      "titleCn": "O(1) 时间插入、删除和获取随机元素",
+      "difficulty": "medium",
+      "frequency": 5,
+      "companies": [
+        "字节跳动",
+        "美团"
+      ],
+      "question": "实现 RandomizedSet 类：\n\nRandomizedSet() 初始化 RandomizedSet 对象。\nbool insert(int val)：当元素 val 不存在时，向集合中插入该项并返回 true；否则返回 false。\nbool remove(int val)：当元素 val 存在时，从集合中移除该项并返回 true；否则返回 false。\nint getRandom()：等概率随机返回现有集合中的一项（每个元素被返回的概率应相同）。\n\n你必须实现类的每个函数，并满足其平均时间复杂度为 O(1)。\n\n示例：输入 [\"RandomizedSet\",\"insert\",\"remove\",\"insert\",\"getRandom\",\"remove\",\"insert\",\"getRandom\"]，参数 [[],[1],[2],[2],[],[1],[2],[]]，输出 [null,true,false,true,2,true,false,2]（getRandom 在集合为 [1,2] 时等概率返回 1 或 2）。",
+      "samples": [
+        {
+          "input": "ops = [\"RandomizedSet\",\"insert\",\"remove\",\"insert\",\"getRandom\",\"remove\",\"insert\",\"getRandom\"], params = [[],[1],[2],[2],[],[1],[2],[]]",
+          "output": "[null,true,false,true,2,true,false,2]",
+          "explain": "getRandom 在集合为 [1,2] 时等概率返回 1 或 2，此处输出为其中一种合法结果"
+        },
+        {
+          "input": "ops = [\"RandomizedSet\",\"insert\",\"insert\",\"remove\",\"getRandom\"], params = [[],[1],[2],[1],[]]",
+          "output": "[null,true,true,true,2]",
+          "explain": "移除 1 后集合只剩 [2]，getRandom 必然返回 2"
+        }
+      ],
+      "hints": [
+        "审题诀窍：三个操作都要平均 O(1)，单独一种结构都不够——哈希表插入删除快但无法等概率随机，数组随机访问快但中间删除是 O(n)。",
+        "突破口：数组 + 哈希表组合。数组存元素支撑 getRandom 的等概率随机下标；哈希表存『值 -> 数组下标』支撑 O(1) 定位。",
+        "删除的技巧：哈希表定位到下标 i 后，用数组末尾元素覆盖位置 i 再 pop——只动一个元素，避免整体搬移；别忘了同步更新末尾元素在哈希表中的新下标。",
+        "追问预备：允许重复元素的版本怎么做？（381 题：pos 改存 值->下标集合，删除时把集合内任一下标与数组尾元素交换）；getRandom 按权重等概率呢？（前缀和数组 + 二分查找）；为什么不直接用 list.remove(val)？（O(n) 线性查找定位，破坏平均 O(1)）"
+      ],
+      "keyPoints": [
+        "双结构配合：动态数组 vals + 字典 pos（值 -> 下标）",
+        "getRandom 用 random.choice(vals)，数组连续下标保证等概率",
+        "remove 的 O(1) 关键：末尾元素补位到被删位置，pop 末尾",
+        "补位后必须更新被移动元素的下标映射；被删元素恰好是末尾时逻辑同样成立"
+      ],
+      "structureTags": [
+        "hashmap"
+      ],
+      "approaches": [
+        {
+          "name": "只用哈希集合",
+          "idea": "insert/remove 都是平均 O(1)，但 getRandom 无法在 O(1) 内等概率返回：集合没有下标，必须先转成列表再随机，这一步是 O(n)。不满足全 O(1) 要求。",
+          "detail": "步骤拆解：\n1. 内部维护一个 set：insert 查 in 后 add；remove 查 in 后 remove。\n2. getRandom 只能 random.choice(list(self.s))：集合没有下标，必须先 O(n) 物化成列表再随机。\n\n示例走查：依次 insert 1 → True；remove 2 → False；insert 2 → True。此时集合 {1,2}，getRandom 每次都要先把集合转成列表 [1,2] 再等概率取——这一步就是 O(n)。\n\n为什么它不合格：insert/remove 都是平均 O(1)，唯独 getRandom 的物化列表是 O(n)，三操作全 O(1) 的硬要求被打破。\n\n易错点：\n- 误以为 random.choice 直接支持 set——不支持，必须先转序列，这一点要能脱口而出；\n- 可以缓存列表来省物化，但缓存与增删的同步又是一致性难题——正好自然引出「数组 + 哈希表」的双结构方案；\n- 面试陈述时明确点出「哪个操作不达标、为什么」，比笼统说「这个解法不行」更有说服力。",
+          "complexity": "时间 平均 O(1)（getRandom 最坏 O(n)），空间 O(n)",
+          "code": "import random\n\n\nclass RandomizedSetSet:\n    # 只用哈希集合：insert/remove 达标，getRandom 退化 O(n)\n    def __init__(self):\n        self.s = set()\n\n    def insert(self, val: int) -> bool:\n        if val in self.s:\n            return False\n        self.s.add(val)\n        return True\n\n    def remove(self, val: int) -> bool:\n        if val not in self.s:\n            return False\n        self.s.remove(val)\n        return True\n\n    def getRandom(self) -> int:\n        # 集合没有下标：必须先物化成列表，O(n) —— 不满足要求\n        return random.choice(list(self.s))"
+        },
+        {
+          "name": "数组 + 哈希表",
+          "idea": "vals 数组 + pos 字典。insert 追加到数组末尾并记录下标；remove 用末尾元素覆盖被删位置后 pop，同步修改字典；getRandom 随机取数组下标。三个操作全部平均 O(1)。",
+          "detail": "步骤拆解：\n1. vals 动态数组存元素（等概率随机下标的载体），pos 字典存「值 -> 数组下标」（O(1) 定位）。\n2. insert：val in pos 判重；通过则 pos[val] = len(vals) 后 vals.append(val)。\n3. remove：i = pos[val]，last = vals[-1]；执行 vals[i] = last、pos[last] = i（末尾补位 + 同步映射），再 vals.pop()、del pos[val]。\n4. getRandom：random.choice(vals)，数组下标均匀分布保证等概率。\n\n示例走查：insert 1 → vals=[1], pos={1:0}, True；remove 2 → 不存在, False；insert 2 → vals=[1,2], pos={1:0,2:1}, True；remove 1 → i=0, last=2：vals=[2,2] → pop → [2]，pos={2:0}，True；getRandom → 集合只剩 [2]，必返 2 ✓。\n\n为什么正确：数组「末尾增删 O(1)、随机下标 O(1)」与哈希「O(1) 定位」互补；remove 的补位技巧把「中间删除」转化为「末尾删除」，只动一个元素，三个操作全部平均 O(1)。\n\n易错点：\n- remove 必须同步 pos[last] = i，漏掉后下次 insert/remove 定位错乱；被删元素恰是末尾时 vals[i]=last 是自赋值、pos 更新后随即 del，逻辑同样成立，无需特判；\n- del pos[val] 要放在补位之后：若 val == last，先删再补会把刚写入的映射又加回来，造成「值在 pos 不在 vals」的脏状态；\n- getRandom 的等概率依赖数组「无空洞」，补位正是为了维持这一点。",
+          "complexity": "时间 平均 O(1)，空间 O(n)",
+          "optimal": true,
+          "code": "import random\n\n\nclass RandomizedSet:\n    # 数组 + 哈希表：三个操作全部平均 O(1)\n    def __init__(self):\n        self.vals = []              # 动态数组：支撑等概率随机下标\n        self.pos = {}               # 哈希表：值 -> 它在 vals 中的下标\n\n    def insert(self, val: int) -> bool:\n        if val in self.pos:         # 已存在，插入失败\n            return False\n        self.pos[val] = len(self.vals)\n        self.vals.append(val)       # O(1) 追加到末尾\n        return True\n\n    def remove(self, val: int) -> bool:\n        if val not in self.pos:     # 不存在，删除失败\n            return False\n        i, last = self.pos[val], self.vals[-1]\n        self.vals[i] = last         # 末尾元素补位到被删位置\n        self.pos[last] = i          # 同步更新补位元素的新下标\n        self.vals.pop()             # O(1) 弹出末尾\n        del self.pos[val]           # 必须在补位之后删除映射\n        return True\n\n    def getRandom(self) -> int:\n        # 数组上随机取下标 => 每个元素等概率被选中\n        return random.choice(self.vals)"
+        }
+      ],
+      "code": "import random\n\nclass RandomizedSet:\n    def __init__(self):\n        self.vals = []               # 动态数组：存元素，支持 O(1) 随机下标访问\n        self.pos = {}                # 哈希表：值 -> 它在 vals 中的下标\n\n    def insert(self, val: int) -> bool:\n        if val in self.pos:          # 已存在，插入失败\n            return False\n        self.pos[val] = len(self.vals)\n        self.vals.append(val)        # 追加到末尾，O(1)\n        return True\n\n    def remove(self, val: int) -> bool:\n        if val not in self.pos:      # 不存在，删除失败\n            return False\n        i, last = self.pos[val], self.vals[-1]\n        # 用末尾元素覆盖被删位置，再 pop 末尾——避免 O(n) 的整体前移\n        self.vals[i] = last\n        self.pos[last] = i           # 同步更新末尾元素的新下标\n        self.vals.pop()\n        del self.pos[val]\n        return True\n\n    def getRandom(self) -> int:\n        # 数组上随机取下标 => 每个元素等概率被选中\n        return random.choice(self.vals)",
+      "acmCode": "# ACM 模式：完整可运行程序（stdin -> stdout）\n# 输入格式：\n#   第一行：q（操作次数）\n#   接下来 q 行，每行一条指令：\n#     insert val / remove val / getRandom\n# 输出格式：每条指令一行结果：true / false / 随机元素值\nimport sys\nimport random\n\n\ndef main():\n    data = sys.stdin.read().split()\n    q = int(data[0])\n    idx = 1\n    vals, pos = [], {}              # 数组 + 哈希表\n    out = []\n    for _ in range(q):\n        op = data[idx]\n        idx += 1\n        if op == 'insert':\n            val = int(data[idx])\n            idx += 1\n            if val in pos:\n                out.append('false')\n            else:\n                pos[val] = len(vals)\n                vals.append(val)\n                out.append('true')\n        elif op == 'remove':\n            val = int(data[idx])\n            idx += 1\n            if val not in pos:\n                out.append('false')\n            else:\n                i, last = pos[val], vals[-1]\n                vals[i] = last      # 末尾补位\n                pos[last] = i       # 同步映射（先更新再删，val==last 也成立）\n                vals.pop()\n                del pos[val]\n                out.append('true')\n        else:                       # getRandom\n            out.append(str(random.choice(vals)))\n    print('\\n'.join(out))\n\n\nif __name__ == '__main__':\n    main()",
+      "templates": [
+        "『数组 + 哈希表』模板：哈希管定位（O(1) 查/删），数组管随机（等概率取下标）；删除一律『末尾补位 + pop』。",
+        "凡是『增删查 + 随机/均匀遍历』都要求 O(1) 的设计题，先考虑这对双结构组合。"
+      ],
+      "codeCpp": "#include <cstdlib>\n\nclass RandomizedSet {\n    vector<int> vals;               // 动态数组：存元素，支持 O(1) 随机下标访问\n    unordered_map<int, int> pos;    // 哈希表：值 -> 它在 vals 中的下标\npublic:\n    RandomizedSet() {}\n\n    bool insert(int val) {\n        if (pos.count(val)) return false;   // 已存在，插入失败\n        pos[val] = (int)vals.size();\n        vals.push_back(val);                // 追加到末尾，O(1)\n        return true;\n    }\n\n    bool remove(int val) {\n        if (!pos.count(val)) return false;  // 不存在，删除失败\n        int i = pos[val], last = vals.back();\n        // 用末尾元素覆盖被删位置，再 pop 末尾——避免 O(n) 的整体前移\n        vals[i] = last;\n        pos[last] = i;                      // 同步更新末尾元素的新下标\n        vals.pop_back();\n        pos.erase(val);\n        return true;\n    }\n\n    int getRandom() {\n        // 数组上随机取下标 => 每个元素等概率被选中\n        return vals[rand() % vals.size()];\n    }\n};",
+      "acmCodeCpp": "// ACM 模式：完整可运行程序（stdin -> stdout）\n// 输入格式：\n//   第一行：q（操作次数）\n//   接下来 q 行，每行一条指令：\n//     insert val / remove val / getRandom\n// 输出格式：每条指令一行结果：true / false / 随机元素值\n#include <bits/stdc++.h>\nusing namespace std;\n\nclass RandomizedSet {\n    vector<int> vals;               // 动态数组：存元素，支持 O(1) 随机下标访问\n    unordered_map<int, int> pos;    // 哈希表：值 -> 它在 vals 中的下标\npublic:\n    bool insert(int val) {\n        if (pos.count(val)) return false;   // 已存在，插入失败\n        pos[val] = (int)vals.size();\n        vals.push_back(val);                // 追加到末尾，O(1)\n        return true;\n    }\n    bool remove(int val) {\n        if (!pos.count(val)) return false;  // 不存在，删除失败\n        int i = pos[val], last = vals.back();\n        // 用末尾元素覆盖被删位置，再 pop 末尾——避免 O(n) 的整体前移\n        vals[i] = last;\n        pos[last] = i;                      // 同步更新末尾元素的新下标\n        vals.pop_back();\n        pos.erase(val);\n        return true;\n    }\n    int getRandom() {\n        // 数组上随机取下标 => 每个元素等概率被选中\n        return vals[rand() % vals.size()];\n    }\n};\n\nint main() {\n    ios::sync_with_stdio(false);   // 关闭同步，读入更快\n    cin.tie(nullptr);\n\n    int q;\n    cin >> q;\n    RandomizedSet rs;\n    while (q--) {\n        string op;\n        cin >> op;\n        if (op == \"insert\") {\n            int val;\n            cin >> val;\n            cout << (rs.insert(val) ? \"true\" : \"false\") << \"\\n\";\n        } else if (op == \"remove\") {\n            int val;\n            cin >> val;\n            cout << (rs.remove(val) ? \"true\" : \"false\") << \"\\n\";\n        } else {                       // getRandom\n            cout << rs.getRandom() << \"\\n\";\n        }\n    }\n    return 0;\n}",
+      "codeJava": "class RandomizedSet {\n    private List<Integer> vals = new ArrayList<>();       // 动态数组：存元素，支持 O(1) 随机下标访问\n    private Map<Integer, Integer> pos = new HashMap<>();  // 哈希表：值 -> 它在 vals 中的下标\n    private Random rand = new Random();\n\n    public RandomizedSet() {}\n\n    public boolean insert(int val) {\n        if (pos.containsKey(val)) return false;   // 已存在，插入失败\n        pos.put(val, vals.size());\n        vals.add(val);                            // 追加到末尾，O(1)\n        return true;\n    }\n\n    public boolean remove(int val) {\n        if (!pos.containsKey(val)) return false;  // 不存在，删除失败\n        int i = pos.get(val);\n        int last = vals.get(vals.size() - 1);\n        // 用末尾元素覆盖被删位置，再删末尾——避免 O(n) 的整体前移\n        vals.set(i, last);\n        pos.put(last, i);                         // 同步更新末尾元素的新下标\n        vals.remove(vals.size() - 1);             // 按下标删，不会误触按值删除\n        pos.remove(val);\n        return true;\n    }\n\n    public int getRandom() {\n        // 数组上随机取下标 => 每个元素等概率被选中\n        return vals.get(rand.nextInt(vals.size()));\n    }\n}",
+      "codeJs": "/**\n * 无重复数字集合：插入/删除/等概率随机读取均为 O(1)\n */\nvar RandomizedSet = function () {\n  this.vals = [];       // 动态数组：存元素，支持 O(1) 随机下标访问\n  this.pos = new Map(); // 哈希表：值 -> 它在 vals 中的下标\n};\n\n/**\n * @param {number} val\n * @return {boolean}\n */\nRandomizedSet.prototype.insert = function (val) {\n  if (this.pos.has(val)) return false; // 已存在，插入失败\n  this.pos.set(val, this.vals.length);\n  this.vals.push(val); // 追加到末尾，O(1)\n  return true;\n};\n\n/**\n * @param {number} val\n * @return {boolean}\n */\nRandomizedSet.prototype.remove = function (val) {\n  if (!this.pos.has(val)) return false; // 不存在，删除失败\n  const i = this.pos.get(val);\n  const last = this.vals[this.vals.length - 1];\n  // 用末尾元素覆盖被删位置，再 pop 末尾——避免 O(n) 的整体前移\n  this.vals[i] = last;\n  this.pos.set(last, i); // 同步更新末尾元素的新下标\n  this.vals.pop();\n  this.pos.delete(val);\n  return true;\n};\n\n/**\n * @return {number}\n */\nRandomizedSet.prototype.getRandom = function () {\n  // 数组上随机取下标 => 每个元素等概率被选中\n  return this.vals[Math.floor(Math.random() * this.vals.length)];\n};",
+      "codeGo": "// RandomizedSet：数组 + 哈希表，插入/删除/等概率随机读取均为 O(1)\n// 注意：完整文件需 import \"math/rand\"（此处按惯例省略 import）\ntype RandomizedSet struct {\n\tvals []int       // 动态数组：存元素，支持 O(1) 随机下标访问\n\tpos  map[int]int // 哈希表：值 -> 它在 vals 中的下标\n}\n\nfunc Constructor() RandomizedSet {\n\treturn RandomizedSet{pos: map[int]int{}} // 初始化哈希表\n}\n\nfunc (this *RandomizedSet) Insert(val int) bool {\n\tif _, ok := this.pos[val]; ok { // 已存在，插入失败\n\t\treturn false\n\t}\n\tthis.pos[val] = len(this.vals)\n\tthis.vals = append(this.vals, val) // 追加到末尾，O(1)\n\treturn true\n}\n\nfunc (this *RandomizedSet) Remove(val int) bool {\n\tif _, ok := this.pos[val]; !ok { // 不存在，删除失败\n\t\treturn false\n\t}\n\ti, last := this.pos[val], this.vals[len(this.vals)-1]\n\t// 用末尾元素覆盖被删位置，再截掉末尾——避免 O(n) 的整体前移\n\tthis.vals[i] = last\n\tthis.pos[last] = i // 同步更新末尾元素的新下标\n\tthis.vals = this.vals[:len(this.vals)-1]\n\tdelete(this.pos, val)\n\treturn true\n}\n\nfunc (this *RandomizedSet) GetRandom() int {\n\t// 数组上随机取下标 => 每个元素等概率被选中\n\treturn this.vals[rand.Intn(len(this.vals))]\n}"
+    }
+  ]
+}

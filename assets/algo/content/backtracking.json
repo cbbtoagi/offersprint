@@ -1,0 +1,865 @@
+{
+  "topic": "回溯",
+  "problems": [
+    {
+      "id": 17,
+      "title": "Letter Combinations of a Phone Number",
+      "titleCn": "电话号码的字母组合",
+      "difficulty": "medium",
+      "frequency": 4,
+      "companies": [
+        "字节跳动",
+        "腾讯"
+      ],
+      "question": "给定一个仅包含数字 2-9 的字符串，返回所有它能表示的字母组合。答案可以按任意顺序返回。给出数字到字母的映射如下（与电话按键相同）：2-abc，3-def，4-ghi，5-jkl，6-mno，7-pqrs，8-tuv，9-wxyz。\n\n示例 1：输入 digits = \"23\"，输出 [\"ad\",\"ae\",\"af\",\"bd\",\"be\",\"bf\",\"cd\",\"ce\",\"cf\"]。\n示例 2：输入 digits = \"\"，输出 []。\n示例 3：输入 digits = \"2\"，输出 [\"a\",\"b\",\"c\"]。\n\n提示：0 <= digits.length <= 4，digits[i] 是范围 ['2','9'] 的数字。",
+      "samples": [
+        {
+          "input": "digits = \"23\"",
+          "output": "[\"ad\",\"ae\",\"af\",\"bd\",\"be\",\"bf\",\"cd\",\"ce\",\"cf\"]",
+          "explain": "2→abc、3→def，3×3 = 9 个组合"
+        },
+        {
+          "input": "digits = \"\"",
+          "output": "[]",
+          "explain": "空串没有可选字母，返回空数组而不是 [\"\"]"
+        },
+        {
+          "input": "digits = \"2\"",
+          "output": "[\"a\",\"b\",\"c\"]",
+          "explain": "单个数字对应 3 个字母"
+        }
+      ],
+      "hints": [
+        "审题诀窍：空字符串输入要返回空数组 []，而不是 [\"\"]——这是本题最常见的边界坑。",
+        "审题诀窍：每个数字必须且只能选一个字母，结果长度恒等于 digits 长度——本质是每一位从固定候选集里选一个的『笛卡尔积』。",
+        "突破口：按 digits 从左到右逐位决策，第 i 层递归在第 i 个数字的 3~4 个字母里选一个，决策树是一棵严格的定叉树，无需去重与剪枝。",
+        "追问预备：若映射出的字母有重复要输出去重组合怎么办？（同层去重手法）；只要组合个数怎么做？（乘法原理 3^a·4^b 直接计算）"
+      ],
+      "keyPoints": [
+        "建立数字到字母串的映射表，递归参数 i 表示当前确定第几位",
+        "每层从当前数字的候选字母里选一个加入路径，i 到头时收集答案",
+        "回溯三步：append 选择 → 递归下一位 → pop 撤销选择",
+        "进入回溯前先单独处理 digits 为空的情况，直接返回 []"
+      ],
+      "structureTags": [
+        "backtracking",
+        "dfs",
+        "recursion"
+      ],
+      "approaches": [
+        {
+          "name": "迭代逐位扩展（笛卡尔积）",
+          "idea": "从 [] 出发，每处理一个数字，就把已有组合各自扩展出 3~4 个新组合（BFS 式分层构造）。实现直观，但中途要同时保存上一层的全部组合，内存峰值高。",
+          "complexity": "时间 O(4^n·n)，空间 O(n)（不含输出）",
+          "detail": "分层扩展（BFS 式笛卡尔积）：从 [\"\"] 出发，每处理一个数字，把当前每个组合各自接上该数字的 3~4 个字母，生成新列表。以 digits='23' 走查：初始 [\"\"] → 处理 '2' → [a,b,c] → 处理 '3' → 每个旧组合扩展 3 个 → [ad,ae,af,bd,be,bf,cd,ce,cf]，共 3×3=9 个。为什么正确：多位字母组合的定义就是各数字候选集的笛卡尔积，逐位扩展恰好按积的层次结构构造。\n易错点：① 空输入要先拦截返回 []，否则从 [\"\"] 出发什么也不扩展，最终输出 [''] 而不是 []；② 扩展时用列表推导式重建新列表，别在遍历过程中往同一个列表 append（边遍历边膨胀会死循环）；③ 中途要保存上一层的全部组合，内存峰值 O(4^n·n)，n=4 时约几百个串尚可接受。",
+          "code": "def letterCombinations_iter(digits):\n    if not digits:\n        return []                    # 空串返回 []，不是 ['']\n    MAPPING = {'2': 'abc', '3': 'def', '4': 'ghi', '5': 'jkl',\n               '6': 'mno', '7': 'pqrs', '8': 'tuv', '9': 'wxyz'}\n    combos = ['']                    # 初始：空前缀\n    for d in digits:                 # 逐位扩展（BFS 式分层构造）\n        combos = [prefix + ch for prefix in combos for ch in MAPPING[d]]\n    return combos"
+        },
+        {
+          "name": "回溯（逐位做选择）",
+          "optimal": true,
+          "idea": "把 digits 看成一棵决策树：第 i 层从第 i 个数字的字母集里选一个字母加入 path，然后递归确定 i+1 位；i 到头收集答案，回溯时 pop 换下一个字母。任意时刻只保留一条路径，且能自然处理空输入。",
+          "complexity": "时间 O(4^n·n)，空间 O(n)（递归栈，不含输出）",
+          "detail": "决策树第 i 层对应第 i 个数字，候选集是 MAPPING[digits[i]] 里的 3~4 个字母；标准三步：path.append(ch) 做选择 → dfs(i+1) 递归确定下一位 → path.pop() 撤销换下一个字母。以 digits='23' 走查：i=0 选 a → i=1 依次选 d/e/f，叶子得到 ad/ae/af → pop 回到 i=0 换 b → bd/be/bf → 再换 c → cd/ce/cf。变量变化：i 单调递增表示『确定到第几位』，path 长度恒等于当前 i，每层恰好多一个字母。\n为什么正确：每位独立候选集的笛卡尔积被 DFS 恰好枚举一次，叶子长度恒为 len(digits)；任意时刻只保留一条根到叶路径，空间 O(n) 优于迭代法的全层保存。\n易错点：① 进入回溯前必须先判 digits 为空返回 []，否则递归终点 i==0==len(digits) 立即收集空串，输出 ['']；② 收集用 ''.join(path) 生成新串，别把 path 引用塞进结果；③ pop 忘写会让兄弟分支继承污染的 path，输出长度爆炸。",
+          "code": "def letterCombinations(digits):\n    if not digits:\n        return []                    # 边界：空串返回 [] 而非 ['']\n    MAPPING = {'2': 'abc', '3': 'def', '4': 'ghi', '5': 'jkl',\n               '6': 'mno', '7': 'pqrs', '8': 'tuv', '9': 'wxyz'}\n    res, path = [], []\n\n    def dfs(i):\n        if i == len(digits):         # 每一位都确定了\n            res.append(''.join(path))\n            return\n        for ch in MAPPING[digits[i]]:  # 当前数字的候选字母\n            path.append(ch)          # 1. 做选择\n            dfs(i + 1)               # 2. 递归确定下一位\n            path.pop()               # 3. 撤销选择\n\n    dfs(0)\n    return res"
+        }
+      ],
+      "code": "class Solution:\n    def letterCombinations(self, digits: str) -> List[str]:\n        # 边界：空输入直接返回空数组（而不是 [\"\"]）\n        if not digits:\n            return []\n        MAPPING = {  # 数字 -> 按键字母串\n            \"2\": \"abc\", \"3\": \"def\", \"4\": \"ghi\", \"5\": \"jkl\",\n            \"6\": \"mno\", \"7\": \"pqrs\", \"8\": \"tuv\", \"9\": \"wxyz\",\n        }\n        res, path = [], []\n\n        def dfs(i: int) -> None:\n            # 递归终点：每一位都选好了，拼成一个完整组合\n            if i == len(digits):\n                res.append(\"\".join(path))\n                return\n            for ch in MAPPING[digits[i]]:   # 当前数字对应的候选字母\n                path.append(ch)             # 1. 做选择：选中字母 ch\n                dfs(i + 1)                  # 2. 递归：去确定下一位\n                path.pop()                  # 3. 撤销选择：换下一个字母\n\n        dfs(0)\n        return res",
+      "acmCode": "# ACM 模式：完整可运行程序（stdin -> stdout）\n# 输入格式：\n#   第一行：数字串 digits（仅含 2-9；输入为空/空行表示空串）\n# 输出格式：\n#   第一行：组合总数\n#   后续每行一个字母组合\nimport sys\n\ndef main():\n    data = sys.stdin.read().split()\n    digits = data[0] if data else ''    # 空输入对应空串\n    MAPPING = {'2': 'abc', '3': 'def', '4': 'ghi', '5': 'jkl',\n               '6': 'mno', '7': 'pqrs', '8': 'tuv', '9': 'wxyz'}\n    res, path = [], []\n\n    def dfs(i):\n        if i == len(digits):            # 每一位都确定了，收集组合\n            res.append(''.join(path))\n            return\n        for ch in MAPPING[digits[i]]:   # 当前数字的候选字母\n            path.append(ch)             # 1. 做选择\n            dfs(i + 1)                  # 2. 递归确定下一位\n            path.pop()                  # 3. 撤销选择\n\n    if digits:                          # 空串直接输出 0，避免得到 ['']\n        dfs(0)\n    print(len(res))\n    for s in res:\n        print(s)\n\nif __name__ == '__main__':\n    main()\n",
+      "templates": [
+        "多叉树回溯模板：def dfs(i): 到达终点先收集 → for ch in 候选[i]: append → dfs(i+1) → pop。适用于每位有独立候选集的笛卡尔积型问题。",
+        "边界敏感：『组合出一个元素都没有』的输入要返回 [] 而非 []，进入回溯前先单独判空。"
+      ],
+      "codeCpp": "class Solution {\npublic:\n    vector<string> letterCombinations(string digits) {\n        vector<string> res;                 // 存放所有字母组合\n        if (digits.empty()) return res;     // 边界：空输入返回空数组（而非 [\"\"]）\n        const vector<string> MAPPING = {\"\", \"\", \"abc\", \"def\", \"ghi\",\n                                        \"jkl\", \"mno\", \"pqrs\", \"tuv\", \"wxyz\"};\n        string path;                        // 当前已确定的字母前缀\n        function<void(int)> dfs = [&](int i) {\n            if (i == (int)digits.size()) {  // 递归终点：每一位都选好了，拼成完整组合\n                res.push_back(path);\n                return;\n            }\n            for (char ch : MAPPING[digits[i] - '0']) { // 当前数字对应的候选字母\n                path.push_back(ch);         // 1. 做选择：选中字母 ch\n                dfs(i + 1);                 // 2. 递归：去确定下一位\n                path.pop_back();            // 3. 撤销选择：换下一个字母\n            }\n        };\n        dfs(0);\n        return res;\n    }\n};",
+      "acmCodeCpp": "// ACM 模式：完整可运行程序（stdin -> stdout）\n// 输入格式：\n//   第一行：数字串 digits（仅含 2-9；输入为空/空行表示空串）\n// 输出格式：\n//   第一行：组合总数\n//   后续每行一个字母组合\n#include <iostream>\n#include <string>\n#include <vector>\n#include <functional>\nusing namespace std;\n\nint main() {\n    string digits;\n    cin >> digits;                  // 空输入时提取失败，digits 保持空串\n    const vector<string> MAPPING = {\"\", \"\", \"abc\", \"def\", \"ghi\",\n                                    \"jkl\", \"mno\", \"pqrs\", \"tuv\", \"wxyz\"};\n    vector<string> res;\n    string path;\n    function<void(int)> dfs = [&](int i) {\n        if (i == (int)digits.size()) { // 每一位都确定了，收集组合\n            res.push_back(path);\n            return;\n        }\n        for (char ch : MAPPING[digits[i] - '0']) { // 当前数字的候选字母\n            path.push_back(ch);        // 1. 做选择\n            dfs(i + 1);                // 2. 递归确定下一位\n            path.pop_back();           // 3. 撤销选择\n        }\n    };\n    if (!digits.empty()) dfs(0);       // 空串直接输出 0，避免得到 [\"\"]\n    cout << res.size() << \"\\n\";        // 第一行：组合总数\n    for (const string& s : res) cout << s << \"\\n\";\n    return 0;\n}",
+      "codeJava": "class Solution {\n    public List<String> letterCombinations(String digits) {\n        List<String> res = new ArrayList<>();      // 存放所有字母组合\n        if (digits.isEmpty()) return res;          // 边界：空输入返回空数组（而非 [\"\"]）\n        String[] MAPPING = {\"\", \"\", \"abc\", \"def\", \"ghi\",\n                            \"jkl\", \"mno\", \"pqrs\", \"tuv\", \"wxyz\"};\n        dfs(digits, MAPPING, 0, new StringBuilder(), res); // 回溯逐位枚举\n        return res;\n    }\n\n    private void dfs(String digits, String[] mapping, int i,\n                     StringBuilder path, List<String> res) {\n        if (i == digits.length()) {                // 递归终点：每一位都选好了\n            res.add(path.toString());\n            return;\n        }\n        for (char ch : mapping[digits.charAt(i) - '0'].toCharArray()) { // 候选字母\n            path.append(ch);                       // 1. 做选择：选中字母 ch\n            dfs(digits, mapping, i + 1, path, res); // 2. 递归：去确定下一位\n            path.deleteCharAt(path.length() - 1);  // 3. 撤销选择：换下一个字母\n        }\n    }\n}",
+      "codeJs": "/**\n * @param {string} digits\n * @return {string[]}\n */\nvar letterCombinations = function (digits) {\n  if (!digits) return [];                    // 边界：空输入返回空数组（而非 [\"\"]）\n  const MAPPING = { 2: \"abc\", 3: \"def\", 4: \"ghi\", 5: \"jkl\",\n                    6: \"mno\", 7: \"pqrs\", 8: \"tuv\", 9: \"wxyz\" };\n  const res = [];\n  const path = [];\n  // 回溯：逐位枚举每个数字对应的候选字母\n  const dfs = (i) => {\n    if (i === digits.length) {               // 递归终点：每一位都选好了\n      res.push(path.join(\"\"));\n      return;\n    }\n    for (const ch of MAPPING[digits[i]]) {   // 当前数字对应的候选字母\n      path.push(ch);                         // 1. 做选择：选中字母 ch\n      dfs(i + 1);                            // 2. 递归：去确定下一位\n      path.pop();                            // 3. 撤销选择：换下一个字母\n    }\n  };\n  dfs(0);\n  return res;\n};",
+      "codeGo": "func letterCombinations(digits string) []string {\n\tif digits == \"\" { // 边界：空输入返回空数组（而非 [\"\"]）\n\t\treturn []string{}\n\t}\n\tmapping := map[byte]string{\n\t\t'2': \"abc\", '3': \"def\", '4': \"ghi\", '5': \"jkl\",\n\t\t'6': \"mno\", '7': \"pqrs\", '8': \"tuv\", '9': \"wxyz\",\n\t}\n\tvar res []string\n\tpath := []byte{}\n\tvar dfs func(i int)\n\tdfs = func(i int) {\n\t\tif i == len(digits) { // 递归终点：每一位都选好了\n\t\t\tres = append(res, string(path))\n\t\t\treturn\n\t\t}\n\t\tfor _, ch := range mapping[digits[i]] { // 当前数字对应的候选字母\n\t\t\tpath = append(path, byte(ch))       // 1. 做选择：选中字母 ch\n\t\t\tdfs(i + 1)                          // 2. 递归：去确定下一位\n\t\t\tpath = path[:len(path)-1]           // 3. 撤销选择：换下一个字母\n\t\t}\n\t}\n\tdfs(0)\n\treturn res\n}"
+    },
+    {
+      "id": 22,
+      "title": "Generate Parentheses",
+      "titleCn": "括号生成",
+      "difficulty": "medium",
+      "frequency": 5,
+      "companies": [
+        "腾讯",
+        "拼多多"
+      ],
+      "question": "数字 n 代表生成括号的对数，请你生成所有可能的、并且有效的括号组合。\n\n示例 1：输入 n = 3，输出 [\"((()))\",\"(()())\",\"(())()\",\"()(())\",\"()()()\"]。\n示例 2：输入 n = 1，输出 [\"()\"]。\n\n提示：1 <= n <= 8。",
+      "samples": [
+        {
+          "input": "n = 3",
+          "output": "[\"((()))\",\"(()())\",\"(())()\",\"()(())\",\"()()()\"]",
+          "explain": "3 对括号的合法组合共 5 个（第 5 个卡特兰数）"
+        },
+        {
+          "input": "n = 1",
+          "output": "[\"()\"]",
+          "explain": "一对括号只有一种合法写法"
+        }
+      ],
+      "hints": [
+        "审题诀窍：有效组合的约束是『任意前缀中左括号数 ≥ 右括号数』且左右总数相等——把它翻译成递归里的两个计数器 left、right。",
+        "审题诀窍：每个位置只有放 '(' 或 ')' 两种选择，但放 ')' 有前提——之前放下的 '(' 还有剩余。",
+        "突破口：不要生成完再校验；把校验前置成『这个选择现在能不能做』，搜索树上只剩合法分支，剪枝直接体现在分支上。",
+        "追问预备：只求方案数怎么做？（卡特兰数递推 C(2n,n)/(n+1) 或 f(i)=Σf(j)·f(i-1-j)）；如何推广到多类括号？（每类括号配对语义 + 栈式合法性判断）"
+      ],
+      "keyPoints": [
+        "维护 left/right 两个计数器，分别表示已使用的左、右括号数",
+        "剪枝条件：left < n 才可放 '('；right < left 才可放 ')'",
+        "长度达到 2n 时收集答案，此时必然合法，无需再校验",
+        "回溯三步成对出现：append → dfs → pop，两个分支各自独立撤销"
+      ],
+      "structureTags": [
+        "backtracking",
+        "dfs",
+        "recursion"
+      ],
+      "approaches": [
+        {
+          "name": "暴力枚举 + 校验",
+          "idea": "枚举长度 2n 的所有括号序列（每个位置二选一，共 4^n 个），逐个用计数器检查任意前缀中左括号数是否始终 ≥ 右括号数。大量非法序列先生成后丢弃，浪费严重。",
+          "complexity": "时间 O(4^n·n)，空间 O(n)",
+          "detail": "思路：每个位置独立选 '(' 或 ')'，2n 个位置共 2^(2n)=4^n 个候选串，逐个用计数器校验：从左到右扫描，balance 遇 '(' 加一遇 ')' 减一，中途 balance < 0 或最终 balance != 0 即非法。以 n=2 走查：16 个候选里 (()) 与 ()() 通过校验，)()( 这类中途 balance 变负的串被拦下。为什么正确：校验函数精确刻画了有效括号串的充要条件——任意前缀中左括号数 ≥ 右括号数，且左右总数相等。\n易错点：① 只检查最终 balance 为 0 而不检查中途 < 0，会放过 )(() 这类非法串；② 4^n 增长极快，n=8 时 65536 个尚可、更大的 n 不可行；③ 这是『先生成后校验』的反面教材，面试要主动点出把校验前置成剪枝的优化方向。",
+          "code": "def generateParenthesis_brute(n):\n    res = []\n    for mask in range(1 << (2 * n)):   # 枚举 0 ~ 2^(2n)-1，每一位对应一个位置\n        s = ''.join('(' if (mask >> i) & 1 == 0 else ')'\n                    for i in range(2 * n))\n        bal, ok = 0, True              # bal：前缀中左括号数 - 右括号数\n        for ch in s:\n            bal += 1 if ch == '(' else -1\n            if bal < 0:                # 中途变负，必然非法\n                ok = False\n                break\n        if ok and bal == 0:            # 前缀合法且左右各 n 个\n            res.append(s)\n    return res"
+        },
+        {
+          "name": "回溯 + 边构造边剪枝",
+          "optimal": true,
+          "idea": "递归时携带 left/right 两个计数：left < n 才能放 '('，right < left 才能放 ')'。合法性检查被前置为『能否做这个选择』，搜索树天然只剩合法分支，叶子即答案，数量恰为第 n 个卡特兰数。",
+          "complexity": "时间 O(4^n/√n)，空间 O(n)",
+          "detail": "决策树每层填一个字符，两个分支各自带合法性闸门：放 '(' 要求 left < n（左括号还没用完），放 ')' 要求 right < left（之前有左括号可供配对）。以 n=2 走查：根节点只能放 '('（right<left 不成立）；第 2 层 left=1：放 '(' 得 '((' → 第 3 层只能放 ')' 收尾得 (())；放 ')' 得 '()' → 第 3 层还能放一对得 ()()。两个叶子，而暴力版 16 个候选里 14 个从未被生成。变量变化：进入左分支前 left 增 1，进入右分支前 right 增 1，递归返回后 path.pop() 恢复现场，两个分支的做选择/撤销各自成对、互不干扰。\n为什么正确：任何非法前缀在产生它的那一步就被拦截，能走到 len(path)==2n 的路径必然满足『任意前缀左 ≥ 右且左右各 n 个』；答案个数恰为第 n 个卡特兰数。\n易错点：① 放 ')' 的条件是 right < left 而不是 right < n；② 收集条件是 len(path)==2n，此时必然合法，不要再画蛇添足做校验；③ 别用字符串拼接后再回退——Python 字符串不可变，应使用 list + join 或传参新串。",
+          "code": "def generateParenthesis(n):\n    res, path = [], []\n\n    def dfs(left, right):\n        if len(path) == 2 * n:  # 长度达到 2n，必然合法\n            res.append(''.join(path))\n            return\n        if left < n:            # 剪枝 1：左括号没用完才能放 '('\n            path.append('(')    # 1. 做选择\n            dfs(left + 1, right)  # 2. 递归\n            path.pop()          # 3. 撤销选择\n        if right < left:        # 剪枝 2：右括号数严格小于左括号数\n            path.append(')')\n            dfs(left, right + 1)\n            path.pop()\n\n    dfs(0, 0)\n    return res"
+        }
+      ],
+      "code": "class Solution:\n    def generateParenthesis(self, n: int) -> List[str]:\n        res, path = [], []\n\n        def dfs(left: int, right: int) -> None:\n            # 递归终点：长度达到 2n，此时必然是合法组合\n            if len(path) == 2 * n:\n                res.append(\"\".join(path))\n                return\n            if left < n:                # 剪枝 1：左括号没用完才能放 '('\n                path.append(\"(\")        # 1. 做选择：放一个左括号\n                dfs(left + 1, right)    # 2. 递归：继续构造\n                path.pop()              # 3. 撤销选择：回溯\n            if right < left:            # 剪枝 2：右括号数必须严格小于左括号数\n                path.append(\")\")        # 1. 做选择：放一个右括号\n                dfs(left, right + 1)    # 2. 递归：继续构造\n                path.pop()              # 3. 撤销选择：回溯\n\n        dfs(0, 0)\n        return res",
+      "acmCode": "# ACM 模式：完整可运行程序（stdin -> stdout）\n# 输入格式：\n#   第一行：n（括号对数）\n# 输出格式：\n#   第一行：方案数（第 n 个卡特兰数）\n#   后续每行一个合法括号串（按回溯枚举顺序输出）\nimport sys\n\ndef main():\n    data = sys.stdin.read().split()\n    n = int(data[0])\n    res, path = [], []\n\n    def dfs(left, right):\n        if len(path) == 2 * n:      # 长度达到 2n，此时必然合法\n            res.append(''.join(path))\n            return\n        if left < n:                # 剪枝 1：左括号没用完才能放 '('\n            path.append('(')\n            dfs(left + 1, right)\n            path.pop()\n        if right < left:            # 剪枝 2：右括号数必须严格小于左括号数\n            path.append(')')\n            dfs(left, right + 1)\n            path.pop()\n\n    dfs(0, 0)\n    print(len(res))\n    for s in res:\n        print(s)\n\nif __name__ == '__main__':\n    main()\n",
+      "templates": [
+        "构造合法序列模板：把『生成后验证』改为『递归参数携带约束状态（如 left/right 计数）+ 选择前判断合法性』，搜索树天然只含合法分支。",
+        "回溯铁律：path.append(选择) → dfs(...) → path.pop() 三步必须成对出现，漏掉 pop 会污染兄弟分支的结果。"
+      ],
+      "codeCpp": "class Solution {\npublic:\n    vector<string> generateParenthesis(int n) {\n        vector<string> res;              // 存放所有合法括号串\n        string path;                     // 当前已构造的前缀\n        // 回溯：left/right 分别是已使用的左、右括号数量\n        function<void(int, int)> dfs = [&](int left, int right) {\n            if ((int)path.size() == 2 * n) { // 递归终点：长度达到 2n，必然合法\n                res.push_back(path);\n                return;\n            }\n            if (left < n) {              // 剪枝 1：左括号没用完才能放 '('\n                path.push_back('(');     // 1. 做选择：放一个左括号\n                dfs(left + 1, right);    // 2. 递归：继续构造\n                path.pop_back();         // 3. 撤销选择：回溯\n            }\n            if (right < left) {          // 剪枝 2：右括号数必须严格小于左括号数\n                path.push_back(')');     // 1. 做选择：放一个右括号\n                dfs(left, right + 1);    // 2. 递归：继续构造\n                path.pop_back();         // 3. 撤销选择：回溯\n            }\n        };\n        dfs(0, 0);\n        return res;\n    }\n};",
+      "acmCodeCpp": "// ACM 模式：完整可运行程序（stdin -> stdout）\n// 输入格式：\n//   第一行：n（括号对数）\n// 输出格式：\n//   第一行：方案数（第 n 个卡特兰数）\n//   后续每行一个合法括号串（按回溯枚举顺序输出）\n#include <iostream>\n#include <string>\n#include <vector>\n#include <functional>\nusing namespace std;\n\nint main() {\n    int n;\n    cin >> n;\n    vector<string> res;\n    string path;\n    function<void(int, int)> dfs = [&](int left, int right) {\n        if ((int)path.size() == 2 * n) { // 长度达到 2n，此时必然合法\n            res.push_back(path);\n            return;\n        }\n        if (left < n) {                  // 剪枝 1：左括号没用完才能放 '('\n            path.push_back('(');\n            dfs(left + 1, right);\n            path.pop_back();\n        }\n        if (right < left) {              // 剪枝 2：右括号数必须严格小于左括号数\n            path.push_back(')');\n            dfs(left, right + 1);\n            path.pop_back();\n        }\n    };\n    dfs(0, 0);\n    cout << res.size() << \"\\n\";          // 第一行：方案数（卡特兰数）\n    for (const string& s : res) cout << s << \"\\n\";\n    return 0;\n}",
+      "codeJava": "class Solution {\n    public List<String> generateParenthesis(int n) {\n        List<String> res = new ArrayList<>();\n        dfs(n, 0, 0, new StringBuilder(), res);\n        return res;\n    }\n\n    // 回溯：left/right 分别是已使用的左、右括号数量\n    private void dfs(int n, int left, int right, StringBuilder path, List<String> res) {\n        if (path.length() == 2 * n) {           // 长度达到 2n，此时必然合法\n            res.add(path.toString());\n            return;\n        }\n        if (left < n) {                         // 剪枝 1：左括号没用完才能放 '('\n            path.append('(');                   // 1. 做选择：放一个左括号\n            dfs(n, left + 1, right, path, res); // 2. 递归：继续构造\n            path.deleteCharAt(path.length() - 1); // 3. 撤销选择：回溯\n        }\n        if (right < left) {                     // 剪枝 2：右括号数必须严格小于左括号数\n            path.append(')');                   // 1. 做选择：放一个右括号\n            dfs(n, left, right + 1, path, res); // 2. 递归：继续构造\n            path.deleteCharAt(path.length() - 1); // 3. 撤销选择：回溯\n        }\n    }\n}",
+      "codeJs": "/**\n * @param {number} n\n * @return {string[]}\n */\nvar generateParenthesis = function (n) {\n  const res = [];\n  const path = [];\n  // 回溯：left/right 分别是已使用的左、右括号数量\n  const dfs = (left, right) => {\n    if (path.length === 2 * n) {         // 长度达到 2n，此时必然合法\n      res.push(path.join(\"\"));\n      return;\n    }\n    if (left < n) {                      // 剪枝 1：左括号没用完才能放 '('\n      path.push(\"(\");                    // 1. 做选择：放一个左括号\n      dfs(left + 1, right);              // 2. 递归：继续构造\n      path.pop();                        // 3. 撤销选择：回溯\n    }\n    if (right < left) {                  // 剪枝 2：右括号数必须严格小于左括号数\n      path.push(\")\");                    // 1. 做选择：放一个右括号\n      dfs(left, right + 1);              // 2. 递归：继续构造\n      path.pop();                        // 3. 撤销选择：回溯\n    }\n  };\n  dfs(0, 0);\n  return res;\n};",
+      "codeGo": "func generateParenthesis(n int) []string {\n\tvar res []string\n\tpath := []byte{}\n\tvar dfs func(left, right int)\n\tdfs = func(left, right int) {\n\t\tif len(path) == 2*n { // 长度达到 2n，此时必然合法\n\t\t\tres = append(res, string(path))\n\t\t\treturn\n\t\t}\n\t\tif left < n { // 剪枝 1：左括号没用完才能放 '('\n\t\t\tpath = append(path, '(')\n\t\t\tdfs(left+1, right)\n\t\t\tpath = path[:len(path)-1]\n\t\t}\n\t\tif right < left { // 剪枝 2：右括号数必须严格小于左括号数\n\t\t\tpath = append(path, ')')\n\t\t\tdfs(left, right+1)\n\t\t\tpath = path[:len(path)-1]\n\t\t}\n\t}\n\tdfs(0, 0)\n\treturn res\n}"
+    },
+    {
+      "id": 39,
+      "title": "Combination Sum",
+      "titleCn": "组合总和",
+      "difficulty": "medium",
+      "frequency": 5,
+      "companies": [
+        "字节跳动",
+        "腾讯"
+      ],
+      "question": "给你一个无重复元素的整数数组 candidates 和一个目标整数 target，找出 candidates 中可以使数字和为目标数 target 的所有不同组合，并以列表形式返回。你可以按任意顺序返回这些组合。candidates 中的同一个数字可以无限制重复被选取。如果至少一个数字的被选数量不同，则两种组合是不同的。\n\n示例 1：输入 candidates = [2,3,6,7], target = 7，输出 [[2,2,3],[7]]。\n示例 2：输入 candidates = [2,3,5], target = 8，输出 [[2,2,2,2],[2,3,3],[3,5]]。\n\n提示：1 <= candidates.length <= 30，2 <= candidates[i] <= 40，candidates 的所有元素互不相同。",
+      "samples": [
+        {
+          "input": "candidates = [2,3,6,7], target = 7",
+          "output": "[[2,2,3],[7]]",
+          "explain": "2+2+3=7；7 单独成组；同一数字可以重复选取"
+        },
+        {
+          "input": "candidates = [2,3,5], target = 8",
+          "output": "[[2,2,2,2],[2,3,3],[3,5]]",
+          "explain": "[2,3,3] 与 [3,2,3] 视为同一组合，只输出一次"
+        }
+      ],
+      "hints": [
+        "审题诀窍：同一数字可以无限制重复被选取，但 [2,2,3] 与 [2,3,2] 算同一组合——用递归参数 start 只向后走，天然保证组合内部有序、全局不重复。",
+        "审题诀窍：candidates 元素互异，无需去重；但排序后可做『超过剩余目标就 break』的整层剪枝，收益极大。",
+        "突破口：把 target 逐层减去所选数看成剩余目标 rest，rest == 0 即找到答案；『递归传 i 还是 i+1』正是可重复选与不可重复选的开关。",
+        "追问预备：candidates 含重复且每个只能用一次怎么办？（排序 + 同层去重 + 传 i+1，即 40）；只求组合总数怎么做？（完全背包计数 DP，即 518 零钱兑换 II）"
+      ],
+      "keyPoints": [
+        "递归参数 start 控制只向后选，避免 [2,3,2] 这类重复排列",
+        "选同一个数时递归传 i（不是 i+1），实现『可无限重复选取』",
+        "rest == 0 时收集答案；先排序，循环中 x > rest 直接 break 强剪枝",
+        "回溯三步：append → dfs(i, rest - x) → pop，rest 随选择递减"
+      ],
+      "structureTags": [
+        "backtracking",
+        "dfs",
+        "recursion",
+        "sort"
+      ],
+      "approaches": [
+        {
+          "name": "回溯（基础版，不排序）",
+          "idea": "从 start 开始尝试每个候选数：加入 path 后 rest 减去该值并递归；允许重复选所以传 i 而非 i+1；rest == 0 收集答案。未排序时只能逐个比较判断是否超标，无法整层剪枝。",
+          "complexity": "时间 O(n^(T/M))（T 为 target，M 为最小候选值），空间 O(T/M)",
+          "detail": "决策树：dfs(start, rest) 的第 k 层从 candidates[start:] 里逐个尝试，选中 x 后剩余目标 rest -= x；因为同一个数可以重复选，递归传 i 而不是 i+1——这是本题与 40 最本质的差别。以 candidates=[2,3,6,7], target=7 走查：选 2 → rest=5 → 再选 2 → rest=3 → 选 3 → rest=0 收集 [2,2,3]；回溯后 rest=3 这层改选更大的数都超支，逐层回退到第 1 层，直到单独选 7 → rest=0 收集 [7]。变量变化：rest 逐层递减、path 同步增长，start 只向后走。\n为什么正确：rest 从 target 逐层减去所选值，rest==0 当且仅当所选数字之和恰为 target；start 只向后选保证每个组合内部非降序，[2,3,2] 与 [2,2,3] 只会被枚举成后者，天然不重复。\n易错点：① 重复选必须传 i，写成 i+1 就变成每个数只能用一次，直接漏解；② rest 减到负数没有意义，要用 x > rest 拦截或入口判 rest < 0；③ 收集时 path[:] 拷贝，别存引用。",
+          "code": "def combinationSum_basic(candidates, target):\n    res, path = [], []\n\n    def dfs(start, rest):\n        if rest == 0:               # 恰好凑出 target\n            res.append(path[:])\n            return\n        for i in range(start, len(candidates)):\n            x = candidates[i]\n            if x > rest:            # 不排序也能判断，只是无法整层 break\n                continue\n            path.append(x)          # 1. 做选择：选 x（允许重复选）\n            dfs(i, rest - x)        # 2. 递归传 i：下一层还能再选 x\n            path.pop()              # 3. 撤销选择\n\n    dfs(0, target)\n    return res"
+        },
+        {
+          "name": "排序 + break 强剪枝",
+          "optimal": true,
+          "idea": "先排序；每层循环里一旦 candidates[i] > rest 直接 break（而不是 continue）——后面的数只会更大，整层剪掉。配合 rest == 0 的终点判断，无效子树大幅减少，实际运行远快于基础版。",
+          "complexity": "时间 O(n^(T/M))（剪枝后实际节点大幅减少），空间 O(T/M)",
+          "detail": "在基础版上加两件武器。① 排序：组合与顺序无关，先把 candidates 从小到大排，解集不变。② 整层 break 剪枝：循环里一旦 candidates[i] > rest 直接 break——排序保证后面的数只会更大，本层第一个超标数都不行，后面更没戏，整段子树一次剪掉（注意是 break 不是 continue）。以 [2,3,6,7], target=7 走查：路径 2→2→2 后 rest=1，第 4 层循环遇到 x=2 > 1 立即 break，2/3/6/7 四个候选一个都不再尝试；而基础版要逐个比较四次。变量变化：rest 逐层递减、path 同步增长，rest==0 时 path 即答案。\n为什么正确：break 只剪『从该数起全部超支』的分支，不遗漏任何解；排序不改变组合解集。\n易错点：① 剪枝前提是先排序，忘排序时 break 会漏解（后面可能有更小的数）；② break 与 continue 语义混淆：这里必须 break；③ 递归传 i 允许重复选，与 40 的 i+1 区分记忆。",
+          "code": "def combinationSum(candidates, target):\n    candidates.sort()           # 排序是剪枝的前提：候选值从小到大\n    res, path = [], []\n\n    def dfs(start, rest):\n        if rest == 0:           # 恰好凑出 target\n            res.append(path[:])\n            return\n        for i in range(start, len(candidates)):\n            x = candidates[i]\n            if x > rest:        # 剪枝：x 超标，后面只会更大，整层 break\n                break\n            path.append(x)      # 1. 做选择（允许重复选）\n            dfs(i, rest - x)    # 2. 递归传 i：下一层还能再选 x\n            path.pop()          # 3. 撤销选择\n\n    dfs(0, target)\n    return res"
+        }
+      ],
+      "code": "class Solution:\n    def combinationSum(self, candidates: List[int], target: int) -> List[List[int]]:\n        candidates.sort()           # 排序是剪枝的前提：候选值从小到大\n        res, path = [], []\n\n        def dfs(start: int, rest: int) -> None:\n            # 递归终点：恰好凑出 target，收集当前组合\n            if rest == 0:\n                res.append(path[:])\n                return\n            for i in range(start, len(candidates)):\n                x = candidates[i]\n                if x > rest:        # 剪枝：x 已超标，后面只会更大，整层 break\n                    break\n                path.append(x)      # 1. 做选择：选 x（本题允许重复选）\n                dfs(i, rest - x)    # 2. 递归：传 i 而非 i+1，下一层还能再选 x\n                path.pop()          # 3. 撤销选择：回溯，尝试下一个候选数\n\n        dfs(0, target)\n        return res",
+      "acmCode": "# ACM 模式：完整可运行程序（stdin -> stdout）\n# 输入格式：\n#   第一行：n（候选数个数）\n#   第二行：n 个互不相同的整数（candidates）\n#   第三行：target\n# 输出格式：\n#   第一行：方案数\n#   后续每行一个组合（组合内数字升序，数字间空格分隔）\nimport sys\n\ndef main():\n    data = sys.stdin.read().split()\n    n = int(data[0])\n    cands = sorted(int(x) for x in data[1:1 + n])   # 排序是剪枝的前提\n    target = int(data[1 + n])\n    path, res = [], []\n\n    def dfs(start, rest):\n        if rest == 0:               # 恰好凑出 target，收集组合\n            res.append(path[:])\n            return\n        for i in range(start, n):\n            x = cands[i]\n            if x > rest:            # 剪枝：后面只会更大，整层 break\n                break\n            path.append(x)          # 1. 做选择（本题允许重复选）\n            dfs(i, rest - x)        # 2. 递归传 i：下一层还能再选 x\n            path.pop()              # 3. 撤销选择\n\n    dfs(0, target)\n    print(len(res))\n    for c in res:\n        print(' '.join(map(str, c)))\n\nif __name__ == '__main__':\n    main()\n",
+      "templates": [
+        "组合型回溯模板：def dfs(start, rest): rest==0 收集；for i in range(start, n): 超标就 break；append → dfs(i, rest-x) → pop。startIndex 保证组合内部递增、不重复。",
+        "重复选开关：递归传 i 允许重复选同一元素，传 i+1 则每个元素最多选一次——39 与 40 就差这一个参数。"
+      ],
+      "codeCpp": "class Solution {\npublic:\n    vector<vector<int>> combinationSum(vector<int>& candidates, int target) {\n        sort(candidates.begin(), candidates.end()); // 排序是剪枝的前提\n        vector<vector<int>> res;\n        vector<int> path;\n        // 回溯：start 限制本层起点，rest 是距离 target 还差多少\n        function<void(int, int)> dfs = [&](int start, int rest) {\n            if (rest == 0) {            // 递归终点：恰好凑出 target，收集组合\n                res.push_back(path);\n                return;\n            }\n            for (int i = start; i < (int)candidates.size(); ++i) {\n                int x = candidates[i];\n                if (x > rest) break;    // 剪枝：x 已超标，后面只会更大，整层 break\n                path.push_back(x);      // 1. 做选择：选 x（本题允许重复选）\n                dfs(i, rest - x);       // 2. 递归：传 i 而非 i+1，下一层还能再选 x\n                path.pop_back();        // 3. 撤销选择：回溯，尝试下一个候选数\n            }\n        };\n        dfs(0, target);\n        return res;\n    }\n};",
+      "acmCodeCpp": "// ACM 模式：完整可运行程序（stdin -> stdout）\n// 输入格式：\n//   第一行：n（候选数个数）\n//   第二行：n 个互不相同的整数（candidates）\n//   第三行：target\n// 输出格式：\n//   第一行：方案数\n//   后续每行一个组合（组合内数字升序，数字间空格分隔）\n#include <iostream>\n#include <vector>\n#include <algorithm>\nusing namespace std;\n\nint n, target;\nvector<int> cands, path;\nvector<vector<int>> res;\n\nvoid dfs(int start, int rest) {\n    if (rest == 0) {                    // 恰好凑出 target，收集组合\n        res.push_back(path);\n        return;\n    }\n    for (int i = start; i < n; ++i) {\n        int x = cands[i];\n        if (x > rest) break;            // 剪枝：后面只会更大，整层 break\n        path.push_back(x);              // 1. 做选择（本题允许重复选）\n        dfs(i, rest - x);               // 2. 递归传 i：下一层还能再选 x\n        path.pop_back();                // 3. 撤销选择\n    }\n}\n\nint main() {\n    cin >> n;\n    cands.resize(n);\n    for (auto& x : cands) cin >> x;\n    cin >> target;\n    sort(cands.begin(), cands.end());   // 排序是剪枝的前提\n    dfs(0, target);\n    cout << res.size() << \"\\n\";         // 第一行：方案数\n    for (const auto& c : res) {\n        for (int k = 0; k < (int)c.size(); ++k) {\n            if (k) cout << ' ';\n            cout << c[k];\n        }\n        cout << \"\\n\";\n    }\n    return 0;\n}",
+      "codeJava": "class Solution {\n    public List<List<Integer>> combinationSum(int[] candidates, int target) {\n        Arrays.sort(candidates);                        // 排序是剪枝的前提\n        List<List<Integer>> res = new ArrayList<>();\n        dfs(candidates, 0, target, new ArrayList<>(), res);\n        return res;\n    }\n\n    // 回溯：start 限制本层起点，rest 是距离 target 还差多少\n    private void dfs(int[] candidates, int start, int rest,\n                     List<Integer> path, List<List<Integer>> res) {\n        if (rest == 0) {                        // 递归终点：恰好凑出 target\n            res.add(new ArrayList<>(path));\n            return;\n        }\n        for (int i = start; i < candidates.length; i++) {\n            int x = candidates[i];\n            if (x > rest) break;                // 剪枝：x 已超标，后面只会更大\n            path.add(x);                        // 1. 做选择：选 x（本题允许重复选）\n            dfs(candidates, i, rest - x, path, res); // 2. 递归传 i：还能再选 x\n            path.remove(path.size() - 1);       // 3. 撤销选择：回溯\n        }\n    }\n}",
+      "codeJs": "/**\n * @param {number[]} candidates\n * @param {number} target\n * @return {number[][]}\n */\nvar combinationSum = function (candidates, target) {\n  candidates.sort((a, b) => a - b);    // 排序是剪枝的前提\n  const res = [];\n  const path = [];\n  // 回溯：start 限制本层起点，rest 是距离 target 还差多少\n  const dfs = (start, rest) => {\n    if (rest === 0) {                  // 递归终点：恰好凑出 target\n      res.push([...path]);\n      return;\n    }\n    for (let i = start; i < candidates.length; i++) {\n      const x = candidates[i];\n      if (x > rest) break;             // 剪枝：x 已超标，后面只会更大，整层 break\n      path.push(x);                    // 1. 做选择：选 x（本题允许重复选）\n      dfs(i, rest - x);                // 2. 递归传 i：下一层还能再选 x\n      path.pop();                      // 3. 撤销选择：回溯\n    }\n  };\n  dfs(0, target);\n  return res;\n};",
+      "codeGo": "func combinationSum(candidates []int, target int) [][]int {\n\tsort.Ints(candidates) // 排序是剪枝的前提\n\tvar res [][]int\n\tpath := []int{}\n\tvar dfs func(start, rest int)\n\tdfs = func(start, rest int) {\n\t\tif rest == 0 { // 递归终点：恰好凑出 target，收集组合\n\t\t\tres = append(res, append([]int{}, path...))\n\t\t\treturn\n\t\t}\n\t\tfor i := start; i < len(candidates); i++ {\n\t\t\tx := candidates[i]\n\t\t\tif x > rest { // 剪枝：x 已超标，后面只会更大，整层 break\n\t\t\t\tbreak\n\t\t\t}\n\t\t\tpath = append(path, x) // 1. 做选择：选 x（本题允许重复选）\n\t\t\tdfs(i, rest-x)         // 2. 递归传 i：下一层还能再选 x\n\t\t\tpath = path[:len(path)-1] // 3. 撤销选择：回溯\n\t\t}\n\t}\n\tdfs(0, target)\n\treturn res\n}"
+    },
+    {
+      "id": 40,
+      "title": "Combination Sum II",
+      "titleCn": "组合总和 II",
+      "difficulty": "medium",
+      "frequency": 4,
+      "companies": [
+        "字节跳动",
+        "拼多多"
+      ],
+      "question": "给定一个候选人编号的集合 candidates 和一个目标数 target，找出 candidates 中所有可以使数字和为 target 的组合。candidates 中的每个数字在每个组合中只能使用一次。注意：解集不能包含重复的组合。\n\n示例 1：输入 candidates = [10,1,2,7,6,1,5], target = 8，输出 [[1,1,6],[1,2,5],[1,7],[2,6]]。\n示例 2：输入 candidates = [2,5,2,1,2], target = 5，输出 [[1,2,2],[5]]。\n\n提示：1 <= candidates.length <= 100，1 <= candidates[i] <= 50。",
+      "samples": [
+        {
+          "input": "candidates = [10,1,2,7,6,1,5], target = 8",
+          "output": "[[1,1,6],[1,2,5],[1,7],[2,6]]",
+          "explain": "每个数最多用一次；两个 1 允许同时出现在 [1,1,6] 里"
+        },
+        {
+          "input": "candidates = [2,5,2,1,2], target = 5",
+          "output": "[[1,2,2],[5]]",
+          "explain": "三个 2 中任取两个与 1 组合，去重后只有 [1,2,2] 一种；5 单独成组"
+        }
+      ],
+      "hints": [
+        "审题诀窍：输入可能含重复数字（如两个 1），而答案要求组合不重复——『先排序，再同层跳过相同值』是标配去重手法。",
+        "审题诀窍：每个数只能用一次 → 递归传 i+1；同层去重条件是 i > start 且相邻同值，注意别把树枝上的合法重复（如 [1,1,6] 里的两个 1）误剪。",
+        "突破口：排序后，重复组合只会来自『同一层选了值相同的不同下标』——只剪这一种情况，其余交给 break 剪枝提速。",
+        "追问预备：i > start 与 i > 0 的区别？（start 才代表本层起点，i > 0 会把树枝上的合法重复误剪漏解）；只求方案数怎么做？（01 背包计数 DP，每件物品限选一次）"
+      ],
+      "keyPoints": [
+        "先排序让相同元素相邻，是同层去重的前提",
+        "同层去重：i > start 且 candidates[i] == candidates[i-1] 时 continue",
+        "每个数只能用一次：递归传 i+1；配合排序后 x > rest 直接 break 剪枝",
+        "rest == 0 时拷贝 path 收集答案"
+      ],
+      "structureTags": [
+        "backtracking",
+        "dfs",
+        "recursion",
+        "sort",
+        "dedup"
+      ],
+      "approaches": [
+        {
+          "name": "暴力搜索 + 结果集去重",
+          "idea": "不排序直接搜索所有和为 target 的组合，最后把每个组合排序转元组放进 set 过滤重复。实现省事，但重复分支照搜不误，收尾去重还要额外的排序与哈希开销。",
+          "complexity": "时间 O(2^n·n)，空间 O(n)（不含输出）",
+          "detail": "思路：不排序直接 DFS 枚举所有『和为 target 且下标递增』的组合（每个数最多选一次，递归传 i+1），把每个组合排序后转元组塞进 set，最后再转列表输出去重结果。以 [2,5,2,1,2], target=5 走查：原始搜索会得到 [1,2,2] 的多个副本（三个 2 里任选两个的下标组合不同但值相同），set 里元组 (1,2,2) 只留一份，最终输出 [[1,2,2],[5]]。为什么正确：搜索枚举了全部候选组合，sorted+tuple 提供了严格的等值判定。\n易错点：① list 不可哈希，必须转元组；② 收尾去重前结果顺序乱，需要时再 sorted 一遍；③ 重复子树全部照搜，n=100 时指数级分支不可行——它只是保底思路，标准做法是排序后同层去重。",
+          "code": "def combinationSum2_brute(candidates, target):\n    res = set()\n\n    def dfs(start, rest, path):\n        if rest == 0:           # 凑出 target，记录排序后的元组去重\n            res.add(tuple(sorted(path)))\n            return\n        for i in range(start, len(candidates)):\n            if candidates[i] <= rest:      # 只向后选，每个数只用一次\n                dfs(i + 1, rest - candidates[i],\n                    path + [candidates[i]])\n\n    dfs(0, target, [])\n    return [list(t) for t in sorted(res)]"
+        },
+        {
+          "name": "排序 + 同层去重 + break 剪枝",
+          "optimal": true,
+          "idea": "先排序让相同元素相邻。循环中：candidates[i] > rest 直接 break（整层剪掉）；i > start 且与前一个值相同则 continue（树层去重）。每个数只用一次，递归传 i+1。去重在搜索过程中完成，不产生任何重复结果。",
+          "complexity": "时间 O(2^n·n)，空间 O(n)",
+          "detail": "排序后重复组合只会来自一种情况：同一层选了值相同的不同下标。因此去重规则为『同一层里，值相同的候选只允许选最左边那个』：if i > start and candidates[i] == candidates[i-1]: continue。以排序后的 [1,1,2,5,6,7,10], target=8 走查：第 1 层选下标 0 的 1 → 子树里可以再选下标 1 的 1（此时 i==start，不触发去重——树枝上的合法重复）→ 得 [1,1,6]；回退到第 1 层再选下标 1 的 1 时，i=1 > start=0 且值相同 → continue，整棵重复子树被剪；继续枚举得到 [1,2,5]、[1,7]、[2,6]。变量变化：rest 递减、start 右移；每个数只能用一次故递归传 i+1。\n为什么正确：对每个值规定『本层只选第一个』后，每个组合恰好对应唯一一条搜索路径，不重不漏。\n易错点：① 去重基准是本层起点 start，写成 i > 0 会把树枝上的合法重复（如 [1,1,6] 的两个 1）误剪导致漏解；② break（后面全部超标）与 continue（当前重复）语义不同，别混用；③ 递归必须传 i+1。",
+          "code": "def combinationSum2(candidates, target):\n    candidates.sort()           # 排序让相同数字相邻，同层去重才成立\n    res, path = [], []\n\n    def dfs(start, rest):\n        if rest == 0:           # 恰好凑出 target\n            res.append(path[:])\n            return\n        for i in range(start, len(candidates)):\n            x = candidates[i]\n            if x > rest:        # 剪枝：本层后面只会更大，直接 break\n                break\n            if i > start and candidates[i] == candidates[i - 1]:\n                continue        # 同层去重：同值的不同下标只选第一个\n            path.append(x)      # 1. 做选择（每个数只能用一次）\n            dfs(i + 1, rest - x)  # 2. 递归传 i+1：不能再选自己\n            path.pop()          # 3. 撤销选择\n\n    dfs(0, target)\n    return res"
+        }
+      ],
+      "code": "class Solution:\n    def combinationSum2(self, candidates: List[int], target: int) -> List[List[int]]:\n        candidates.sort()           # 前置：排序让相同数字相邻，同层去重才成立\n        res, path = [], []\n\n        def dfs(start: int, rest: int) -> None:\n            if rest == 0:           # 递归终点：恰好凑出 target\n                res.append(path[:])\n                return\n            for i in range(start, len(candidates)):\n                x = candidates[i]\n                if x > rest:        # 剪枝：本层后面只会更大，直接 break\n                    break\n                if i > start and candidates[i] == candidates[i - 1]:\n                    continue        # 同层去重：同值的不同下标，本层只允许选第一个\n                path.append(x)      # 1. 做选择：选 x（每个数只能用一次）\n                dfs(i + 1, rest - x)  # 2. 递归：传 i+1，不能再选自己\n                path.pop()          # 3. 撤销选择：回溯\n\n        dfs(0, target)\n        return res",
+      "acmCode": "# ACM 模式：完整可运行程序（stdin -> stdout）\n# 输入格式：\n#   第一行：n（候选数个数）\n#   第二行：n 个整数（可能含重复，candidates）\n#   第三行：target\n# 输出格式：\n#   第一行：方案数（组合不重复）\n#   后续每行一个组合（组合内数字升序，数字间空格分隔）\nimport sys\n\ndef main():\n    data = sys.stdin.read().split()\n    n = int(data[0])\n    cands = sorted(int(x) for x in data[1:1 + n])   # 排序让相同数字相邻\n    target = int(data[1 + n])\n    path, res = [], []\n\n    def dfs(start, rest):\n        if rest == 0:               # 恰好凑出 target\n            res.append(path[:])\n            return\n        for i in range(start, n):\n            x = cands[i]\n            if x > rest:            # 剪枝：本层后面只会更大，直接 break\n                break\n            if i > start and cands[i] == cands[i - 1]:\n                continue            # 同层去重：同值的不同下标只允许选第一个\n            path.append(x)          # 1. 做选择（每个数只能用一次）\n            dfs(i + 1, rest - x)    # 2. 递归传 i+1：不能再选自己\n            path.pop()              # 3. 撤销选择\n\n    dfs(0, target)\n    print(len(res))\n    for c in res:\n        print(' '.join(map(str, c)))\n\nif __name__ == '__main__':\n    main()\n",
+      "templates": [
+        "去重标准手法：先 sort，再加一条 if i > start and a[i] == a[i-1]: continue——只剪『树层』重复，不剪『树枝』上题目允许的重复。",
+        "break 与 continue 语义不同：break 用于『后面全部不可能』的剪枝，continue 用于『当前这个重复』的去重，混用会漏解或漏剪。"
+      ],
+      "codeCpp": "class Solution {\npublic:\n    vector<vector<int>> combinationSum2(vector<int>& candidates, int target) {\n        sort(candidates.begin(), candidates.end()); // 前置：排序让相同数字相邻\n        vector<vector<int>> res;\n        vector<int> path;\n        function<void(int, int)> dfs = [&](int start, int rest) {\n            if (rest == 0) {            // 递归终点：恰好凑出 target\n                res.push_back(path);\n                return;\n            }\n            for (int i = start; i < (int)candidates.size(); ++i) {\n                int x = candidates[i];\n                if (x > rest) break;    // 剪枝：本层后面只会更大，直接 break\n                if (i > start && candidates[i] == candidates[i - 1])\n                    continue;           // 同层去重：同值的不同下标，本层只允许选第一个\n                path.push_back(x);      // 1. 做选择：选 x（每个数只能用一次）\n                dfs(i + 1, rest - x);   // 2. 递归：传 i+1，不能再选自己\n                path.pop_back();        // 3. 撤销选择：回溯\n            }\n        };\n        dfs(0, target);\n        return res;\n    }\n};",
+      "acmCodeCpp": "// ACM 模式：完整可运行程序（stdin -> stdout）\n// 输入格式：\n//   第一行：n（候选数个数）\n//   第二行：n 个整数（可能含重复，candidates）\n//   第三行：target\n// 输出格式：\n//   第一行：方案数（组合不重复）\n//   后续每行一个组合（组合内数字升序，数字间空格分隔）\n#include <iostream>\n#include <vector>\n#include <algorithm>\nusing namespace std;\n\nint n, target;\nvector<int> cands, path;\nvector<vector<int>> res;\n\nvoid dfs(int start, int rest) {\n    if (rest == 0) {                    // 恰好凑出 target\n        res.push_back(path);\n        return;\n    }\n    for (int i = start; i < n; ++i) {\n        int x = cands[i];\n        if (x > rest) break;            // 剪枝：本层后面只会更大，直接 break\n        if (i > start && cands[i] == cands[i - 1])\n            continue;                   // 同层去重：同值的不同下标只允许选第一个\n        path.push_back(x);              // 1. 做选择（每个数只能用一次）\n        dfs(i + 1, rest - x);           // 2. 递归传 i+1：不能再选自己\n        path.pop_back();                // 3. 撤销选择\n    }\n}\n\nint main() {\n    cin >> n;\n    cands.resize(n);\n    for (auto& x : cands) cin >> x;\n    cin >> target;\n    sort(cands.begin(), cands.end());   // 排序让相同数字相邻\n    dfs(0, target);\n    cout << res.size() << \"\\n\";         // 第一行：不重复方案数\n    for (const auto& c : res) {\n        for (int k = 0; k < (int)c.size(); ++k) {\n            if (k) cout << ' ';\n            cout << c[k];\n        }\n        cout << \"\\n\";\n    }\n    return 0;\n}",
+      "codeJava": "class Solution {\n    public List<List<Integer>> combinationSum2(int[] candidates, int target) {\n        Arrays.sort(candidates);                 // 前置：排序让相同数字相邻\n        List<List<Integer>> res = new ArrayList<>();\n        dfs(candidates, 0, target, new ArrayList<>(), res);\n        return res;\n    }\n\n    private void dfs(int[] candidates, int start, int rest,\n                     List<Integer> path, List<List<Integer>> res) {\n        if (rest == 0) {                         // 递归终点：恰好凑出 target\n            res.add(new ArrayList<>(path));\n            return;\n        }\n        for (int i = start; i < candidates.length; i++) {\n            int x = candidates[i];\n            if (x > rest) break;                 // 剪枝：本层后面只会更大\n            if (i > start && candidates[i] == candidates[i - 1])\n                continue;                        // 同层去重：同值下标本层只选第一个\n            path.add(x);                         // 1. 做选择：选 x（每个数只用一次）\n            dfs(candidates, i + 1, rest - x, path, res); // 2. 传 i+1：不能再选自己\n            path.remove(path.size() - 1);        // 3. 撤销选择：回溯\n        }\n    }\n}",
+      "codeJs": "/**\n * @param {number[]} candidates\n * @param {number} target\n * @return {number[][]}\n */\nvar combinationSum2 = function (candidates, target) {\n  candidates.sort((a, b) => a - b);  // 前置：排序让相同数字相邻\n  const res = [];\n  const path = [];\n  const dfs = (start, rest) => {\n    if (rest === 0) {                // 递归终点：恰好凑出 target\n      res.push([...path]);\n      return;\n    }\n    for (let i = start; i < candidates.length; i++) {\n      const x = candidates[i];\n      if (x > rest) break;           // 剪枝：本层后面只会更大，直接 break\n      if (i > start && candidates[i] === candidates[i - 1])\n        continue;                    // 同层去重：同值的不同下标只允许选第一个\n      path.push(x);                  // 1. 做选择：选 x（每个数只能用一次）\n      dfs(i + 1, rest - x);          // 2. 递归传 i+1：不能再选自己\n      path.pop();                    // 3. 撤销选择：回溯\n    }\n  };\n  dfs(0, target);\n  return res;\n};",
+      "codeGo": "func combinationSum2(candidates []int, target int) [][]int {\n\tsort.Ints(candidates) // 前置：排序让相同数字相邻，同层去重才成立\n\tvar res [][]int\n\tpath := []int{}\n\tvar dfs func(start, rest int)\n\tdfs = func(start, rest int) {\n\t\tif rest == 0 { // 递归终点：恰好凑出 target\n\t\t\tres = append(res, append([]int{}, path...))\n\t\t\treturn\n\t\t}\n\t\tfor i := start; i < len(candidates); i++ {\n\t\t\tx := candidates[i]\n\t\t\tif x > rest { // 剪枝：本层后面只会更大，直接 break\n\t\t\t\tbreak\n\t\t\t}\n\t\t\tif i > start && candidates[i] == candidates[i-1] {\n\t\t\t\tcontinue // 同层去重：同值的不同下标只允许选第一个\n\t\t\t}\n\t\t\tpath = append(path, x) // 1. 做选择（每个数只能用一次）\n\t\t\tdfs(i+1, rest-x)       // 2. 递归传 i+1：不能再选自己\n\t\t\tpath = path[:len(path)-1] // 3. 撤销选择：回溯\n\t\t}\n\t}\n\tdfs(0, target)\n\treturn res\n}"
+    },
+    {
+      "id": 46,
+      "title": "Permutations",
+      "titleCn": "全排列",
+      "difficulty": "medium",
+      "frequency": 5,
+      "companies": [
+        "字节跳动",
+        "腾讯",
+        "华为"
+      ],
+      "question": "给定一个不含重复数字的数组 nums，返回其所有可能的全排列。你可以按任意顺序返回答案。\n\n示例 1：输入 nums = [1,2,3]，输出 [[1,2,3],[1,3,2],[2,1,3],[2,3,1],[3,1,2],[3,2,1]]。\n示例 2：输入 nums = [0,1]，输出 [[0,1],[1,0]]。\n\n提示：1 <= nums.length <= 6，-10 <= nums[i] <= 10，nums 中的所有元素互不相同。",
+      "samples": [
+        {
+          "input": "nums = [1,2,3]",
+          "output": "[[1,2,3],[1,3,2],[2,1,3],[2,3,1],[3,1,2],[3,2,1]]",
+          "explain": "共 3! = 6 个排列，按回溯枚举顺序列出"
+        },
+        {
+          "input": "nums = [0,1]",
+          "output": "[[0,1],[1,0]]",
+          "explain": "两个元素的两种顺序，各是一个排列"
+        }
+      ],
+      "hints": [
+        "审题诀窍：排列与顺序有关，所以不需要 startIndex——每一层都要从头考虑所有还没被用过的数。",
+        "审题诀窍：nums 无重复，用一个 used 布尔数组按下标标记『是否已在当前路径中』即可，撤销时必须同步复位。",
+        "突破口：排列树第一层 n 个分支、第二层 n-1 个……以此类推，叶子就是完整排列；与组合型题的差异只在『全量扫描 + used』这一点。",
+        "追问预备：数组含重复数字怎么办？（排序 + 同层去重，即 47）；只要第 k 个排列怎么做？（按字典序逐位确定，计数剪枝，即 60）"
+      ],
+      "keyPoints": [
+        "用 used 数组标记元素是否已被当前排列使用，每层跳过 used[i]",
+        "每层从 0 开始全量扫描（无 startIndex），这是排列与组合的核心差异",
+        "路径长度等于 n 时收集答案",
+        "回溯三步：append → dfs → pop，并把 used[i] 复位为 False"
+      ],
+      "structureTags": [
+        "backtracking",
+        "dfs",
+        "recursion"
+      ],
+      "approaches": [
+        {
+          "name": "回溯 + used 数组",
+          "optimal": true,
+          "idea": "每层从头扫描所有元素，用 used[i] 跳过已选下标；把 nums[i] 加入 path 后递归填下一个位置；路径长度达 n 收集；回溯时 pop 并把 used[i] 复位。思路最直观，是排列类题的标准写法。",
+          "complexity": "时间 O(n·n!)，空间 O(n)",
+          "detail": "决策树展开：把『填满 n 个位置』看成 n 层决策，第 k 层从所有未使用元素中选一个放进 path。以 nums=[1,2,3] 走查：第 1 层选 1 → 第 2 层在 {2,3} 里选 2 → 第 3 层只剩 3，叶子得到 [1,2,3]；逐层 pop 回退到第 2 层改选 3 → [1,3,2]；再回退到第 1 层选 2、选 3，共 6 个叶子。变量变化与『做选择→递归→撤销选择』严格对应：used[i]=True 紧跟 path.append(nums[i])，递归返回后 path.pop() 与 used[i]=False 成对出现，保证回到本层时现场与进入前完全一致。\n为什么正确：每层全量扫描 + used 跳过已选下标，路径内元素互异，且所有 n! 种顺序各被枚举恰好一次。\n易错点：① 收集答案必须 path[:] 拷贝，存 path 引用会让结果在回溯后全部变空；② pop 与 used 复位缺一不可，漏复位会让上层误以为元素仍被占用而漏解；③ 这是排列不是组合，千万别写 start 参数——排列与顺序有关，每层必须从 0 重新扫描。",
+          "code": "def permute(nums):\n    n = len(nums)\n    used = [False] * n          # used[i]：nums[i] 是否已在当前排列中\n    res, path = [], []\n\n    def dfs():\n        if len(path) == n:      # 递归终点：n 个位置全部填满\n            res.append(path[:])\n            return\n        for i in range(n):      # 每层从 0 全量扫描（排列与顺序有关）\n            if used[i]:\n                continue\n            used[i] = True\n            path.append(nums[i])  # 1. 做选择\n            dfs()                 # 2. 递归填下一个位置\n            path.pop()            # 3. 撤销选择\n            used[i] = False\n\n    dfs()\n    return res"
+        },
+        {
+          "name": "原地交换法",
+          "idea": "维护『前缀已确定区』：把待选元素 swap 到位置 k，递归处理 k+1，再 swap 回来。省掉 used 数组与 path 额外空间，代价是会打乱原数组，且『做选择/撤销选择』不如 used 版一目了然。",
+          "complexity": "时间 O(n·n!)，空间 O(n)（递归栈，不含输出）",
+          "detail": "思路：维护『前缀已确定区』，递归参数 k 表示前 k 个位置已定；第 k 层把每个候选 nums[i]（i >= k）交换到位置 k（做选择），递归 k+1 深入，返回后再交换回来（撤销选择）。以 nums=[1,2,3] 走查：k=0 依次把 1/2/3 换到首位；选 2 后数组变为 [2,1,3]，k=1 在位置 1..2 里继续选，得到 [2,1,3] 与 [2,3,1]；换回后不影响后续分支。为什么正确：位置 k 之后的区间始终是『剩余候选集』，交换只是重排候选，既不丢失也不重复；k 到达 n 时整个数组就是一个完整排列，直接拷贝快照。相比 used 版省掉了 path 与 used 的额外空间。\n易错点：① 递归返回后必须原样换回来，否则后续分支的候选集被污染；② 收集时要拷贝 nums[:] 快照，不能存数组引用；③ 该写法会打乱调用方的原数组，通用场景需先复制一份。",
+          "code": "def permute_swap(nums):\n    res = []\n\n    def dfs(k):\n        if k == len(nums):      # 前 k 个位置全部确定\n            res.append(nums[:])  # 拷贝当前排列快照\n            return\n        for i in range(k, len(nums)):\n            nums[k], nums[i] = nums[i], nums[k]  # 做选择：候选换到位置 k\n            dfs(k + 1)                            # 递归：确定下一个位置\n            nums[k], nums[i] = nums[i], nums[k]  # 撤销选择：换回来恢复现场\n\n    dfs(0)\n    return res"
+        }
+      ],
+      "code": "class Solution:\n    def permute(self, nums: List[int]) -> List[List[int]]:\n        n = len(nums)\n        used = [False] * n          # used[i]：nums[i] 是否已在当前排列中\n        res, path = [], []\n\n        def dfs() -> None:\n            # 递归终点：n 个位置全部填满\n            if len(path) == n:\n                res.append(path[:])\n                return\n            for i in range(n):      # 排列与顺序有关，每层从 0 全量扫描\n                if used[i]:\n                    continue        # 已在路径中的元素跳过\n                used[i] = True\n                path.append(nums[i])  # 1. 做选择：把 nums[i] 放入排列\n                dfs()                 # 2. 递归：填下一个位置\n                path.pop()            # 3. 撤销选择：移出并恢复现场\n                used[i] = False\n\n        dfs()\n        return res",
+      "acmCode": "# ACM 模式：完整可运行程序（stdin -> stdout）\n# 输入格式：\n#   第一行：n（数组长度）\n#   第二行：n 个互不相同的整数（数组）\n# 输出格式：\n#   第一行：排列总数 n!\n#   后续 n! 行：每行一个排列，数字之间用空格分隔\nimport sys\n\ndef main():\n    data = sys.stdin.read().split()\n    n = int(data[0])\n    nums = [int(x) for x in data[1:1 + n]]\n    used = [False] * n\n    path, res = [], []\n\n    def dfs():\n        if len(path) == n:          # n 个位置全部填满，收集当前排列\n            res.append(path[:])\n            return\n        for i in range(n):          # 排列与顺序有关，每层从 0 全量扫描\n            if used[i]:\n                continue            # 已在当前路径中的元素跳过\n            used[i] = True\n            path.append(nums[i])    # 1. 做选择：把 nums[i] 放入排列\n            dfs()                   # 2. 递归：填下一个位置\n            path.pop()              # 3. 撤销选择：移出并恢复现场\n            used[i] = False\n\n    dfs()\n    print(len(res))                 # 第一行：排列总数\n    for p in res:\n        print(' '.join(map(str, p)))\n\nif __name__ == '__main__':\n    main()\n",
+      "templates": [
+        "排列型回溯模板：used 数组 + 每层 for i in range(n) 全量扫描 + len(path)==n 收集；与组合型的唯一区别是去掉 start 参数。",
+        "三骨架速记：子集 = 每节点收集 + startIndex；组合 = 叶子收集 + startIndex + 定长；排列 = 叶子收集 + used + 全量扫描。"
+      ],
+      "codeCpp": "class Solution {\npublic:\n    vector<vector<int>> permute(vector<int>& nums) {\n        int n = nums.size();\n        vector<vector<int>> res;\n        vector<int> path;\n        vector<bool> used(n, false);     // used[i]：nums[i] 是否已在当前排列中\n        function<void()> dfs = [&]() {\n            if ((int)path.size() == n) { // 递归终点：n 个位置全部填满\n                res.push_back(path);\n                return;\n            }\n            for (int i = 0; i < n; ++i) { // 排列与顺序有关，每层从 0 全量扫描\n                if (used[i]) continue;   // 已在路径中的元素跳过\n                used[i] = true;\n                path.push_back(nums[i]); // 1. 做选择：把 nums[i] 放入排列\n                dfs();                   // 2. 递归：填下一个位置\n                path.pop_back();         // 3. 撤销选择：移出并恢复现场\n                used[i] = false;\n            }\n        };\n        dfs();\n        return res;\n    }\n};",
+      "acmCodeCpp": "// ACM 模式：完整可运行程序（stdin -> stdout）\n// 输入格式：\n//   第一行：n（数组长度）\n//   第二行：n 个互不相同的整数（数组）\n// 输出格式：\n//   第一行：排列总数 n!\n//   后续 n! 行：每行一个排列，数字之间用空格分隔\n#include <iostream>\n#include <vector>\nusing namespace std;\n\nint n;\nvector<int> nums, path;\nvector<bool> used;\nvector<vector<int>> res;\n\nvoid dfs() {\n    if ((int)path.size() == n) {         // n 个位置全部填满，收集当前排列\n        res.push_back(path);\n        return;\n    }\n    for (int i = 0; i < n; ++i) {        // 排列与顺序有关，每层从 0 全量扫描\n        if (used[i]) continue;           // 已在当前路径中的元素跳过\n        used[i] = true;\n        path.push_back(nums[i]);         // 1. 做选择：把 nums[i] 放入排列\n        dfs();                           // 2. 递归：填下一个位置\n        path.pop_back();                 // 3. 撤销选择：移出并恢复现场\n        used[i] = false;\n    }\n}\n\nint main() {\n    cin >> n;\n    nums.resize(n);\n    for (auto& x : nums) cin >> x;\n    used.assign(n, false);\n    dfs();\n    cout << res.size() << \"\\n\";          // 第一行：排列总数\n    for (const auto& p : res) {\n        for (int k = 0; k < (int)p.size(); ++k) {\n            if (k) cout << ' ';\n            cout << p[k];\n        }\n        cout << \"\\n\";\n    }\n    return 0;\n}",
+      "codeJava": "class Solution {\n    public List<List<Integer>> permute(int[] nums) {\n        List<List<Integer>> res = new ArrayList<>();\n        boolean[] used = new boolean[nums.length]; // used[i]：nums[i] 是否已在排列中\n        dfs(nums, used, new ArrayList<>(), res);\n        return res;\n    }\n\n    private void dfs(int[] nums, boolean[] used, List<Integer> path,\n                     List<List<Integer>> res) {\n        if (path.size() == nums.length) {    // 递归终点：n 个位置全部填满\n            res.add(new ArrayList<>(path));\n            return;\n        }\n        for (int i = 0; i < nums.length; i++) { // 排列与顺序有关，每层从 0 全量扫描\n            if (used[i]) continue;           // 已在路径中的元素跳过\n            used[i] = true;\n            path.add(nums[i]);               // 1. 做选择：把 nums[i] 放入排列\n            dfs(nums, used, path, res);      // 2. 递归：填下一个位置\n            path.remove(path.size() - 1);    // 3. 撤销选择：移出并恢复现场\n            used[i] = false;\n        }\n    }\n}",
+      "codeJs": "/**\n * @param {number[]} nums\n * @return {number[][]}\n */\nvar permute = function (nums) {\n  const used = new Array(nums.length).fill(false); // used[i]：是否已在排列中\n  const res = [];\n  const path = [];\n  const dfs = () => {\n    if (path.length === nums.length) {   // 递归终点：n 个位置全部填满\n      res.push([...path]);\n      return;\n    }\n    for (let i = 0; i < nums.length; i++) { // 排列与顺序有关，每层从 0 全量扫描\n      if (used[i]) continue;             // 已在路径中的元素跳过\n      used[i] = true;\n      path.push(nums[i]);                // 1. 做选择：把 nums[i] 放入排列\n      dfs();                             // 2. 递归：填下一个位置\n      path.pop();                        // 3. 撤销选择：移出并恢复现场\n      used[i] = false;\n    }\n  };\n  dfs();\n  return res;\n};",
+      "codeGo": "func permute(nums []int) [][]int {\n\tn := len(nums)\n\tused := make([]bool, n) // used[i]：nums[i] 是否已在当前排列中\n\tvar res [][]int\n\tpath := []int{}\n\tvar dfs func()\n\tdfs = func() {\n\t\tif len(path) == n { // 递归终点：n 个位置全部填满\n\t\t\tres = append(res, append([]int{}, path...))\n\t\t\treturn\n\t\t}\n\t\tfor i := 0; i < n; i++ { // 排列与顺序有关，每层从 0 全量扫描\n\t\t\tif used[i] {\n\t\t\t\tcontinue // 已在路径中的元素跳过\n\t\t\t}\n\t\t\tused[i] = true\n\t\t\tpath = append(path, nums[i]) // 1. 做选择：把 nums[i] 放入排列\n\t\t\tdfs()                        // 2. 递归：填下一个位置\n\t\t\tpath = path[:len(path)-1]    // 3. 撤销选择：移出并恢复现场\n\t\t\tused[i] = false\n\t\t}\n\t}\n\tdfs()\n\treturn res\n}"
+    },
+    {
+      "id": 47,
+      "title": "Permutations II",
+      "titleCn": "全排列 II",
+      "difficulty": "medium",
+      "frequency": 4,
+      "companies": [
+        "字节跳动",
+        "腾讯",
+        "华为"
+      ],
+      "question": "给定一个可包含重复数字的序列 nums，按任意顺序返回所有不重复的全排列。\n\n示例 1：输入 nums = [1,1,2]，输出 [[1,1,2],[1,2,1],[2,1,1]]。\n示例 2：输入 nums = [1,2,3]，输出 [[1,2,3],[1,3,2],[2,1,3],[2,3,1],[3,1,2],[3,2,1]]。\n\n提示：1 <= nums.length <= 8，-10 <= nums[i] <= 10。",
+      "samples": [
+        {
+          "input": "nums = [1,1,2]",
+          "output": "[[1,1,2],[1,2,1],[2,1,1]]",
+          "explain": "两个 1 视作相同元素，6 个原始排列去重后剩 3 个"
+        },
+        {
+          "input": "nums = [1,2,3]",
+          "output": "[[1,2,3],[1,3,2],[2,1,3],[2,3,1],[3,1,2],[3,2,1]]",
+          "explain": "元素互异时退化为普通全排列，共 3! = 6 个"
+        }
+      ],
+      "hints": [
+        "审题诀窍：去重的前提是排序——让相同元素相邻后，『同层不选重复值』才能用一条简洁的判断表达。",
+        "审题诀窍：值可能相等，used 必须按下标管理；去重条件 i > 0 且 nums[i]==nums[i-1] 且 not used[i-1] 三个部分缺一不可。",
+        "突破口：给相同值规定『在同一层只能选从左到右第一个未使用的』，重复排列的分支被从源头剪掉，而不是生成后再过滤。",
+        "追问预备：not used[i-1] 换成 used[i-1] 为什么也能去重但剪枝更弱？（先扩展同值连续前缀，重复分支进得更深）；只要排列个数怎么做？（多重集排列数 n!/(c1!·c2!·…·cm!)）"
+      ],
+      "keyPoints": [
+        "先排序使相同数字相邻，为同层去重创造条件",
+        "used 按下标判重（值可能相等，不能按值管理）",
+        "同层去重：i > 0 且 nums[i] == nums[i-1] 且 not used[i-1] 则 continue",
+        "len(path) == n 时收集答案；append/pop 与 used 置位/复位成对"
+      ],
+      "structureTags": [
+        "backtracking",
+        "dfs",
+        "recursion",
+        "sort",
+        "dedup"
+      ],
+      "approaches": [
+        {
+          "name": "全量生成 + set 过滤",
+          "idea": "按无重复版全排列的方式生成所有 n! 个排列，把每个排列转元组放进 set 去重。写法最省心，但重复分支全部照搜，n 稍大就明显变慢，还要为去重集合付出额外内存。",
+          "complexity": "时间 O(n·n!)，空间 O(n·n!)（去重集合另存全部排列）",
+          "detail": "思路：先按 46 的方式生成全部 n! 个排列（不去重），再把每个排列转成元组放进 set 过滤，最后转回列表。以 nums=[1,1,2] 走查：3!=6 个原始排列中，[1a,1b,2] 与 [1b,1a,2] 的值完全相同，转元组 (1,1,2) 后在 set 中只保留一份，最终剩 3 个。为什么正确：元组可哈希且逐元素相等即认为相等，恰好刻画『排列的值相同』这一去重标准。\n易错点：① list 不可哈希，必须先转 tuple 再入 set；② set 会打乱输出顺序，题目要求任意顺序所以可行，若要求字典序需再 sorted 一遍；③ 复杂度仍是 O(n·n!) 加哈希开销，n=8 时生成 40320 个排列已经偏慢——面试先给这个解兜底，再主动升级到同层去重。",
+          "code": "from itertools import permutations\n\ndef permuteUnique_brute(nums):\n    # permutations 按下标生成全部排列，重复值会产生值相同的排列\n    return [list(p) for p in sorted(set(permutations(nums)))]"
+        },
+        {
+          "name": "排序 + used 同层去重",
+          "optimal": true,
+          "idea": "先排序；循环里两条 continue：used[i] 跳过已用下标；i > 0 且 nums[i]==nums[i-1] 且 not used[i-1] 跳过本层重复——保证相同值在树的同一层只被选一次，重复排列从源头消失。",
+          "complexity": "时间 O(n·n!)（剪枝后实际远小），空间 O(n)",
+          "detail": "去重的决策树视角：先排序让相同值相邻，再给相同值定一条规矩——『同一层里只能选从左到右第一个未使用的同值元素』。判断式 i > 0 and nums[i] == nums[i-1] and not used[i-1] 的推理：同值前驱当前不在路径中，说明它刚在本层被试完撤销，此时再选当前元素，生成的子树与前驱的完全相同，必须剪掉。以排序后的 [1,1,2] 走查：第 1 层选下标 0 的 1 → 第 2 层可再选下标 1 的 1（此时 used[0]=True，不触发去重——这是树枝上的合法重复）→ 得 [1,1,2]、[1,2,1]；回退到第 1 层再选下标 1 的 1 时 used[0]=False 触发 continue，整个重复子树被剪；第 1 层选 2 → [2,1,1]。恰好 3 个不重复排列。\n为什么正确：相同值的所有排列被规范成『按下标从左到右依次选用』这一种顺序，每个不重复排列恰好对应一条路径。\n易错点：① 排序是前提，忘了 sort 判断条件直接失效；② used 必须按下标管理，值可能相等没法按值判；③ 剪枝条件是 not used[i-1]，写成 used[i-1] 虽然去重结果也对，但剪枝更弱、枚举顺序不同。",
+          "code": "def permuteUnique(nums):\n    nums.sort()                 # 前置：相同数字相邻，去重条件才成立\n    n = len(nums)\n    used = [False] * n\n    res, path = [], []\n\n    def dfs():\n        if len(path) == n:\n            res.append(path[:])\n            return\n        for i in range(n):\n            if used[i]:\n                continue        # 该下标已在当前排列中\n            if i > 0 and nums[i] == nums[i - 1] and not used[i - 1]:\n                continue        # 同层去重：同值前驱空闲，本层已试过它\n            used[i] = True\n            path.append(nums[i])  # 1. 做选择\n            dfs()                 # 2. 递归\n            path.pop()            # 3. 撤销选择\n            used[i] = False\n\n    dfs()\n    return res"
+        }
+      ],
+      "code": "class Solution:\n    def permuteUnique(self, nums: List[int]) -> List[List[int]]:\n        nums.sort()                 # 前置：相同数字相邻，去重条件才成立\n        n = len(nums)\n        used = [False] * n\n        res, path = [], []\n\n        def dfs() -> None:\n            if len(path) == n:      # 递归终点：填满所有位置\n                res.append(path[:])\n                return\n            for i in range(n):\n                if used[i]:\n                    continue        # 该下标已在当前排列中\n                if i > 0 and nums[i] == nums[i - 1] and not used[i - 1]:\n                    continue        # 同层去重：同值前驱空闲，说明本层已试过它\n                used[i] = True\n                path.append(nums[i])  # 1. 做选择\n                dfs()                 # 2. 递归\n                path.pop()            # 3. 撤销选择\n                used[i] = False\n\n        dfs()\n        return res",
+      "acmCode": "# ACM 模式：完整可运行程序（stdin -> stdout）\n# 输入格式：\n#   第一行：n（数组长度）\n#   第二行：n 个整数（可能含重复数字）\n# 输出格式：\n#   第一行：不重复排列的个数\n#   后续每行一个排列，数字之间用空格分隔\nimport sys\n\ndef main():\n    data = sys.stdin.read().split()\n    n = int(data[0])\n    nums = sorted(int(x) for x in data[1:1 + n])   # 排序让相同数字相邻\n    used = [False] * n\n    path, res = [], []\n\n    def dfs():\n        if len(path) == n:          # 填满所有位置\n            res.append(path[:])\n            return\n        for i in range(n):\n            if used[i]:\n                continue            # 该下标已在当前排列中\n            if i > 0 and nums[i] == nums[i - 1] and not used[i - 1]:\n                continue            # 同层去重：同值前驱空闲，说明本层已试过它\n            used[i] = True\n            path.append(nums[i])    # 1. 做选择\n            dfs()                   # 2. 递归\n            path.pop()              # 3. 撤销选择\n            used[i] = False\n\n    dfs()\n    print(len(res))\n    for p in res:\n        print(' '.join(map(str, p)))\n\nif __name__ == '__main__':\n    main()\n",
+      "templates": [
+        "排列去重模板：sort 后 for 循环里两条 continue——if used[i] 和 if i > 0 and a[i]==a[i-1] and not used[i-1]，缺一不可。",
+        "not used[i-1] 的含义：同值前驱不在当前路径中 → 它刚在『同一层』被试完撤销 → 当前值再选必然产生同一层的重复排列。"
+      ],
+      "codeCpp": "class Solution {\npublic:\n    vector<vector<int>> permuteUnique(vector<int>& nums) {\n        sort(nums.begin(), nums.end());  // 前置：相同数字相邻，去重条件才成立\n        int n = nums.size();\n        vector<vector<int>> res;\n        vector<int> path;\n        vector<bool> used(n, false);\n        function<void()> dfs = [&]() {\n            if ((int)path.size() == n) { // 递归终点：填满所有位置\n                res.push_back(path);\n                return;\n            }\n            for (int i = 0; i < n; ++i) {\n                if (used[i]) continue;   // 该下标已在当前排列中\n                if (i > 0 && nums[i] == nums[i - 1] && !used[i - 1])\n                    continue;            // 同层去重：同值前驱空闲，说明本层已试过它\n                used[i] = true;\n                path.push_back(nums[i]); // 1. 做选择\n                dfs();                   // 2. 递归\n                path.pop_back();         // 3. 撤销选择\n                used[i] = false;\n            }\n        };\n        dfs();\n        return res;\n    }\n};",
+      "acmCodeCpp": "// ACM 模式：完整可运行程序（stdin -> stdout）\n// 输入格式：\n//   第一行：n（数组长度）\n//   第二行：n 个整数（可能含重复数字）\n// 输出格式：\n//   第一行：不重复排列的个数\n//   后续每行一个排列，数字之间用空格分隔\n#include <iostream>\n#include <vector>\n#include <algorithm>\nusing namespace std;\n\nint n;\nvector<int> nums, path;\nvector<bool> used;\nvector<vector<int>> res;\n\nvoid dfs() {\n    if ((int)path.size() == n) {         // 填满所有位置\n        res.push_back(path);\n        return;\n    }\n    for (int i = 0; i < n; ++i) {\n        if (used[i]) continue;           // 该下标已在当前排列中\n        if (i > 0 && nums[i] == nums[i - 1] && !used[i - 1])\n            continue;                    // 同层去重：同值前驱空闲，说明本层已试过它\n        used[i] = true;\n        path.push_back(nums[i]);         // 1. 做选择\n        dfs();                           // 2. 递归\n        path.pop_back();                 // 3. 撤销选择\n        used[i] = false;\n    }\n}\n\nint main() {\n    cin >> n;\n    nums.resize(n);\n    for (auto& x : nums) cin >> x;\n    sort(nums.begin(), nums.end());      // 排序让相同数字相邻\n    used.assign(n, false);\n    dfs();\n    cout << res.size() << \"\\n\";          // 第一行：不重复排列的个数\n    for (const auto& p : res) {\n        for (int k = 0; k < (int)p.size(); ++k) {\n            if (k) cout << ' ';\n            cout << p[k];\n        }\n        cout << \"\\n\";\n    }\n    return 0;\n}",
+      "codeJava": "class Solution {\n    public List<List<Integer>> permuteUnique(int[] nums) {\n        Arrays.sort(nums);               // 前置：相同数字相邻，去重条件才成立\n        List<List<Integer>> res = new ArrayList<>();\n        dfs(nums, new boolean[nums.length], new ArrayList<>(), res);\n        return res;\n    }\n\n    private void dfs(int[] nums, boolean[] used, List<Integer> path,\n                     List<List<Integer>> res) {\n        if (path.size() == nums.length) {    // 递归终点：填满所有位置\n            res.add(new ArrayList<>(path));\n            return;\n        }\n        for (int i = 0; i < nums.length; i++) {\n            if (used[i]) continue;           // 该下标已在当前排列中\n            if (i > 0 && nums[i] == nums[i - 1] && !used[i - 1])\n                continue;                    // 同层去重：同值前驱空闲，说明本层已试过它\n            used[i] = true;\n            path.add(nums[i]);               // 1. 做选择\n            dfs(nums, used, path, res);      // 2. 递归\n            path.remove(path.size() - 1);    // 3. 撤销选择\n            used[i] = false;\n        }\n    }\n}",
+      "codeJs": "/**\n * @param {number[]} nums\n * @return {number[][]}\n */\nvar permuteUnique = function (nums) {\n  nums.sort((a, b) => a - b);          // 前置：相同数字相邻，去重条件才成立\n  const used = new Array(nums.length).fill(false);\n  const res = [];\n  const path = [];\n  const dfs = () => {\n    if (path.length === nums.length) { // 递归终点：填满所有位置\n      res.push([...path]);\n      return;\n    }\n    for (let i = 0; i < nums.length; i++) {\n      if (used[i]) continue;           // 该下标已在当前排列中\n      if (i > 0 && nums[i] === nums[i - 1] && !used[i - 1])\n        continue;                      // 同层去重：同值前驱空闲，说明本层已试过它\n      used[i] = true;\n      path.push(nums[i]);              // 1. 做选择\n      dfs();                           // 2. 递归\n      path.pop();                      // 3. 撤销选择\n      used[i] = false;\n    }\n  };\n  dfs();\n  return res;\n};",
+      "codeGo": "func permuteUnique(nums []int) [][]int {\n\tsort.Ints(nums) // 前置：相同数字相邻，去重条件才成立\n\tn := len(nums)\n\tused := make([]bool, n)\n\tvar res [][]int\n\tpath := []int{}\n\tvar dfs func()\n\tdfs = func() {\n\t\tif len(path) == n { // 递归终点：填满所有位置\n\t\t\tres = append(res, append([]int{}, path...))\n\t\t\treturn\n\t\t}\n\t\tfor i := 0; i < n; i++ {\n\t\t\tif used[i] {\n\t\t\t\tcontinue // 该下标已在当前排列中\n\t\t\t}\n\t\t\tif i > 0 && nums[i] == nums[i-1] && !used[i-1] {\n\t\t\t\tcontinue // 同层去重：同值前驱空闲，说明本层已试过它\n\t\t\t}\n\t\t\tused[i] = true\n\t\t\tpath = append(path, nums[i]) // 1. 做选择\n\t\t\tdfs()                        // 2. 递归\n\t\t\tpath = path[:len(path)-1]    // 3. 撤销选择\n\t\t\tused[i] = false\n\t\t}\n\t}\n\tdfs()\n\treturn res\n}"
+    },
+    {
+      "id": 51,
+      "title": "N-Queens",
+      "titleCn": "N 皇后",
+      "difficulty": "hard",
+      "frequency": 3,
+      "companies": [
+        "百度"
+      ],
+      "question": "按照国际象棋的规则，皇后可以攻击与之处在同一行或同一列或同一斜线上的棋子。n 皇后问题研究的是如何将 n 个皇后放置在 n×n 的棋盘上，并且使皇后彼此之间不能互相攻击。给你一个整数 n，返回所有不同的 n 皇后问题的解决方案。每一种解法包含一个不同的棋子放置方案，方案中 'Q' 和 '.' 分别代表了皇后和空位。\n\n示例 1：输入 n = 4，输出 2 种解：[\".Q..\",\"...Q\",\"Q...\",\"..Q.\"] 与 [\"..Q.\",\"Q...\",\"...Q\",\".Q..\"]。\n示例 2：输入 n = 1，输出 [[\"Q\"]]。\n\n提示：1 <= n <= 9。",
+      "samples": [
+        {
+          "input": "n = 4",
+          "output": "[[\".Q..\",\"...Q\",\"Q...\",\"..Q.\"],[\"..Q.\",\"Q...\",\"...Q\",\".Q..\"]]",
+          "explain": "4 皇后共 2 个解，每个解的 4 个字符串对应棋盘 4 行"
+        },
+        {
+          "input": "n = 1",
+          "output": "[[\"Q\"]]",
+          "explain": "1×1 棋盘唯一放法"
+        }
+      ],
+      "hints": [
+        "审题诀窍：每行恰好放一个皇后 → 按行递归，每层只决定本行皇后放哪一列，问题就化简为每行选一列的决策。",
+        "审题诀窍：列冲突用一维标记判断；两条斜线分别用 r-c 与 r+c 编号——同一条斜线上该值恒定，这是本题最巧的一步。",
+        "突破口：用列 / 主对角线 / 副对角线三组标记做 O(1) 冲突检查，代替每步扫描已有皇后；放置与撤销必须成对释放全部标记。",
+        "追问预备：如何只输出解的个数？（去掉棋盘构造改为计数，即 52）；位运算怎么优化？（三个整数当列/对角线掩码，lowbit 枚举可用列）"
+      ],
+      "keyPoints": [
+        "按行递归：第 r 层给第 r 行选一个不冲突的列 c",
+        "列用 cols[c] 判；主对角线用 r-c+n 判；副对角线用 r+c 判",
+        "r == n 时按记录的列号 queens[] 构造形如 '....Q..' 的行字符串",
+        "放置与撤销成对出现：占用三个标记 → 递归 → 释放三个标记"
+      ],
+      "structureTags": [
+        "backtracking",
+        "dfs",
+        "recursion",
+        "matrix"
+      ],
+      "approaches": [
+        {
+          "name": "逐行回溯 + 线性冲突检查",
+          "idea": "每行放一个皇后，放置前扫描之前所有行的皇后位置，逐一比对列与两条对角线是否冲突。逻辑直观，但每次检查 O(r)，同一个冲突信息被反复计算，常数大。",
+          "complexity": "时间 O(n·n!)，空间 O(n)",
+          "detail": "按行递归：第 r 层给第 r 行选一列 c，用 queens 列表记录之前每行的列号；放置前扫描 queens 里所有 (r2, c2)，若 c2 == c（同列）或 abs(r-r2) == abs(c-c2)（同一斜线，横纵位移相等）则该列不可放。以 n=4 走查：(0,0) 出发 → (1,2) → 第 2 行四列全部冲突 → 回溯 → (1,3) → 继续深入仍失败，整棵子树剪完换起点，最终得到 2 个解。变量变化：queens 随 append/pop 记录与撤销，r 逐行推进。\n为什么正确：『每行恰一个皇后 + 放置时逐项检查列与斜线』完整覆盖题目约束，DFS 枚举所有列组合。\n易错点：① 斜线冲突是 abs(r1-r2) == abs(c1-c2)，不是 r1-r2 == c1-c2（差值可负）；② 只查列不查对角线是最常见漏判；③ 每次检查 O(r) 的重复计算让常数明显偏大，面试应主动引出标记数组优化。",
+          "code": "def solveNQueens_scan(n):\n    res = []\n    queens = []                    # queens[r]：第 r 行皇后列号\n\n    def conflict(r, c):\n        for r2, c2 in enumerate(queens):\n            if c2 == c or abs(r - r2) == abs(c - c2):\n                return True        # 同列或同一条斜线\n        return False\n\n    def dfs(r):\n        if r == n:                 # n 行放好，拼出棋盘\n            res.append(['.' * c + 'Q' + '.' * (n - 1 - c) for c in queens])\n            return\n        for c in range(n):\n            if not conflict(r, c):\n                queens.append(c)   # 1. 做选择：第 r 行放第 c 列\n                dfs(r + 1)         # 2. 递归下一行\n                queens.pop()       # 3. 撤销选择\n\n    dfs(0)\n    return res"
+        },
+        {
+          "name": "逐行回溯 + O(1) 冲突标记",
+          "optimal": true,
+          "idea": "用三组布尔标记：cols[c]（列）、diag1[r-c+n]（主对角线，r-c 为定值）、diag2[r+c]（副对角线，r+c 为定值）。放置时置 True，撤销时置 False，冲突判断降为 O(1)，是面试标准写法。",
+          "complexity": "时间 O(n!)，空间 O(n)",
+          "detail": "冲突检查降为 O(1) 的关键是对角线编号：同一条 ↘ 主斜线上 r-c 为定值（如 (0,1),(1,2),(2,3) 的 r-c 都是 -1），同一条 ↙ 副斜线上 r+c 为定值；r-c 可能为负，加偏移 n 后即可当数组下标。三组布尔标记：cols[c]、diag1[r-c+n]、diag2[r+c]。以 n=4 走查第一个解：放 (0,1) 后 cols[1]、diag1[3]、diag2[1] 置 True；第 1 行 c=0 撞 diag2（1+0 与 0+1 同为 1）、c=2 撞 diag1（0-1+4 与 1-2+4 同为 3）、c=3 可放 (1,3) → 第 2 行 (2,0) → 第 3 行 (3,2)，得到 '.Q..'/'...Q'/'Q...'/'..Q.'。变量变化：放置时置三个 True，递归返回后置回 False，与 queens[r]=c/-1 严格成对。\n为什么正确：三个标记精确且仅刻画与已放皇后的三类冲突，行约束由按行递归隐含，剪枝把搜索空间从 n^n 压到 n! 量级。\n易错点：① diag 下标必须 +n 防负；② 撤销时三组标记都要复位，漏一个会连锁污染整棵子树；③ 收集答案用 queens 里的列号拼行：'.'*c + 'Q' + '.'*(n-1-c)。",
+          "code": "def solveNQueens(n):\n    res = []\n    queens = [-1] * n             # queens[r] = c：第 r 行皇后列号\n    cols = [False] * n            # 列占用\n    diag1 = [False] * (2 * n)     # 主对角线：r - c + n\n    diag2 = [False] * (2 * n)     # 副对角线：r + c\n\n    def dfs(r):\n        if r == n:\n            res.append(['.' * queens[i] + 'Q' + '.' * (n - 1 - queens[i])\n                        for i in range(n)])\n            return\n        for c in range(n):\n            d1, d2 = r - c + n, r + c\n            if cols[c] or diag1[d1] or diag2[d2]:\n                continue          # O(1) 冲突检查\n            cols[c] = diag1[d1] = diag2[d2] = True  # 1. 做选择\n            queens[r] = c\n            dfs(r + 1)            # 2. 递归下一行\n            cols[c] = diag1[d1] = diag2[d2] = False  # 3. 撤销选择\n            queens[r] = -1\n\n    dfs(0)\n    return res"
+        },
+        {
+          "name": "位运算优化",
+          "idea": "把三组标记压进三个整数的二进制位，用 lowbit（avail & -avail）快速枚举所有可放的列。复杂度量级不变，常数最小，属于竞赛向写法，可读性下降。",
+          "complexity": "时间 O(n!)，空间 O(n)",
+          "detail": "把三组标记压进三个整数的二进制位：cols 的第 c 位表示列 c 被占；ld/rd 分别表示被两条斜线攻击的列。可用列 avail = full & ~(cols | ld | rd)，其中 full = (1 << n) - 1；每次用 lowbit = avail & -avail 取出最低一个可放列，c = p.bit_length() - 1 换算列号。斜线约束随行下移平移一格：递归时新的 ld = ((ld | p) << 1) & full，rd = (rd | p) >> 1——主斜线攻击往左偏、副斜线往右偏。以 n=4 走查：初始 avail=1111，取 p=0001（列 0）深入失败回溯，取 p=0010（列 1）→ 下一行 avail 中列 0/1/2 被抑制……最终 2 个解。为什么正确：位掩码与标记数组完全等价，只是用移位代替 r±c 的计算、lowbit 代替线性扫描，常数最小。\n易错点：① ld 左移后要 & full 截断，否则高位无限增长；② bit_length()-1 的 off-by-one 很容易错，建议用 n=1 单步验证；③ 可读性明显下降，面试建议先写标记数组版，再以加分项口述位运算优化。",
+          "code": "def solveNQueens_bit(n):\n    full = (1 << n) - 1           # n 个 1：全部列的掩码\n    res, queens = [], []\n\n    def dfs(cols, ld, rd):\n        if cols == full:          # n 列全占满，即 n 行都放好\n            res.append(queens[:])\n            return\n        avail = full & ~(cols | ld | rd)   # 当前行的可用列集合\n        while avail:\n            p = avail & -avail    # lowbit：取最低一个可用列\n            avail &= avail - 1    # 从可用集合中移除\n            c = p.bit_length() - 1  # 位下标换算列号\n            queens.append(c)      # 1. 做选择\n            dfs(cols | p, ((ld | p) << 1) & full, (rd | p) >> 1)\n            queens.pop()          # 3. 撤销选择\n\n    dfs(0, 0, 0)\n    return [['.' * c + 'Q' + '.' * (n - 1 - c) for c in sol] for sol in res]"
+        }
+      ],
+      "code": "class Solution:\n    def solveNQueens(self, n: int) -> List[List[str]]:\n        res = []\n        queens = [-1] * n           # queens[r] = c：第 r 行皇后放在第 c 列\n        cols = [False] * n          # 列占用标记\n        diag1 = [False] * (2 * n)   # 主对角线：r - c + n 相同即同一条斜线\n        diag2 = [False] * (2 * n)   # 副对角线：r + c 相同即同一条斜线\n\n        def dfs(r: int) -> None:\n            if r == n:              # 递归终点：n 行都放好了，按列号拼出棋盘\n                res.append([\".\" * queens[i] + \"Q\" + \".\" * (n - 1 - queens[i])\n                            for i in range(n)])\n                return\n            for c in range(n):\n                d1, d2 = r - c + n, r + c\n                if cols[c] or diag1[d1] or diag2[d2]:\n                    continue        # 剪枝：该列或两条斜线已被攻击，直接跳过\n                cols[c] = diag1[d1] = diag2[d2] = True\n                queens[r] = c       # 1. 做选择：第 r 行皇后放第 c 列\n                dfs(r + 1)          # 2. 递归：处理下一行\n                cols[c] = diag1[d1] = diag2[d2] = False\n                queens[r] = -1      # 3. 撤销选择：释放全部标记\n\n        dfs(0)\n        return res",
+      "acmCode": "# ACM 模式：完整可运行程序（stdin -> stdout）\n# 输入格式：\n#   第一行：n（棋盘尺寸 n×n）\n# 输出格式：\n#   第一行：解的总数\n#   每个解占 n 行，每行一个由 '.' 与 'Q' 组成的长度为 n 的字符串\nimport sys\n\ndef main():\n    data = sys.stdin.read().split()\n    n = int(data[0])\n    res = []\n    queens = [-1] * n               # queens[r] = c：第 r 行皇后放在第 c 列\n    cols = [False] * n              # 列占用标记\n    diag1 = [False] * (2 * n)       # 主对角线：r - c + n 相同即同一条斜线\n    diag2 = [False] * (2 * n)       # 副对角线：r + c 相同即同一条斜线\n\n    def dfs(r):\n        if r == n:                  # n 行都放好，按列号拼出棋盘\n            res.append(['.' * queens[i] + 'Q' + '.' * (n - 1 - queens[i])\n                        for i in range(n)])\n            return\n        for c in range(n):\n            d1, d2 = r - c + n, r + c\n            if cols[c] or diag1[d1] or diag2[d2]:\n                continue            # 剪枝：该列或两条斜线已被攻击\n            cols[c] = diag1[d1] = diag2[d2] = True\n            queens[r] = c           # 1. 做选择：第 r 行皇后放第 c 列\n            dfs(r + 1)              # 2. 递归：处理下一行\n            cols[c] = diag1[d1] = diag2[d2] = False\n            queens[r] = -1          # 3. 撤销选择：释放全部标记\n\n    dfs(0)\n    print(len(res))\n    for sol in res:\n        for row in sol:\n            print(row)\n\nif __name__ == '__main__':\n    main()\n",
+      "templates": [
+        "棋盘按行决策模板：每行选一列 → 多个一维标记数组 O(1) 判冲突 → 递归下一行 → 撤销时成对释放全部标记。",
+        "对角线编号技巧：主对角线 r-c 是定值，副对角线 r+c 是定值；加偏移 n 后即可直接当数组下标使用。"
+      ],
+      "codeCpp": "class Solution {\npublic:\n    vector<vector<string>> solveNQueens(int n) {\n        vector<vector<string>> res;\n        vector<int> queens(n, -1);        // queens[r] = c：第 r 行皇后放在第 c 列\n        vector<bool> cols(n, false);      // 列占用标记\n        vector<bool> diag1(2 * n, false); // 主对角线：r - c + n 相同即同一条斜线\n        vector<bool> diag2(2 * n, false); // 副对角线：r + c 相同即同一条斜线\n        function<void(int)> dfs = [&](int r) {\n            if (r == n) {                 // 递归终点：n 行都放好，按列号拼出棋盘\n                vector<string> board;\n                for (int i = 0; i < n; ++i)\n                    board.push_back(string(queens[i], '.') + 'Q' +\n                                    string(n - 1 - queens[i], '.'));\n                res.push_back(std::move(board));\n                return;\n            }\n            for (int c = 0; c < n; ++c) {\n                int d1 = r - c + n, d2 = r + c;\n                if (cols[c] || diag1[d1] || diag2[d2])\n                    continue;             // 剪枝：该列或两条斜线已被攻击，直接跳过\n                cols[c] = diag1[d1] = diag2[d2] = true;\n                queens[r] = c;            // 1. 做选择：第 r 行皇后放第 c 列\n                dfs(r + 1);               // 2. 递归：处理下一行\n                cols[c] = diag1[d1] = diag2[d2] = false;\n                queens[r] = -1;           // 3. 撤销选择：释放全部标记\n            }\n        };\n        dfs(0);\n        return res;\n    }\n};",
+      "acmCodeCpp": "// ACM 模式：完整可运行程序（stdin -> stdout）\n// 输入格式：\n//   第一行：n（棋盘尺寸 n×n）\n// 输出格式：\n//   第一行：解的总数\n//   每个解占 n 行，每行一个由 '.' 与 'Q' 组成的长度为 n 的字符串\n#include <iostream>\n#include <string>\n#include <vector>\nusing namespace std;\n\nint n;\nvector<int> queens;\nvector<bool> cols, diag1, diag2;\nvector<vector<string>> res;\n\nvoid dfs(int r) {\n    if (r == n) {                        // n 行都放好，按列号拼出棋盘\n        vector<string> board;\n        for (int i = 0; i < n; ++i)\n            board.push_back(string(queens[i], '.') + 'Q' +\n                            string(n - 1 - queens[i], '.'));\n        res.push_back(board);\n        return;\n    }\n    for (int c = 0; c < n; ++c) {\n        int d1 = r - c + n, d2 = r + c;\n        if (cols[c] || diag1[d1] || diag2[d2])\n            continue;                    // 剪枝：该列或两条斜线已被攻击\n        cols[c] = diag1[d1] = diag2[d2] = true;\n        queens[r] = c;                   // 1. 做选择：第 r 行皇后放第 c 列\n        dfs(r + 1);                      // 2. 递归：处理下一行\n        cols[c] = diag1[d1] = diag2[d2] = false;\n        queens[r] = -1;                  // 3. 撤销选择：释放全部标记\n    }\n}\n\nint main() {\n    cin >> n;\n    queens.assign(n, -1);\n    cols.assign(n, false);\n    diag1.assign(2 * n, false);\n    diag2.assign(2 * n, false);\n    dfs(0);\n    cout << res.size() << \"\\n\";          // 第一行：解的总数\n    for (const auto& sol : res)\n        for (const string& row : sol) cout << row << \"\\n\";\n    return 0;\n}",
+      "codeJava": "class Solution {\n    public List<List<String>> solveNQueens(int n) {\n        List<List<String>> res = new ArrayList<>();\n        int[] queens = new int[n];               // queens[r] = c：第 r 行皇后放第 c 列\n        Arrays.fill(queens, -1);\n        boolean[] cols = new boolean[n];         // 列占用标记\n        boolean[] diag1 = new boolean[2 * n];    // 主对角线：r - c + n 相同即同一条斜线\n        boolean[] diag2 = new boolean[2 * n];    // 副对角线：r + c 相同即同一条斜线\n        dfs(n, 0, queens, cols, diag1, diag2, res);\n        return res;\n    }\n\n    private void dfs(int n, int r, int[] queens, boolean[] cols,\n                     boolean[] diag1, boolean[] diag2, List<List<String>> res) {\n        if (r == n) {                            // n 行都放好，按列号拼出棋盘\n            List<String> board = new ArrayList<>();\n            for (int i = 0; i < n; i++) {\n                StringBuilder sb = new StringBuilder();\n                for (int j = 0; j < n; j++) sb.append(queens[i] == j ? 'Q' : '.');\n                board.add(sb.toString());\n            }\n            res.add(board);\n            return;\n        }\n        for (int c = 0; c < n; c++) {\n            int d1 = r - c + n, d2 = r + c;\n            if (cols[c] || diag1[d1] || diag2[d2])\n                continue;                        // 剪枝：该列或两条斜线已被攻击\n            cols[c] = diag1[d1] = diag2[d2] = true;\n            queens[r] = c;                       // 1. 做选择：第 r 行皇后放第 c 列\n            dfs(n, r + 1, queens, cols, diag1, diag2, res); // 2. 递归：处理下一行\n            cols[c] = diag1[d1] = diag2[d2] = false;\n            queens[r] = -1;                      // 3. 撤销选择：释放全部标记\n        }\n    }\n}",
+      "codeJs": "/**\n * @param {number} n\n * @return {string[][]}\n */\nvar solveNQueens = function (n) {\n  const res = [];\n  const queens = new Array(n).fill(-1);      // queens[r] = c：第 r 行皇后放在第 c 列\n  const cols = new Array(n).fill(false);     // 列占用标记\n  const diag1 = new Array(2 * n).fill(false); // 主对角线：r - c + n 相同即同一条斜线\n  const diag2 = new Array(2 * n).fill(false); // 副对角线：r + c 相同即同一条斜线\n  const dfs = (r) => {\n    if (r === n) {                           // n 行都放好，按列号拼出棋盘\n      res.push(queens.map((c) => \".\".repeat(c) + \"Q\" + \".\".repeat(n - 1 - c)));\n      return;\n    }\n    for (let c = 0; c < n; c++) {\n      const d1 = r - c + n, d2 = r + c;\n      if (cols[c] || diag1[d1] || diag2[d2])\n        continue;                            // 剪枝：该列或两条斜线已被攻击\n      cols[c] = diag1[d1] = diag2[d2] = true;\n      queens[r] = c;                         // 1. 做选择：第 r 行皇后放第 c 列\n      dfs(r + 1);                            // 2. 递归：处理下一行\n      cols[c] = diag1[d1] = diag2[d2] = false;\n      queens[r] = -1;                        // 3. 撤销选择：释放全部标记\n    }\n  };\n  dfs(0);\n  return res;\n};",
+      "codeGo": "func solveNQueens(n int) [][]string {\n\tvar res [][]string\n\tqueens := make([]int, n)   // queens[r] = c：第 r 行皇后放在第 c 列\n\tfor i := range queens {\n\t\tqueens[i] = -1\n\t}\n\tcols := make([]bool, n)    // 列占用标记\n\tdiag1 := make([]bool, 2*n) // 主对角线：r - c + n 相同即同一条斜线\n\tdiag2 := make([]bool, 2*n) // 副对角线：r + c 相同即同一条斜线\n\tvar dfs func(r int)\n\tdfs = func(r int) {\n\t\tif r == n { // n 行都放好，按列号拼出棋盘\n\t\t\tboard := make([]string, n)\n\t\t\tfor i := 0; i < n; i++ {\n\t\t\t\trow := []byte{}\n\t\t\t\tfor j := 0; j < n; j++ {\n\t\t\t\t\tif queens[i] == j {\n\t\t\t\t\t\trow = append(row, 'Q')\n\t\t\t\t\t} else {\n\t\t\t\t\t\trow = append(row, '.')\n\t\t\t\t\t}\n\t\t\t\t}\n\t\t\t\tboard[i] = string(row)\n\t\t\t}\n\t\t\tres = append(res, board)\n\t\t\treturn\n\t\t}\n\t\tfor c := 0; c < n; c++ {\n\t\t\td1, d2 := r-c+n, r+c\n\t\t\tif cols[c] || diag1[d1] || diag2[d2] {\n\t\t\t\tcontinue // 剪枝：该列或两条斜线已被攻击\n\t\t\t}\n\t\t\tcols[c], diag1[d1], diag2[d2] = true, true, true\n\t\t\tqueens[r] = c // 1. 做选择：第 r 行皇后放第 c 列\n\t\t\tdfs(r + 1)    // 2. 递归：处理下一行\n\t\t\tcols[c], diag1[d1], diag2[d2] = false, false, false\n\t\t\tqueens[r] = -1 // 3. 撤销选择：释放全部标记\n\t\t}\n\t}\n\tdfs(0)\n\treturn res\n}"
+    },
+    {
+      "id": 77,
+      "title": "Combinations",
+      "titleCn": "组合",
+      "difficulty": "medium",
+      "frequency": 4,
+      "companies": [
+        "美团",
+        "百度"
+      ],
+      "question": "给定两个整数 n 和 k，返回范围 [1, n] 中所有可能的 k 个数的组合。你可以按任意顺序返回答案。\n\n示例 1：输入 n = 4, k = 2，输出 [[2,4],[3,4],[2,3],[1,2],[1,3],[1,4]]。\n示例 2：输入 n = 1, k = 1，输出 [[1]]。\n\n提示：1 <= n <= 20，1 <= k <= n。",
+      "samples": [
+        {
+          "input": "n = 4, k = 2",
+          "output": "[[1,2],[1,3],[1,4],[2,3],[2,4],[3,4]]",
+          "explain": "C(4,2) = 6 个组合，组合内部升序"
+        },
+        {
+          "input": "n = 1, k = 1",
+          "output": "[[1]]",
+          "explain": "只能选 1"
+        }
+      ],
+      "hints": [
+        "审题诀窍：这是组合型回溯最纯净的模板题——候选集 1..n、固定选 k 个、顺序无关，先把它写熟再去做 39/40/90。",
+        "审题诀窍：递归参数 start 表示『下一个只能从 start 开始选』，天然保证组合内部递增、组合之间不重复。",
+        "突破口：剪枝上界值得专门推导——还差 need 个数时，i 最大只能取 n-need+1，再往后连凑满 k 个的机会都没有。",
+        "追问预备：只求组合数怎么做？（杨辉三角递推 C(n,k)=C(n-1,k-1)+C(n-1,k)）；子集/组合/排列三骨架差异？（每节点收集 vs 叶子收集+定长 vs used+全量扫描）"
+      ],
+      "keyPoints": [
+        "path 长度达到 k 时收集答案",
+        "循环从 start 到 n，保证每个组合内部递增、全局不重复",
+        "剪枝上界：i 最大取 n - (k - len(path)) + 1，循环上界写 n - need + 2",
+        "选 → 递归(i+1) → 撤销，标准三步"
+      ],
+      "structureTags": [
+        "backtracking",
+        "dfs",
+        "recursion"
+      ],
+      "approaches": [
+        {
+          "name": "回溯（无剪枝）",
+          "idea": "for i in range(start, n+1) 全量枚举每个起点，凑满 k 个收集。正确，但会走进『即使把后面全选上也凑不满 k 个』的无效子树，n、k 较大时浪费明显。",
+          "complexity": "时间 O(C(n,k)·k)，空间 O(k)",
+          "detail": "组合型回溯的裸写法：dfs(start) 里 for i in range(start, n+1) 全量枚举每个起点，path 凑满 k 个收集。以 n=4, k=2 走查：start=1 时依次试 i=1/2/3/4，选 1 后进入 dfs(2) 再选 2/3/4 → [1,2],[1,3],[1,4]；回溯选 2 → [2,3],[2,4]……共 C(4,2)=6 个。变量变化：start 右移保证组合内部递增，path 长度逐步逼近 k。\n为什么正确：startIndex 让『同一组合只按其唯一升序形态被枚举一次』，这正是组合与排列（需 used 全量扫描）的核心差异。\n易错点：① 递归传 i+1 不是 i，否则出现 [1,1] 这类非法组合；② 收集时 path[:] 拷贝；③ 无剪枝版本会走进『把后面全选上也凑不满 k 个』的无效子树（如根层就选 i=n），n、k 稍大便明显浪费——这也是剪枝版的出发点。",
+          "code": "def combine_plain(n, k):\n    res, path = [], []\n\n    def dfs(start):\n        if len(path) == k:      # 凑够 k 个数\n            res.append(path[:])\n            return\n        for i in range(start, n + 1):   # 全量枚举，无剪枝\n            path.append(i)      # 1. 做选择\n            dfs(i + 1)          # 2. 递归：从 i+1 往后选\n            path.pop()          # 3. 撤销选择\n\n    dfs(1)\n    return res"
+        },
+        {
+          "name": "回溯 + 枚举上界剪枝",
+          "optimal": true,
+          "idea": "还差 need = k - len(path) 个数时，i 最大只能取 n - need + 1（再往后剩余候选不够凑满），循环上界写成 range(start, n - need + 2)，无效子树整段消失。",
+          "complexity": "时间 O(C(n,k)·k)，空间 O(k)",
+          "detail": "上界剪枝的完整推导：设还差 need = k - len(path) 个数，若本层从 i 开始选，则 i 之后（含 i）必须至少还剩 need 个候选才可能凑满，即 i ≤ n - need + 1；因此循环写成 for i in range(start, n - need + 2)（range 右开故加一）。以 n=4, k=2 走查：根层 need=2，i 最大取 3，i=4 的分支（选 4 后只剩 0 个候选）整段不再进入；选 1 后 need=1，i 最大取 4 → [1,2],[1,3],[1,4]。变量变化：need 随 path 增长而减小、上界随之放宽，恰好把『必然凑不满』的子树全部剪掉。\n为什么正确：剪掉的分支连数学上凑满 k 个的可能性都没有，解集完整性不受影响。\n易错点：① need 必须在循环外计算，用循环内变化的 len(path) 会算错上界；② range 右开，上界写成 n-need+1 会漏掉 i = n-need+1 的合法分支；③ 递归传 i+1、收集 path[:] 的老规矩不变。",
+          "code": "def combine(n, k):\n    res, path = [], []\n\n    def dfs(start):\n        if len(path) == k:      # 凑够 k 个数\n            res.append(path[:])\n            return\n        need = k - len(path)    # 还需要选多少个数（循环外计算）\n        for i in range(start, n - need + 2):  # i 最大到 n - need + 1\n            path.append(i)      # 1. 做选择\n            dfs(i + 1)          # 2. 递归\n            path.pop()          # 3. 撤销选择\n\n    dfs(1)\n    return res"
+        }
+      ],
+      "code": "class Solution:\n    def combine(self, n: int, k: int) -> List[List[int]]:\n        res, path = [], []\n\n        def dfs(start: int) -> None:\n            if len(path) == k:      # 递归终点：凑够 k 个数\n                res.append(path[:])\n                return\n            need = k - len(path)    # 还需要选多少个数\n            # 剪枝：i 最大到 n - need + 1，再往后剩余候选凑不满 k 个\n            for i in range(start, n - need + 2):\n                path.append(i)      # 1. 做选择：把 i 加入组合\n                dfs(i + 1)          # 2. 递归：只能从 i+1 往后选，防重复组合\n                path.pop()          # 3. 撤销选择：回溯\n\n        dfs(1)\n        return res",
+      "acmCode": "# ACM 模式：完整可运行程序（stdin -> stdout）\n# 输入格式：\n#   第一行：n 和 k（从 [1, n] 中选 k 个数）\n# 输出格式：\n#   第一行：组合总数 C(n, k)\n#   后续每行一个组合，数字升序、空格分隔\nimport sys\n\ndef main():\n    data = sys.stdin.read().split()\n    n, k = int(data[0]), int(data[1])\n    path, res = [], []\n\n    def dfs(start):\n        if len(path) == k:              # 凑够 k 个数，收集组合\n            res.append(path[:])\n            return\n        need = k - len(path)            # 还需要选多少个数\n        for i in range(start, n - need + 2):  # 剪枝：i 最大到 n - need + 1\n            path.append(i)              # 1. 做选择：把 i 加入组合\n            dfs(i + 1)                  # 2. 递归：只能从 i+1 往后选\n            path.pop()                  # 3. 撤销选择\n\n    dfs(1)\n    print(len(res))\n    for c in res:\n        print(' '.join(map(str, c)))\n\nif __name__ == '__main__':\n    main()\n",
+      "templates": [
+        "组合型回溯模板：def dfs(start): 凑满 k 收集；for i in range(start, n-(k-len(path))+2): append → dfs(i+1) → pop。39/40/77/90 同族。",
+        "上界剪枝推导：还差 need 个 → i 之后必须还有 need-1 个候选 → i ≤ n-need+1。"
+      ],
+      "codeCpp": "class Solution {\npublic:\n    vector<vector<int>> combine(int n, int k) {\n        vector<vector<int>> res;\n        vector<int> path;\n        function<void(int)> dfs = [&](int start) {\n            if ((int)path.size() == k) { // 递归终点：凑够 k 个数\n                res.push_back(path);\n                return;\n            }\n            int need = k - (int)path.size(); // 还需要选多少个数\n            // 剪枝：i 最大到 n - need + 1，再往后剩余候选凑不满 k 个\n            for (int i = start; i <= n - need + 1; ++i) {\n                path.push_back(i);       // 1. 做选择：把 i 加入组合\n                dfs(i + 1);              // 2. 递归：只能从 i+1 往后选，防重复组合\n                path.pop_back();         // 3. 撤销选择：回溯\n            }\n        };\n        dfs(1);\n        return res;\n    }\n};",
+      "acmCodeCpp": "// ACM 模式：完整可运行程序（stdin -> stdout）\n// 输入格式：\n//   第一行：n 和 k（从 [1, n] 中选 k 个数）\n// 输出格式：\n//   第一行：组合总数 C(n, k)\n//   后续每行一个组合，数字升序、空格分隔\n#include <iostream>\n#include <vector>\nusing namespace std;\n\nint n, k;\nvector<int> path;\nvector<vector<int>> res;\n\nvoid dfs(int start) {\n    if ((int)path.size() == k) {         // 凑够 k 个数，收集组合\n        res.push_back(path);\n        return;\n    }\n    int need = k - (int)path.size();     // 还需要选多少个数\n    for (int i = start; i <= n - need + 1; ++i) { // 剪枝：i 最大到 n - need + 1\n        path.push_back(i);               // 1. 做选择：把 i 加入组合\n        dfs(i + 1);                      // 2. 递归：只能从 i+1 往后选\n        path.pop_back();                 // 3. 撤销选择\n    }\n}\n\nint main() {\n    cin >> n >> k;\n    dfs(1);\n    cout << res.size() << \"\\n\";          // 第一行：组合总数\n    for (const auto& c : res) {\n        for (int j = 0; j < (int)c.size(); ++j) {\n            if (j) cout << ' ';\n            cout << c[j];\n        }\n        cout << \"\\n\";\n    }\n    return 0;\n}",
+      "codeJava": "class Solution {\n    public List<List<Integer>> combine(int n, int k) {\n        List<List<Integer>> res = new ArrayList<>();\n        dfs(n, k, 1, new ArrayList<>(), res);\n        return res;\n    }\n\n    private void dfs(int n, int k, int start, List<Integer> path,\n                     List<List<Integer>> res) {\n        if (path.size() == k) {              // 递归终点：凑够 k 个数\n            res.add(new ArrayList<>(path));\n            return;\n        }\n        int need = k - path.size();          // 还需要选多少个数\n        // 剪枝：i 最大到 n - need + 1，再往后剩余候选凑不满 k 个\n        for (int i = start; i <= n - need + 1; i++) {\n            path.add(i);                     // 1. 做选择：把 i 加入组合\n            dfs(n, k, i + 1, path, res);     // 2. 递归：只能从 i+1 往后选\n            path.remove(path.size() - 1);    // 3. 撤销选择：回溯\n        }\n    }\n}",
+      "codeJs": "/**\n * @param {number} n\n * @param {number} k\n * @return {number[][]}\n */\nvar combine = function (n, k) {\n  const res = [];\n  const path = [];\n  const dfs = (start) => {\n    if (path.length === k) {             // 递归终点：凑够 k 个数\n      res.push([...path]);\n      return;\n    }\n    const need = k - path.length;        // 还需要选多少个数\n    // 剪枝：i 最大到 n - need + 1，再往后剩余候选凑不满 k 个\n    for (let i = start; i <= n - need + 1; i++) {\n      path.push(i);                      // 1. 做选择：把 i 加入组合\n      dfs(i + 1);                        // 2. 递归：只能从 i+1 往后选，防重复组合\n      path.pop();                        // 3. 撤销选择：回溯\n    }\n  };\n  dfs(1);\n  return res;\n};",
+      "codeGo": "func combine(n int, k int) [][]int {\n\tvar res [][]int\n\tpath := []int{}\n\tvar dfs func(start int)\n\tdfs = func(start int) {\n\t\tif len(path) == k { // 递归终点：凑够 k 个数\n\t\t\tres = append(res, append([]int{}, path...))\n\t\t\treturn\n\t\t}\n\t\tneed := k - len(path) // 还需要选多少个数\n\t\t// 剪枝：i 最大到 n - need + 1，再往后剩余候选凑不满 k 个\n\t\tfor i := start; i <= n-need+1; i++ {\n\t\t\tpath = append(path, i) // 1. 做选择：把 i 加入组合\n\t\t\tdfs(i + 1)             // 2. 递归：只能从 i+1 往后选，防重复组合\n\t\t\tpath = path[:len(path)-1] // 3. 撤销选择：回溯\n\t\t}\n\t}\n\tdfs(1)\n\treturn res\n}"
+    },
+    {
+      "id": 78,
+      "title": "Subsets",
+      "titleCn": "子集",
+      "difficulty": "medium",
+      "frequency": 5,
+      "companies": [
+        "美团",
+        "百度"
+      ],
+      "question": "给你一个整数数组 nums，数组中的元素互不相同。返回该数组所有可能的子集（幂集）。解集不能包含重复的子集。你可以按任意顺序返回解集。\n\n示例 1：输入 nums = [1,2,3]，输出 [[],[1],[1,2],[1,2,3],[1,3],[2],[2,3],[3]]。\n示例 2：输入 nums = [0]，输出 [[],[0]]。\n\n提示：1 <= nums.length <= 10，-10 <= nums[i] <= 10，nums 中的所有元素互不相同。",
+      "samples": [
+        {
+          "input": "nums = [1,2,3]",
+          "output": "[[],[1],[1,2],[1,2,3],[1,3],[2],[2,3],[3]]",
+          "explain": "2^3 = 8 个子集，包含空集与全集"
+        },
+        {
+          "input": "nums = [0]",
+          "output": "[[],[0]]",
+          "explain": "单元素数组的幂集：空集与自身"
+        }
+      ],
+      "hints": [
+        "审题诀窍：子集问题的独特之处是『每个节点都是答案』——进入递归先收集当前 path，而不是等凑满某个长度。",
+        "审题诀窍：不重复的关键是让子集内元素下标递增——递归传 i+1 即可，无需 used 数组。",
+        "突破口：换个视角，每个元素『选或不选』，2^n 个二进制掩码与 2^n 个子集一一对应，位运算枚举是另一条可行路。",
+        "追问预备：元素可重复怎么办？（排序 + 同层去重，即 90）；能否用位运算枚举？（mask 第 j 位表示选不选 nums[j]，2^n 个掩码一一对应）"
+      ],
+      "keyPoints": [
+        "进入每层递归时先把当前 path 拷贝加入结果（中间节点也是答案）",
+        "递归传 i+1，保证子集内下标递增、不产生重复子集",
+        "无需显式递归终点：i 越界后 for 循环自然结束",
+        "复杂度由输出规模决定：2^n 个子集，总元素数 O(n·2^n)"
+      ],
+      "structureTags": [
+        "backtracking",
+        "dfs",
+        "recursion"
+      ],
+      "approaches": [
+        {
+          "name": "位运算枚举掩码",
+          "idea": "枚举 0 到 2^n-1 的每个整数 mask，第 j 位为 1 表示选 nums[j]，按位拼出子集。不递归、实现短，但位运算语义不如回溯直观，也难推广到去重版本。",
+          "complexity": "时间 O(n·2^n)，空间 O(n)（不含输出）",
+          "detail": "推导：n 个元素每个都有『选 / 不选』两种状态，n 位二进制掩码 mask 与子集一一对应——第 j 位是 1 表示选 nums[j]。枚举 mask 从 0 到 2^n - 1，按位拆出元素即得全部 2^n 个子集。以 nums=[1,2,3] 走查：mask=000 → []；mask=001 → [1]；mask=010 → [2]；mask=011 → [1,2]；mask=101 → [1,3]……每个整数恰好对应一个子集，不多不少。为什么正确：指示向量法是幂集的双射编码，(mask >> j) & 1 把『选不选』变成位判断。\n易错点：① 输出顺序与回溯法不同（按 mask 数值序），题目允许任意顺序所以没问题，但对拍时要先排序；② n 稍大时 2^n 爆炸（本题 n ≤ 10 才可行）；③ 该方法难以推广到含重复元素的 90——同层去重的结构在掩码枚举里没有对应物。",
+          "code": "def subsets_bitmask(nums):\n    n = len(nums)\n    res = []\n    for mask in range(1 << n):  # 枚举 0 ~ 2^n - 1 的所有指示掩码\n        cur = [nums[j] for j in range(n) if (mask >> j) & 1]\n        res.append(cur)         # 第 j 位为 1 表示选 nums[j]\n    return res"
+        },
+        {
+          "name": "回溯（进入即收集）",
+          "optimal": true,
+          "idea": "子集问题的答案是『所有前缀』：进入 dfs 先把 path 拷进结果，再 for j in range(i, n) 做选择、递归 j+1、撤销。与组合型的差别只在收集时机从叶子提前到每个节点。",
+          "complexity": "时间 O(n·2^n)，空间 O(n)（不含输出）",
+          "detail": "子集问题的独特之处：每个节点都是答案。决策树第 i 层表示『接下来从 nums[i..] 里选下一个元素』，从根到当前节点的路径（path）本身就是一个合法子集，因此进入 dfs 第一件事就是 res.append(path[:]) 收集——这与组合型『叶子才收集』是唯一区别。以 nums=[1,2,3] 走查：根节点先收集 []；j=0 选 1 → 子树收集 [1]，再选 2 → [1,2]，再选 3 → [1,2,3]；回溯后 j=2 选 3 → [1,3]；回到根层 j=1 选 2 → [2]、[2,3]；j=2 → [3]，共 8 个。变量变化：path 随 append/pop 增缩，递归参数 j+1 保证子集内下标递增。\n为什么正确：每个子集恰好对应『元素下标递增』的唯一枚举路径，递归传 j+1 排除了乱序重复。\n易错点：① 忘记入口处收集会漏掉全部中间子集与空集；② 递归传 j 而不是 j+1 会产生重复子集；③ 不需要显式递归终点，i 越界后 for 循环自然结束——写 if i == n: return 也不算错，但非必需。",
+          "code": "def subsets(nums):\n    res, path = [], []\n\n    def dfs(i):\n        res.append(path[:])     # 子集型关键：进入每个节点先收集\n        for j in range(i, len(nums)):\n            path.append(nums[j])  # 1. 做选择\n            dfs(j + 1)            # 2. 递归：只考虑 j 之后的元素\n            path.pop()            # 3. 撤销选择\n\n    dfs(0)\n    return res"
+        }
+      ],
+      "code": "class Solution:\n    def subsets(self, nums: List[int]) -> List[List[int]]:\n        res, path = [], []\n\n        def dfs(i: int) -> None:\n            # 子集型关键：进入每个节点先收集，当前前缀本身就是一个子集\n            res.append(path[:])\n            for j in range(i, len(nums)):\n                path.append(nums[j])  # 1. 做选择：把 nums[j] 加入子集\n                dfs(j + 1)            # 2. 递归：只考虑 j 之后的元素，避免重复\n                path.pop()            # 3. 撤销选择：回溯\n\n        dfs(0)\n        return res",
+      "acmCode": "# ACM 模式：完整可运行程序（stdin -> stdout）\n# 输入格式：\n#   第一行：n（数组长度）\n#   第二行：n 个互不相同的整数（数组）\n# 输出格式：\n#   第一行：子集总数 2^n\n#   后续 2^n 行：每行一个子集，元素间空格分隔；空子集输出空行\nimport sys\n\ndef main():\n    data = sys.stdin.read().split()\n    n = int(data[0])\n    nums = [int(x) for x in data[1:1 + n]]\n    path, res = [], []\n\n    def dfs(i):\n        res.append(path[:])         # 进入即收集：每个节点都是一个子集\n        for j in range(i, n):\n            path.append(nums[j])    # 1. 做选择：把 nums[j] 加入子集\n            dfs(j + 1)              # 2. 递归：只考虑 j 之后的元素\n            path.pop()              # 3. 撤销选择\n\n    dfs(0)\n    print(len(res))\n    for s in res:\n        print(' '.join(map(str, s)))\n\nif __name__ == '__main__':\n    main()\n",
+      "templates": [
+        "子集型回溯模板：进入 dfs 先 res.append(path[:])，再 for j in range(i, n): append → dfs(j+1) → pop。",
+        "子集 / 排列 / 组合三骨架：子集 = 每节点收集；组合 = 叶子收集 + 定长；排列 = used + 全量扫描；递归参数 i / i+1 / start 的含义一脉相承。"
+      ],
+      "codeCpp": "class Solution {\npublic:\n    vector<vector<int>> subsets(vector<int>& nums) {\n        vector<vector<int>> res;\n        vector<int> path;\n        function<void(int)> dfs = [&](int i) {\n            // 子集型关键：进入每个节点先收集，当前前缀本身就是一个子集\n            res.push_back(path);\n            for (int j = i; j < (int)nums.size(); ++j) {\n                path.push_back(nums[j]); // 1. 做选择：把 nums[j] 加入子集\n                dfs(j + 1);              // 2. 递归：只考虑 j 之后的元素，避免重复\n                path.pop_back();         // 3. 撤销选择：回溯\n            }\n        };\n        dfs(0);\n        return res;\n    }\n};",
+      "acmCodeCpp": "// ACM 模式：完整可运行程序（stdin -> stdout）\n// 输入格式：\n//   第一行：n（数组长度）\n//   第二行：n 个互不相同的整数（数组）\n// 输出格式：\n//   第一行：子集总数 2^n\n//   后续 2^n 行：每行一个子集，元素间空格分隔；空子集输出空行\n#include <iostream>\n#include <vector>\nusing namespace std;\n\nint n;\nvector<int> nums, path;\nvector<vector<int>> res;\n\nvoid dfs(int i) {\n    res.push_back(path);                 // 进入即收集：每个节点都是一个子集\n    for (int j = i; j < n; ++j) {\n        path.push_back(nums[j]);         // 1. 做选择：把 nums[j] 加入子集\n        dfs(j + 1);                      // 2. 递归：只考虑 j 之后的元素\n        path.pop_back();                 // 3. 撤销选择\n    }\n}\n\nint main() {\n    cin >> n;\n    nums.resize(n);\n    for (auto& x : nums) cin >> x;\n    dfs(0);\n    cout << res.size() << \"\\n\";          // 第一行：子集总数\n    for (const auto& s : res) {\n        for (int k = 0; k < (int)s.size(); ++k) {\n            if (k) cout << ' ';\n            cout << s[k];\n        }\n        cout << \"\\n\";                    // 空子集输出空行\n    }\n    return 0;\n}",
+      "codeJava": "class Solution {\n    public List<List<Integer>> subsets(int[] nums) {\n        List<List<Integer>> res = new ArrayList<>();\n        dfs(nums, 0, new ArrayList<>(), res);\n        return res;\n    }\n\n    private void dfs(int[] nums, int i, List<Integer> path, List<List<Integer>> res) {\n        // 子集型关键：进入每个节点先收集，当前前缀本身就是一个子集\n        res.add(new ArrayList<>(path));\n        for (int j = i; j < nums.length; j++) {\n            path.add(nums[j]);               // 1. 做选择：把 nums[j] 加入子集\n            dfs(nums, j + 1, path, res);     // 2. 递归：只考虑 j 之后的元素\n            path.remove(path.size() - 1);    // 3. 撤销选择：回溯\n        }\n    }\n}",
+      "codeJs": "/**\n * @param {number[]} nums\n * @return {number[][]}\n */\nvar subsets = function (nums) {\n  const res = [];\n  const path = [];\n  const dfs = (i) => {\n    res.push([...path]);             // 子集型关键：进入每个节点先收集\n    for (let j = i; j < nums.length; j++) {\n      path.push(nums[j]);            // 1. 做选择：把 nums[j] 加入子集\n      dfs(j + 1);                    // 2. 递归：只考虑 j 之后的元素，避免重复\n      path.pop();                    // 3. 撤销选择：回溯\n    }\n  };\n  dfs(0);\n  return res;\n};",
+      "codeGo": "func subsets(nums []int) [][]int {\n\tvar res [][]int\n\tpath := []int{}\n\tvar dfs func(i int)\n\tdfs = func(i int) {\n\t\t// 子集型关键：进入每个节点先收集，当前前缀本身就是一个子集\n\t\tres = append(res, append([]int{}, path...))\n\t\tfor j := i; j < len(nums); j++ {\n\t\t\tpath = append(path, nums[j]) // 1. 做选择：把 nums[j] 加入子集\n\t\t\tdfs(j + 1)                   // 2. 递归：只考虑 j 之后的元素\n\t\t\tpath = path[:len(path)-1]    // 3. 撤销选择：回溯\n\t\t}\n\t}\n\tdfs(0)\n\treturn res\n}"
+    },
+    {
+      "id": 79,
+      "title": "Word Search",
+      "titleCn": "单词搜索",
+      "difficulty": "medium",
+      "frequency": 5,
+      "companies": [
+        "华为",
+        "Momenta"
+      ],
+      "question": "给定一个 m x n 二维字符网格 board 和一个字符串单词 word。如果 word 存在于网格中，返回 true；否则，返回 false。单词必须按照字母顺序，通过相邻的单元格内的字母构成，其中『相邻』单元格是那些水平相邻或垂直相邻的单元格。同一个单元格内的字母在一个单词中不允许被重复使用。\n\n示例 1：board = [[\"A\",\"B\",\"C\",\"E\"],[\"S\",\"F\",\"C\",\"S\"],[\"A\",\"D\",\"E\",\"E\"]], word = \"ABCCED\"，输出 true。\n示例 2：同一 board，word = \"SEE\"，输出 true。\n示例 3：同一 board，word = \"ABCB\"，输出 false。\n\n提示：1 <= board.length, board[i].length <= 6，1 <= word.length <= 15。",
+      "samples": [
+        {
+          "input": "board = [[\"A\",\"B\",\"C\",\"E\"],[\"S\",\"F\",\"C\",\"S\"],[\"A\",\"D\",\"E\",\"E\"]], word = \"ABCCED\"",
+          "output": "true",
+          "explain": "路径 (0,0)A → (0,1)B → (0,2)C → (1,2)C → (2,2)E → (2,1)D"
+        },
+        {
+          "input": "board = [[\"A\",\"B\",\"C\",\"E\"],[\"S\",\"F\",\"C\",\"S\"],[\"A\",\"D\",\"E\",\"E\"]], word = \"SEE\"",
+          "output": "true",
+          "explain": "路径 (1,3)S → (2,3)E → (2,2)E"
+        },
+        {
+          "input": "board = [[\"A\",\"B\",\"C\",\"E\"],[\"S\",\"F\",\"C\",\"S\"],[\"A\",\"D\",\"E\",\"E\"]], word = \"ABCB\"",
+          "output": "false",
+          "explain": "最后的 B 无法在不重复使用格子的前提下到达"
+        }
+      ],
+      "hints": [
+        "审题诀窍：网格找单词 = 从每个等于 word[0] 的格子出发，沿四个方向 DFS；『同格不许重复用』靠访问标记解决。",
+        "审题诀窍：原地修改 board（置 '#'）当访问标记最省空间，但递归返回后必须恢复原字符，否则会污染后续起点的搜索。",
+        "突破口：递归参数是『格坐标 + 已匹配到 word 的第几位』；匹配完最后一位即成功，找到一条路径就用 or 短路一路返回 true。",
+        "追问预备：如何输出单词的具体路径？（回溯时用坐标栈记录，成功时直接返回）；多个单词批量查询怎么做？（Trie + 回溯，即 212 单词搜索 II）"
+      ],
+      "keyPoints": [
+        "从每个等于 word[0] 的格子出发尝试 DFS",
+        "递归参数携带匹配进度 i，i == len(word) 即成功",
+        "用 board[r][c] = '#' 原地标记已访问，回溯时恢复原字符",
+        "出界或字符不匹配返回 False；四方向任一成功即成功（or 短路）"
+      ],
+      "structureTags": [
+        "backtracking",
+        "dfs",
+        "recursion",
+        "matrix"
+      ],
+      "approaches": [
+        {
+          "name": "DFS 回溯 + visited 矩阵",
+          "idea": "从每个等于 word[0] 的格子出发 DFS 四方向；用与 board 同尺寸的布尔矩阵标记访问状态，递归返回后复位。逻辑清晰，但需要额外 O(m·n) 空间。",
+          "complexity": "时间 O(m·n·3^L)（L 为单词长度），空间 O(m·n)",
+          "detail": "网格回溯框架：外层枚举起点——每个等于 word[0] 的格子都可能是一步之始；内层 dfs(r, c, i) 表示『已匹配 word 前 i 个字符，当前站在 (r,c)』。每层先判 i == len(word)（全部匹配成功）与出界 / board[r][c] != word[i]（失败），再用 visited[r][c] 布尔矩阵标记进入、四方向递归、返回后复位。以 board 与 word='SEE' 走查：S 在 (1,0)、(1,3)；从 (1,3) 出发：标记 S → 四方向找 E → (2,3) 命中 → 从 (2,3) 找 E → (2,2) 命中 → i=3 返回 True 一路短路。变量变化：i 每层加一表示匹配进度，found 由四个方向 or 而来。\n为什么正确：每次递归只扩展『相邻、字符匹配、未访问』的格子，等价于枚举全部无重复格子的路径；or 短路保证找到一条即停。\n易错点：① visited 复位必须执行，否则后续起点看到脏标记；② 起点要遍历全网格而不是只试 (0,0)；③ 复杂度 O(m·n·3^L)——起步 4 个方向，之后最多 3 个（不走回头路），别误写成 4^L。",
+          "code": "def exist_visited(board, word):\n    m, n = len(board), len(board[0])\n    visited = [[False] * n for _ in range(m)]   # 额外 O(m·n) 访问矩阵\n\n    def dfs(r, c, i):\n        if i == len(word):\n            return True            # 单词全部匹配成功\n        if r < 0 or r >= m or c < 0 or c >= n \\\n                or visited[r][c] or board[r][c] != word[i]:\n            return False           # 出界 / 已访问 / 字符不匹配\n        visited[r][c] = True       # 1. 做选择：标记访问\n        found = (dfs(r + 1, c, i + 1) or dfs(r - 1, c, i + 1) or\n                 dfs(r, c + 1, i + 1) or dfs(r, c - 1, i + 1))\n        visited[r][c] = False      # 3. 撤销选择：复位\n        return found\n\n    return any(dfs(r, c, 0) for r in range(m) for c in range(n))"
+        },
+        {
+          "name": "DFS 回溯 + 原地标记",
+          "optimal": true,
+          "idea": "进入格子先把 board[r][c] 改成 '#' 占位，四方向递归结束后恢复原字符——省掉 visited 矩阵，空间只剩递归栈。匹配成功用 or 短路一路返回 true，不浪费后续分支。",
+          "complexity": "时间 O(m·n·3^L)，空间 O(L)",
+          "detail": "用 '#' 占位替代 visited 矩阵：进入格子先把 board[r][c] 改成 '#'（做选择），四方向递归结束后恢复 word[i]（撤销选择）——正在路径上的格子对后续递归『不可见』，等价于访问标记，却省掉 O(m·n) 的额外矩阵，空间只剩递归栈 O(L)。以 word='ABCB' 的反例走查：A(0,0) → B(0,1) → C(0,2) → 找 B：下 (1,2) 是 C、右 (0,3) 是 E、左 (0,1) 已被标 '#'、上出界，全部失败 → 回溯；其余起点穷尽后返回 false。再走查 word='SEE'：S(1,3) → E(2,3) → E(2,2) 成功，or 短路一路返回 true。\n为什么正确：'#' 破坏了字符匹配（word 由字母组成），相当于把该格从图中暂时摘除；恢复后兄弟分支互不干扰。\n易错点：① 恢复语句必须在四方向递归之后、return found 之前，不能写进 or 表达式的分支里提前返回；② 判断顺序：先判 i == len(word) 再判出界/字符，两者颠倒会在『单词末字符恰在路径上』时漏判；③ 只适用于字符网格——若格值可能本身就是 '#'，要换用 visited 矩阵。",
+          "code": "def exist(board, word):\n    m, n = len(board), len(board[0])\n\n    def dfs(r, c, i):\n        if i == len(word):      # 单词每个字符都匹配成功\n            return True\n        if r < 0 or r >= m or c < 0 or c >= n or board[r][c] != word[i]:\n            return False        # 出界或字符不匹配\n        board[r][c] = \"#\"       # 1. 做选择：占用该格（原地标记）\n        found = (dfs(r + 1, c, i + 1) or dfs(r - 1, c, i + 1) or\n                 dfs(r, c + 1, i + 1) or dfs(r, c - 1, i + 1))\n        board[r][c] = word[i]   # 3. 撤销选择：恢复字符\n        return found\n\n    return any(dfs(r, c, 0) for r in range(m) for c in range(n))"
+        }
+      ],
+      "code": "class Solution:\n    def exist(self, board: List[List[str]], word: str) -> bool:\n        m, n = len(board), len(board[0])\n\n        def dfs(r: int, c: int, i: int) -> bool:\n            if i == len(word):      # 递归终点：单词每个字符都匹配成功\n                return True\n            if r < 0 or r >= m or c < 0 or c >= n or board[r][c] != word[i]:\n                return False        # 出界或当前字符不匹配\n            board[r][c] = \"#\"       # 1. 做选择：占用该格（原地标记，防止重复使用）\n            found = (dfs(r + 1, c, i + 1) or  # 2. 递归：向四个方向匹配下一字符\n                     dfs(r - 1, c, i + 1) or\n                     dfs(r, c + 1, i + 1) or\n                     dfs(r, c - 1, i + 1))\n            board[r][c] = word[i]   # 3. 撤销选择：恢复字符，不影响后续搜索\n            return found\n\n        for r in range(m):\n            for c in range(n):\n                if dfs(r, c, 0):    # 从每个可能的起点尝试匹配\n                    return True\n        return False",
+      "acmCode": "# ACM 模式：完整可运行程序（stdin -> stdout）\n# 输入格式：\n#   第一行：m 和 n（网格行数与列数）\n#   接下来 m 行：每行一个长度为 n 的大写字母字符串（网格）\n#   最后一行：单词 word\n# 输出格式：一行 true 或 false\nimport sys\n\ndef main():\n    data = sys.stdin.read().split()\n    m, n = int(data[0]), int(data[1])\n    board = [list(row) for row in data[2:2 + m]]   # 每行拆成字符列表，便于原地标记\n    word = data[2 + m]\n\n    def dfs(r, c, i):\n        if i == len(word):          # 单词每个字符都匹配成功\n            return True\n        if r < 0 or r >= m or c < 0 or c >= n or board[r][c] != word[i]:\n            return False            # 出界或当前字符不匹配\n        board[r][c] = '#'           # 1. 做选择：占用该格防止重复使用\n        found = (dfs(r + 1, c, i + 1) or dfs(r - 1, c, i + 1) or\n                 dfs(r, c + 1, i + 1) or dfs(r, c - 1, i + 1))\n        board[r][c] = word[i]       # 3. 撤销选择：恢复现场\n        return found\n\n    ans = any(dfs(r, c, 0) for r in range(m) for c in range(n))\n    print('true' if ans else 'false')\n\nif __name__ == '__main__':\n    main()\n",
+      "templates": [
+        "网格 DFS 回溯模板：出界/不匹配先返回 → 标记 grid[r][c]（'#' 或 visited）→ 四方向递归 → 恢复 grid[r][c]。找存在返回 bool 用 or 短路。",
+        "复杂度口诀：网格找路径 O(格子数 × 3^L)——起步 4 个方向，之后每步最多 3 个（不走回头路），L 为路径长度。"
+      ],
+      "codeCpp": "class Solution {\npublic:\n    bool exist(vector<vector<char>>& board, string word) {\n        int m = board.size(), n = board[0].size();\n        // 回溯：r/c 是当前格，i 是已匹配的字符数\n        function<bool(int, int, int)> dfs = [&](int r, int c, int i) -> bool {\n            if (i == (int)word.size())  // 递归终点：单词每个字符都匹配成功\n                return true;\n            if (r < 0 || r >= m || c < 0 || c >= n || board[r][c] != word[i])\n                return false;           // 出界或当前字符不匹配\n            board[r][c] = '#';          // 1. 做选择：占用该格（原地标记，防止重复使用）\n            bool found = dfs(r + 1, c, i + 1) || // 2. 递归：向四个方向匹配下一字符\n                         dfs(r - 1, c, i + 1) ||\n                         dfs(r, c + 1, i + 1) ||\n                         dfs(r, c - 1, i + 1);\n            board[r][c] = word[i];      // 3. 撤销选择：恢复字符，不影响后续搜索\n            return found;\n        };\n        for (int r = 0; r < m; ++r)\n            for (int c = 0; c < n; ++c)\n                if (dfs(r, c, 0))       // 从每个可能的起点尝试匹配\n                    return true;\n        return false;\n    }\n};",
+      "acmCodeCpp": "// ACM 模式：完整可运行程序（stdin -> stdout）\n// 输入格式：\n//   第一行：m 和 n（网格行数与列数）\n//   接下来 m 行：每行一个长度为 n 的大写字母字符串（网格）\n//   最后一行：单词 word\n// 输出格式：一行 true 或 false\n#include <iostream>\n#include <string>\n#include <vector>\nusing namespace std;\n\nint m, n;\nvector<string> board;\nstring word;\n\nbool dfs(int r, int c, int i) {\n    if (i == (int)word.size())          // 单词每个字符都匹配成功\n        return true;\n    if (r < 0 || r >= m || c < 0 || c >= n || board[r][c] != word[i])\n        return false;                   // 出界或当前字符不匹配\n    board[r][c] = '#';                  // 1. 做选择：占用该格防止重复使用\n    bool found = dfs(r + 1, c, i + 1) || dfs(r - 1, c, i + 1) ||\n                 dfs(r, c + 1, i + 1) || dfs(r, c - 1, i + 1);\n    board[r][c] = word[i];              // 3. 撤销选择：恢复现场\n    return found;\n}\n\nint main() {\n    cin >> m >> n;\n    board.resize(m);\n    for (auto& row : board) cin >> row; // 每行读入一个字符串，便于原地标记\n    cin >> word;\n    bool ans = false;\n    for (int r = 0; r < m && !ans; ++r)\n        for (int c = 0; c < n && !ans; ++c)\n            if (dfs(r, c, 0)) ans = true; // 从每个可能的起点尝试匹配\n    cout << (ans ? \"true\" : \"false\") << endl;\n    return 0;\n}",
+      "codeJava": "class Solution {\n    public boolean exist(char[][] board, String word) {\n        int m = board.length, n = board[0].length;\n        for (int r = 0; r < m; r++) {\n            for (int c = 0; c < n; c++) {\n                if (dfs(board, word, r, c, 0)) return true; // 从每个起点尝试匹配\n            }\n        }\n        return false;\n    }\n\n    private boolean dfs(char[][] board, String word, int r, int c, int i) {\n        if (i == word.length()) return true;    // 递归终点：每个字符都匹配成功\n        if (r < 0 || r >= board.length || c < 0 || c >= board[0].length\n                || board[r][c] != word.charAt(i))\n            return false;                       // 出界或当前字符不匹配\n        board[r][c] = '#';                      // 1. 做选择：占用该格（原地标记）\n        boolean found = dfs(board, word, r + 1, c, i + 1) // 2. 四个方向匹配下一字符\n                || dfs(board, word, r - 1, c, i + 1)\n                || dfs(board, word, r, c + 1, i + 1)\n                || dfs(board, word, r, c - 1, i + 1);\n        board[r][c] = word.charAt(i);           // 3. 撤销选择：恢复字符\n        return found;\n    }\n}",
+      "codeJs": "/**\n * @param {character[][]} board\n * @param {string} word\n * @return {boolean}\n */\nvar exist = function (board, word) {\n  const m = board.length, n = board[0].length;\n  // 回溯：r/c 是当前格，i 是已匹配的字符数\n  const dfs = (r, c, i) => {\n    if (i === word.length) return true;  // 递归终点：每个字符都匹配成功\n    if (r < 0 || r >= m || c < 0 || c >= n || board[r][c] !== word[i])\n      return false;                      // 出界或当前字符不匹配\n    board[r][c] = \"#\";                   // 1. 做选择：占用该格（原地标记）\n    const found =\n      dfs(r + 1, c, i + 1) || dfs(r - 1, c, i + 1) ||\n      dfs(r, c + 1, i + 1) || dfs(r, c - 1, i + 1); // 2. 四个方向匹配\n    board[r][c] = word[i];               // 3. 撤销选择：恢复字符\n    return found;\n  };\n  for (let r = 0; r < m; r++) {\n    for (let c = 0; c < n; c++) {\n      if (dfs(r, c, 0)) return true;     // 从每个可能的起点尝试匹配\n    }\n  }\n  return false;\n};",
+      "codeGo": "func exist(board [][]byte, word string) bool {\n\tm, n := len(board), len(board[0])\n\tvar dfs func(r, c, i int) bool\n\tdfs = func(r, c, i int) bool {\n\t\tif i == len(word) { // 递归终点：单词每个字符都匹配成功\n\t\t\treturn true\n\t\t}\n\t\tif r < 0 || r >= m || c < 0 || c >= n || board[r][c] != word[i] {\n\t\t\treturn false // 出界或当前字符不匹配\n\t\t}\n\t\tboard[r][c] = '#' // 1. 做选择：占用该格（原地标记，防止重复使用）\n\t\tfound := dfs(r+1, c, i+1) || dfs(r-1, c, i+1) ||\n\t\t\tdfs(r, c+1, i+1) || dfs(r, c-1, i+1) // 2. 递归：向四个方向匹配\n\t\tboard[r][c] = word[i] // 3. 撤销选择：恢复字符，不影响后续搜索\n\t\treturn found\n\t}\n\tfor r := 0; r < m; r++ {\n\t\tfor c := 0; c < n; c++ {\n\t\t\tif dfs(r, c, 0) { // 从每个可能的起点尝试匹配\n\t\t\t\treturn true\n\t\t\t}\n\t\t}\n\t}\n\treturn false\n}"
+    },
+    {
+      "id": 90,
+      "title": "Subsets II",
+      "titleCn": "子集 II",
+      "difficulty": "medium",
+      "frequency": 3,
+      "companies": [
+        "美团",
+        "百度"
+      ],
+      "question": "给你一个整数数组 nums，其中可能包含重复元素，请你返回该数组所有可能的子集（幂集）。解集不能包含重复的子集。返回的解集中，子集可以按任意顺序排列。\n\n示例 1：输入 nums = [1,2,2]，输出 [[],[1],[1,2],[1,2,2],[2],[2,2]]。\n示例 2：输入 nums = [0]，输出 [[],[0]]。\n\n提示：1 <= nums.length <= 10，-10 <= nums[i] <= 10。",
+      "samples": [
+        {
+          "input": "nums = [1,2,2]",
+          "output": "[[],[1],[1,2],[1,2,2],[2],[2,2]]",
+          "explain": "取第一个 2 与取第二个 2 得到的 [2] 视为同一子集，去重后 6 个"
+        },
+        {
+          "input": "nums = [0]",
+          "output": "[[],[0]]",
+          "explain": "无重复元素时退化为普通子集问题"
+        }
+      ],
+      "hints": [
+        "审题诀窍：与 78 的唯一区别是元素可能重复——重复子集只会来自『同一层选了值相等的不同元素』。",
+        "审题诀窍：先排序；同层去重条件是 j > i 且 nums[j]==nums[j-1]，注意树枝上的重复（[1,2,2] 里的两个 2）是合法的，不能误剪。",
+        "突破口：进入 dfs 先收集再循环（子集型），循环里一条 continue 完成树层去重——与 40 的去重手法完全同源。",
+        "追问预备：与 47 排列去重的区别？（子集无需 used，靠 j+1 天然有序；排列需 used 且每层全量扫描）；只要非空子集怎么做？（收集时跳过空集或最后去掉首元素）"
+      ],
+      "keyPoints": [
+        "先排序使相同元素相邻，是同层去重的前提",
+        "进入 dfs 先收集当前 path（子集型：每个节点都是答案）",
+        "同层去重：j > i 且 nums[j] == nums[j-1] 时 continue",
+        "递归传 j+1，保证子集内下标递增"
+      ],
+      "structureTags": [
+        "backtracking",
+        "dfs",
+        "recursion",
+        "sort",
+        "dedup"
+      ],
+      "approaches": [
+        {
+          "name": "全量枚举 + set 去重",
+          "idea": "按 78 的方式枚举所有子集，把子集转元组放进 set 过滤。逻辑简单，但重复子树照搜不误，排序与哈希还带来额外开销。",
+          "complexity": "时间 O(n·2^n)，空间 O(n·2^n)",
+          "detail": "思路：先按 78 的『选 / 不选』二叉枚举生成全部 2^n 个子集，再把每个子集排序转元组放进 set 过滤。以 nums=[1,2,2] 走查：枚举产生 [2(下标1)] 与 [2(下标2)] 两个值相同的子集，转元组 (2,) 后在 set 里合并为一份；同理 (1,2) 只留一份，最终 6 个子集。为什么正确：tuple 排序后的逐元素相等，恰等价于『子集的值相同』。\n易错点：① list 不可哈希，必须先转 tuple；② 想要字典序输出需最后 sorted 一遍；③ 重复子树照搜不误且哈希有额外开销，n 稍大就明显劣于同层去重——适合作为面试兜底答案，然后主动升级。",
+          "code": "def subsetsWithDup_brute(nums):\n    res = set()\n\n    def dfs(i, path):\n        if i == len(nums):      # 每个元素都做了『选/不选』决策\n            res.add(tuple(sorted(path)))  # 转可哈希元组去重\n            return\n        dfs(i + 1, path + [nums[i]])   # 选 nums[i]\n        dfs(i + 1, path)               # 不选 nums[i]\n\n    dfs(0, [])\n    return [list(t) for t in sorted(res)]"
+        },
+        {
+          "name": "排序 + 同层去重回溯",
+          "optimal": true,
+          "idea": "先排序；进入 dfs 先收集（子集型）；循环里 if j > i and nums[j] == nums[j-1]: continue——只剪同一层的重复，树枝上的合法重复（如 [1,2,2] 的两个 2）完整保留。",
+          "complexity": "时间 O(n·2^n)，空间 O(n)",
+          "detail": "先排序让相同元素相邻；进入 dfs 先收集当前 path（子集型：每个节点都是答案），循环里加一条同层去重：if j > i and nums[j] == nums[j-1]: continue——本层里值相同的候选只允许选第一个。以排序后的 [1,2,2] 走查：根收集 []；j=0 选 1 → 收集 [1] → j=1 选 2 → [1,2] → j=2 再选 2 → [1,2,2]（树枝重复合法保留）；回退到根层 j=1 选 2 → 收集 [2] → 下一层 j=2 时 j>i 且同值 → continue，[1,2] 的重复副本被剪；根层 j=2 同值 continue。恰好 6 个子集。变量变化：递归传 j+1 保证下标递增，path 随 append/pop 增缩。\n为什么正确：排序保证同值相邻，『同层只选第一个同值』让每个子集值恰好枚举一次，而树枝上的重复（[1,2,2] 的两个 2）不受影响。\n易错点：① 比较基准是本层起点 i，写成 j > 0 会把树枝合法重复误剪、直接漏解；② 先收集后循环的顺序不能反，否则漏掉空集与中间子集；③ 递归传 j+1 不是 j。",
+          "code": "def subsetsWithDup(nums):\n    nums.sort()                 # 排序让相同元素相邻\n    res, path = [], []\n\n    def dfs(i):\n        res.append(path[:])     # 子集型：进入即收集\n        for j in range(i, len(nums)):\n            if j > i and nums[j] == nums[j - 1]:\n                continue        # 同层去重：本层同值只选第一个\n            path.append(nums[j])  # 1. 做选择\n            dfs(j + 1)            # 2. 递归：只看 j 之后的元素\n            path.pop()            # 3. 撤销选择\n\n    dfs(0)\n    return res"
+        }
+      ],
+      "code": "class Solution:\n    def subsetsWithDup(self, nums: List[int]) -> List[List[int]]:\n        nums.sort()                 # 前置：相同元素相邻，同层去重才成立\n        res, path = [], []\n\n        def dfs(i: int) -> None:\n            res.append(path[:])     # 子集型：每个节点都是答案，先收集\n            for j in range(i, len(nums)):\n                if j > i and nums[j] == nums[j - 1]:\n                    continue        # 同层去重：本层同值只允许选第一个\n                path.append(nums[j])  # 1. 做选择：加入子集\n                dfs(j + 1)            # 2. 递归：只看 j 之后的元素\n                path.pop()            # 3. 撤销选择：回溯\n\n        dfs(0)\n        return res",
+      "acmCode": "# ACM 模式：完整可运行程序（stdin -> stdout）\n# 输入格式：\n#   第一行：n（数组长度）\n#   第二行：n 个整数（可能含重复数字）\n# 输出格式：\n#   第一行：不重复子集的个数\n#   后续每行一个子集，元素间空格分隔；空子集输出空行\nimport sys\n\ndef main():\n    data = sys.stdin.read().split()\n    n = int(data[0])\n    nums = sorted(int(x) for x in data[1:1 + n])   # 排序让相同元素相邻\n    path, res = [], []\n\n    def dfs(i):\n        res.append(path[:])         # 子集型：进入每个节点先收集\n        for j in range(i, n):\n            if j > i and nums[j] == nums[j - 1]:\n                continue            # 同层去重：本层同值只允许选第一个\n            path.append(nums[j])    # 1. 做选择\n            dfs(j + 1)              # 2. 递归：只看 j 之后的元素\n            path.pop()              # 3. 撤销选择\n\n    dfs(0)\n    print(len(res))\n    for s in res:\n        print(' '.join(map(str, s)))\n\nif __name__ == '__main__':\n    main()\n",
+      "templates": [
+        "去重三件套：sort → 同层 continue（j > i 且同值）→ 树枝放行。40/47/90 全部复用，只差收集时机与是否需要 used。",
+        "易错点：同层去重的比较基准是本层起点（j > i 或 i > start），写成 j > 0 会把树枝上的合法重复也剪掉，直接漏解。"
+      ],
+      "codeCpp": "class Solution {\npublic:\n    vector<vector<int>> subsetsWithDup(vector<int>& nums) {\n        sort(nums.begin(), nums.end());  // 前置：相同元素相邻，同层去重才成立\n        vector<vector<int>> res;\n        vector<int> path;\n        function<void(int)> dfs = [&](int i) {\n            res.push_back(path);         // 子集型：每个节点都是答案，先收集\n            for (int j = i; j < (int)nums.size(); ++j) {\n                if (j > i && nums[j] == nums[j - 1])\n                    continue;            // 同层去重：本层同值只允许选第一个\n                path.push_back(nums[j]); // 1. 做选择：加入子集\n                dfs(j + 1);              // 2. 递归：只看 j 之后的元素\n                path.pop_back();         // 3. 撤销选择：回溯\n            }\n        };\n        dfs(0);\n        return res;\n    }\n};",
+      "acmCodeCpp": "// ACM 模式：完整可运行程序（stdin -> stdout）\n// 输入格式：\n//   第一行：n（数组长度）\n//   第二行：n 个整数（可能含重复数字）\n// 输出格式：\n//   第一行：不重复子集的个数\n//   后续每行一个子集，元素间空格分隔；空子集输出空行\n#include <iostream>\n#include <vector>\n#include <algorithm>\nusing namespace std;\n\nint n;\nvector<int> nums, path;\nvector<vector<int>> res;\n\nvoid dfs(int i) {\n    res.push_back(path);                 // 子集型：进入每个节点先收集\n    for (int j = i; j < n; ++j) {\n        if (j > i && nums[j] == nums[j - 1])\n            continue;                    // 同层去重：本层同值只允许选第一个\n        path.push_back(nums[j]);         // 1. 做选择\n        dfs(j + 1);                      // 2. 递归：只看 j 之后的元素\n        path.pop_back();                 // 3. 撤销选择\n    }\n}\n\nint main() {\n    cin >> n;\n    nums.resize(n);\n    for (auto& x : nums) cin >> x;\n    sort(nums.begin(), nums.end());      // 排序让相同元素相邻\n    dfs(0);\n    cout << res.size() << \"\\n\";          // 第一行：不重复子集的个数\n    for (const auto& s : res) {\n        for (int k = 0; k < (int)s.size(); ++k) {\n            if (k) cout << ' ';\n            cout << s[k];\n        }\n        cout << \"\\n\";                    // 空子集输出空行\n    }\n    return 0;\n}",
+      "codeJava": "class Solution {\n    public List<List<Integer>> subsetsWithDup(int[] nums) {\n        Arrays.sort(nums);               // 前置：相同元素相邻，同层去重才成立\n        List<List<Integer>> res = new ArrayList<>();\n        dfs(nums, 0, new ArrayList<>(), res);\n        return res;\n    }\n\n    private void dfs(int[] nums, int i, List<Integer> path, List<List<Integer>> res) {\n        res.add(new ArrayList<>(path));  // 子集型：每个节点都是答案，先收集\n        for (int j = i; j < nums.length; j++) {\n            if (j > i && nums[j] == nums[j - 1])\n                continue;                // 同层去重：本层同值只允许选第一个\n            path.add(nums[j]);           // 1. 做选择：加入子集\n            dfs(nums, j + 1, path, res); // 2. 递归：只看 j 之后的元素\n            path.remove(path.size() - 1); // 3. 撤销选择：回溯\n        }\n    }\n}",
+      "codeJs": "/**\n * @param {number[]} nums\n * @return {number[][]}\n */\nvar subsetsWithDup = function (nums) {\n  nums.sort((a, b) => a - b);      // 前置：相同元素相邻，同层去重才成立\n  const res = [];\n  const path = [];\n  const dfs = (i) => {\n    res.push([...path]);           // 子集型：每个节点都是答案，先收集\n    for (let j = i; j < nums.length; j++) {\n      if (j > i && nums[j] === nums[j - 1])\n        continue;                  // 同层去重：本层同值只允许选第一个\n      path.push(nums[j]);          // 1. 做选择：加入子集\n      dfs(j + 1);                  // 2. 递归：只看 j 之后的元素\n      path.pop();                  // 3. 撤销选择：回溯\n    }\n  };\n  dfs(0);\n  return res;\n};",
+      "codeGo": "func subsetsWithDup(nums []int) [][]int {\n\tsort.Ints(nums) // 前置：相同元素相邻，同层去重才成立\n\tvar res [][]int\n\tpath := []int{}\n\tvar dfs func(i int)\n\tdfs = func(i int) {\n\t\tres = append(res, append([]int{}, path...)) // 子集型：每个节点都是答案\n\t\tfor j := i; j < len(nums); j++ {\n\t\t\tif j > i && nums[j] == nums[j-1] {\n\t\t\t\tcontinue // 同层去重：本层同值只允许选第一个\n\t\t\t}\n\t\t\tpath = append(path, nums[j]) // 1. 做选择：加入子集\n\t\t\tdfs(j + 1)                   // 2. 递归：只看 j 之后的元素\n\t\t\tpath = path[:len(path)-1]    // 3. 撤销选择：回溯\n\t\t}\n\t}\n\tdfs(0)\n\treturn res\n}"
+    },
+    {
+      "id": 131,
+      "title": "Palindrome Partitioning",
+      "titleCn": "分割回文串",
+      "difficulty": "medium",
+      "frequency": 4,
+      "companies": [
+        "网易"
+      ],
+      "question": "给你一个字符串 s，请你将 s 分割成一些子串，使每个子串都是回文串。返回 s 所有可能的分割方案。\n\n示例 1：输入 s = \"aab\"，输出 [[\"a\",\"a\",\"b\"],[\"aa\",\"b\"]]。\n示例 2：输入 s = \"a\"，输出 [[\"a\"]]。\n\n提示：1 <= s.length <= 16，s 仅由小写英文字母组成。",
+      "samples": [
+        {
+          "input": "s = \"aab\"",
+          "output": "[[\"a\",\"a\",\"b\"],[\"aa\",\"b\"]]",
+          "explain": "两种切法：a|a|b 与 aa|b"
+        },
+        {
+          "input": "s = \"a\"",
+          "output": "[[\"a\"]]",
+          "explain": "单字符本身是回文"
+        },
+        {
+          "input": "s = \"ab\"",
+          "output": "[[\"a\",\"b\"]]",
+          "explain": "单字符都是回文，a|b 是唯一方案"
+        }
+      ],
+      "hints": [
+        "审题诀窍：分割问题可以看成『每层从 start 截取前缀 s[start..end]，是回文才要』——切分点就是决策变量。",
+        "审题诀窍：答案收集在 start == n（整串切完）而非中途；某个前缀不是回文就 continue，相当于对切分方案剪枝。",
+        "突破口：先写双指针 O(n) 判回文保底；若判断成为瓶颈，可用区间 DP 预处理 isPal[i][j]，把判断降到 O(1)。",
+        "追问预备：如何预处理 isPal 做到 O(1) 判断？（区间 DP：isPal[i][j] = s[i]==s[j] and isPal[i+1][j-1]）；求最少分割次数怎么做？（即 132，DP 或记忆化搜索）"
+      ],
+      "keyPoints": [
+        "递归参数 start 表示下一个分割段的起点，start == n 时收集答案",
+        "枚举分割终点 end，s[start..end] 是回文才做选择",
+        "双指针 O(n) 判回文；可用区间 DP 预处理换取 O(1) 判断",
+        "切一段 → 递归处理剩余后缀 → 撤销，标准三步"
+      ],
+      "structureTags": [
+        "backtracking",
+        "dfs",
+        "recursion",
+        "two_pointer"
+      ],
+      "approaches": [
+        {
+          "name": "回溯 + 双指针判回文",
+          "optimal": true,
+          "idea": "从 start 枚举每个分割终点 end，双指针 O(n) 判断 s[start..end] 是否回文；是回文则切出该段递归处理剩余后缀，start 到达串尾收集方案。非回文前缀直接 continue，等价于剪枝。",
+          "complexity": "时间 O(n·2^n)，空间 O(n)",
+          "detail": "分割问题就是把『切分点』当决策变量：dfs(start) 枚举本段终点 end，若 s[start..end] 是回文则切出该段（做选择），dfs(end+1) 处理剩余后缀（递归），path.pop() 撤销；start 到达 n 说明整串切完，收集方案。以 s='aab' 走查：start=0：end=0 切 'a' → start=1 切 'a' → start=2 切 'b' → [a,a,b]；回溯后 start=1 处 end=1 切 'aa' → [aa,b]；start=0 的 end=2 整串 'aab' 非回文被 continue 剪掉。共 2 个方案。变量变化：start 跳到 end+1，path 增删与切分同步。\n为什么正确：任何分割方案唯一对应一组递增切分点，DFS 恰好按切分点组合枚举；非回文前缀的 continue 等价于对切法剪枝。\n易错点：① 切片是 s[start:end+1]，end 是闭区间右端点，写成 s[start:end] 会少一个字符；② 非回文用 continue 不是 break——本段不是回文不代表更长的段不是；③ 收集在 start==n，别在中途凑够段数就收集。",
+          "code": "def partition(s):\n    n = len(s)\n    res, path = [], []\n\n    def is_pal(lo, hi):         # 双指针从两端向中间收拢\n        while lo < hi:\n            if s[lo] != s[hi]:\n                return False\n            lo += 1\n            hi -= 1\n        return True\n\n    def dfs(start):\n        if start == n:          # 整串切完\n            res.append(path[:])\n            return\n        for end in range(start, n):\n            if not is_pal(start, end):\n                continue        # 剪枝：s[start..end] 不是回文\n            path.append(s[start:end + 1])  # 1. 做选择：切出一段\n            dfs(end + 1)                   # 2. 递归：分割剩余后缀\n            path.pop()                     # 3. 撤销选择\n\n    dfs(0)\n    return res"
+        },
+        {
+          "name": "回文区间 DP 预处理 + 回溯",
+          "idea": "先用区间 DP 预处理 isPal[i][j]（转移：isPal[i][j] = (s[i]==s[j]) and isPal[i+1][j-1]），回溯中的回文判断降为 O(1)。总复杂度仍由方案数主导，适合串更长、判断成为瓶颈的场景。",
+          "complexity": "时间 O(n·2^n)，空间 O(n²)",
+          "detail": "预处理 isPal[i][j] 表示 s[i..j] 是否回文，转移方程 isPal[i][j] = (s[i]==s[j]) and (j-i<2 or isPal[i+1][j-1])：两端字符相等，且去掉两端后仍是回文（长度 ≤ 2 时天然成立）。填表顺序必须保证子区间先算——外层 i 从 n-1 倒序、内层 j 从 i 正序，或按区间长度从小到大枚举。以 s='aab' 走查：isPal[0][0]、isPal[1][1]、isPal[2][2] 全 True（单字符）；isPal[0][1]=True（'aa'，长度 2 且两端相等）；isPal[0][2]=False（'aab' 两端 a≠b）。回溯部分与双指针版完全一致，只是判断降为 O(1)。\n为什么正确：区间 DP 是回文性质的标准递推，预处理 O(n²) 换取回溯内 O(1) 判断。\n易错点：① 填表顺序错会让 isPal[i+1][j-1] 还未计算，全表失效；② 转移里 j-i<2 的短路判断不能省，否则长度 2 的子串会去访问越界区间；③ 方案数仍是指数级，DP 只优化判断常数，不改变输出主导的复杂度。",
+          "code": "def partition_dp(s):\n    n = len(s)\n    is_pal = [[False] * n for _ in range(n)]\n    for i in range(n - 1, -1, -1):   # i 倒序保证 isPal[i+1][...] 先算好\n        for j in range(i, n):\n            if s[i] == s[j] and (j - i < 2 or is_pal[i + 1][j - 1]):\n                is_pal[i][j] = True  # 区间 DP 递推\n    res, path = [], []\n\n    def dfs(start):\n        if start == n:\n            res.append(path[:])\n            return\n        for end in range(start, n):\n            if is_pal[start][end]:   # O(1) 判断\n                path.append(s[start:end + 1])\n                dfs(end + 1)\n                path.pop()\n\n    dfs(0)\n    return res"
+        }
+      ],
+      "code": "class Solution:\n    def partition(self, s: str) -> List[List[str]]:\n        n = len(s)\n        res, path = [], []\n\n        def is_pal(lo: int, hi: int) -> bool:\n            l, r = lo, hi           # 双指针从两端向中间收拢\n            while l < r:\n                if s[l] != s[r]:\n                    return False\n                l += 1\n                r -= 1\n            return True\n\n        def dfs(start: int) -> None:\n            # 递归终点：整个字符串都切成了回文段\n            if start == n:\n                res.append(path[:])\n                return\n            for end in range(start, n):\n                if not is_pal(start, end):\n                    continue        # 剪枝：s[start..end] 不是回文，跳过该切法\n                path.append(s[start:end + 1])  # 1. 做选择：切出一段回文\n                dfs(end + 1)                   # 2. 递归：分割剩余后缀\n                path.pop()                     # 3. 撤销选择：回溯\n\n        dfs(0)\n        return res",
+      "acmCode": "# ACM 模式：完整可运行程序（stdin -> stdout）\n# 输入格式：\n#   第一行：字符串 s（仅小写字母）\n# 输出格式：\n#   第一行：方案数\n#   后续每行一个分割方案，各回文段之间用空格分隔\nimport sys\n\ndef main():\n    data = sys.stdin.read().split()\n    s = data[0] if data else ''\n    n = len(s)\n    res, path = [], []\n\n    def is_pal(lo, hi):                 # 双指针判回文\n        while lo < hi:\n            if s[lo] != s[hi]:\n                return False\n            lo += 1\n            hi -= 1\n        return True\n\n    def dfs(start):\n        if start == n:                  # 整串切完，收集方案\n            res.append(path[:])\n            return\n        for end in range(start, n):\n            if not is_pal(start, end):\n                continue                # 剪枝：该前缀不是回文\n            path.append(s[start:end + 1])  # 1. 做选择：切出一段回文\n            dfs(end + 1)                # 2. 递归：分割剩余后缀\n            path.pop()                  # 3. 撤销选择\n\n    dfs(0)\n    print(len(res))\n    for plan in res:\n        print(' '.join(plan))\n\nif __name__ == '__main__':\n    main()\n",
+      "templates": [
+        "分割型回溯模板：def dfs(start): start==n 收集；for end in range(start, n): 前缀合法才 append → dfs(end+1) → pop。本质是把『切分点』当组合元素来选。",
+        "性能升级：预处理 isPal[i][j] 区间 DP，把回溯里的回文判断从 O(n) 降到 O(1)；方案数多时复杂度仍以输出为主导。"
+      ],
+      "codeCpp": "class Solution {\npublic:\n    vector<vector<string>> partition(string s) {\n        int n = s.size();\n        vector<vector<string>> res;\n        vector<string> path;\n        auto isPal = [&](int lo, int hi) { // 双指针从两端向中间收拢判回文\n            while (lo < hi) {\n                if (s[lo] != s[hi]) return false;\n                ++lo;\n                --hi;\n            }\n            return true;\n        };\n        function<void(int)> dfs = [&](int start) {\n            if (start == n) {            // 递归终点：整个字符串都切成了回文段\n                res.push_back(path);\n                return;\n            }\n            for (int end = start; end < n; ++end) {\n                if (!isPal(start, end))  // 剪枝：s[start..end] 不是回文，跳过\n                    continue;\n                path.push_back(s.substr(start, end - start + 1)); // 1. 切出一段回文\n                dfs(end + 1);            // 2. 递归：分割剩余后缀\n                path.pop_back();         // 3. 撤销选择：回溯\n            }\n        };\n        dfs(0);\n        return res;\n    }\n};",
+      "acmCodeCpp": "// ACM 模式：完整可运行程序（stdin -> stdout）\n// 输入格式：\n//   第一行：字符串 s（仅小写字母）\n// 输出格式：\n//   第一行：方案数\n//   后续每行一个分割方案，各回文段之间用空格分隔\n#include <iostream>\n#include <string>\n#include <vector>\nusing namespace std;\n\nstring s;\nvector<string> path;\nvector<vector<string>> res;\n\nbool isPal(int lo, int hi) {             // 双指针判回文\n    while (lo < hi) {\n        if (s[lo] != s[hi]) return false;\n        ++lo;\n        --hi;\n    }\n    return true;\n}\n\nvoid dfs(int start) {\n    if (start == (int)s.size()) {        // 整串切完，收集方案\n        res.push_back(path);\n        return;\n    }\n    for (int end = start; end < (int)s.size(); ++end) {\n        if (!isPal(start, end))\n            continue;                    // 剪枝：该前缀不是回文\n        path.push_back(s.substr(start, end - start + 1)); // 1. 做选择：切出一段回文\n        dfs(end + 1);                    // 2. 递归：分割剩余后缀\n        path.pop_back();                 // 3. 撤销选择\n    }\n}\n\nint main() {\n    cin >> s;\n    dfs(0);\n    cout << res.size() << \"\\n\";          // 第一行：方案数\n    for (const auto& plan : res) {\n        for (int k = 0; k < (int)plan.size(); ++k) {\n            if (k) cout << ' ';\n            cout << plan[k];\n        }\n        cout << \"\\n\";\n    }\n    return 0;\n}",
+      "codeJava": "class Solution {\n    public List<List<String>> partition(String s) {\n        List<List<String>> res = new ArrayList<>();\n        dfs(s, 0, new ArrayList<>(), res);\n        return res;\n    }\n\n    private void dfs(String s, int start, List<String> path, List<List<String>> res) {\n        int n = s.length();\n        if (start == n) {                      // 递归终点：整串切完，收集方案\n            res.add(new ArrayList<>(path));\n            return;\n        }\n        for (int end = start; end < n; end++) {\n            if (!isPal(s, start, end))         // 剪枝：该前缀不是回文，跳过\n                continue;\n            path.add(s.substring(start, end + 1)); // 1. 做选择：切出一段回文\n            dfs(s, end + 1, path, res);        // 2. 递归：分割剩余后缀\n            path.remove(path.size() - 1);      // 3. 撤销选择：回溯\n        }\n    }\n\n    private boolean isPal(String s, int lo, int hi) { // 双指针判回文\n        while (lo < hi) {\n            if (s.charAt(lo) != s.charAt(hi)) return false;\n            lo++;\n            hi--;\n        }\n        return true;\n    }\n}",
+      "codeJs": "/**\n * @param {string} s\n * @return {string[][]}\n */\nvar partition = function (s) {\n  const n = s.length;\n  const res = [];\n  const path = [];\n  const isPal = (lo, hi) => {          // 双指针从两端向中间收拢判回文\n    for (let l = lo, r = hi; l < r; l++, r--) {\n      if (s[l] !== s[r]) return false;\n    }\n    return true;\n  };\n  const dfs = (start) => {\n    if (start === n) {                 // 递归终点：整串切完，收集方案\n      res.push([...path]);\n      return;\n    }\n    for (let end = start; end < n; end++) {\n      if (!isPal(start, end)) continue;      // 剪枝：该前缀不是回文\n      path.push(s.slice(start, end + 1));    // 1. 做选择：切出一段回文\n      dfs(end + 1);                          // 2. 递归：分割剩余后缀\n      path.pop();                            // 3. 撤销选择：回溯\n    }\n  };\n  dfs(0);\n  return res;\n};",
+      "codeGo": "func partition(s string) [][]string {\n\tn := len(s)\n\tvar res [][]string\n\tpath := []string{}\n\tisPal := func(lo, hi int) bool { // 双指针判回文\n\t\tfor lo < hi {\n\t\t\tif s[lo] != s[hi] {\n\t\t\t\treturn false\n\t\t\t}\n\t\t\tlo++\n\t\t\thi--\n\t\t}\n\t\treturn true\n\t}\n\tvar dfs func(start int)\n\tdfs = func(start int) {\n\t\tif start == n { // 递归终点：整串切完，收集方案\n\t\t\tres = append(res, append([]string{}, path...))\n\t\t\treturn\n\t\t}\n\t\tfor end := start; end < n; end++ {\n\t\t\tif !isPal(start, end) { // 剪枝：该前缀不是回文\n\t\t\t\tcontinue\n\t\t\t}\n\t\t\tpath = append(path, s[start:end+1]) // 1. 做选择：切出一段回文\n\t\t\tdfs(end + 1)                        // 2. 递归：分割剩余后缀\n\t\t\tpath = path[:len(path)-1]           // 3. 撤销选择：回溯\n\t\t}\n\t}\n\tdfs(0)\n\treturn res\n}"
+    }
+  ]
+}

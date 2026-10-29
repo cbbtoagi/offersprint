@@ -1,0 +1,743 @@
+{
+  "topic": "图",
+  "problems": [
+    {
+      "id": 127,
+      "title": "Word Ladder",
+      "titleCn": "单词接龙",
+      "difficulty": "hard",
+      "frequency": 4,
+      "question": "字典 wordList 中从单词 beginWord 到 endWord 的转化序列是一个按下述规格形成的序列：序列中每对相邻单词只差一个字母；序列的第一个单词是 beginWord，最后一个单词是 endWord；中间的单词都必须存在于 wordList 中（beginWord 不要求在字典中）。给你两个单词 beginWord 和 endWord，以及一个字典 wordList，求从 beginWord 到 endWord 的最短转化序列中的单词数目。如果不存在这样的转化序列，返回 0。\n\n示例 1：输入 beginWord = \"hit\", endWord = \"cog\", wordList = [\"hot\",\"dot\",\"dog\",\"lot\",\"log\",\"cog\"]，输出 5，最短转化序列为 \"hit\" -> \"hot\" -> \"dot\" -> \"dog\" -> \"cog\"，共 5 个单词。\n示例 2：输入 beginWord = \"hit\", endWord = \"cog\", wordList = [\"hot\",\"dot\",\"dog\",\"lot\",\"log\"]，输出 0，因为 endWord \"cog\" 不在字典中。",
+      "hints": [
+        "审题诀窍：endWord 必须在 wordList 里，否则直接返回 0——这是最容易被漏掉的边界分支。",
+        "审题诀窍：求的是『序列中的单词数目』而不是转化次数，起点 beginWord 也要计数，答案 = 边数 + 1。",
+        "突破口：『相邻 = 恰好一个字母不同』。与其两两比较 O(n²L)，不如对每个单词枚举每一位替换成 26 个字母生成候选，再去哈希集合里查存在性——BFS 的层数就是转化次数。",
+        "追问预备：如何输出一条最短转化序列？（BFS 时用 parent 表记录前驱，从 endWord 回溯到 beginWord 再逆置）双向 BFS 为什么能快数倍？（两端各扩展约一半深度，搜索空间从 O(b^d) 降到 2·O(b^(d/2))）"
+      ],
+      "keyPoints": [
+        "无权图最短路问题，BFS 第一次到达 endWord 时的层数即答案",
+        "扩展时枚举 L 位 × 26 个字母生成候选，用哈希集合 O(1) 判断是否在字典中",
+        "入队即从集合中删除（或记 dist 表），等价于 visited，防止回头路和重复扩展",
+        "endWord 不在字典中、搜索耗尽仍未到达，都返回 0"
+      ],
+      "structureTags": [
+        "bfs",
+        "queue",
+        "hashmap"
+      ],
+      "approaches": [
+        {
+          "name": "两两建图 + BFS",
+          "idea": "把每个单词看成节点，两两比较是否恰好只差一个字母来建无权无向图，再从 beginWord BFS 求到 endWord 的最短路，路径节点数即序列单词数。是理解问题图模型的基线做法，但建图的两两比较开销大。",
+          "complexity": "时间 O(n²·L)，空间 O(n²·L)",
+          "detail": "步骤拆解：\n1. 建图：把字典中的每个单词（beginWord 也要加入，它不要求在字典里）看成一个节点；两两比较，若恰好只有一位字母不同就连一条无向边。判定函数 differ(a, b)：长度相等且 sum(x != y for x, y in zip(a, b)) == 1。\n2. 邻接表 adj：adj[w] = [与 w 相邻的单词列表]。\n3. BFS：dist 表兼任 visited，dist[beginWord] = 1，队列从 beginWord 出发；出队 cur，若 cur == endWord 直接返回 dist[cur]；否则遍历 adj[cur]，未访问的邻居 nxt 登记 dist[nxt] = dist[cur] + 1 并入队。\n4. 队列耗尽仍没到达 endWord，返回 0。\n\n示例走查：dist={hit:1}。出队 hit：邻居只有 hot → dist[hot]=2。出队 hot：邻居 dot、lot → dist=3。出队 dot：邻居 dog → dist=4。出队 lot：邻居 log → dist=4。出队 dog：邻居 cog → dist=5。出队 cog 命中终点，返回 5。\n\n为什么正确：把『一次合法变换』抽象成一条边后，这就是标准无权图最短路，BFS 按层扩展保证首次到达终点的路径边数最少；节点数 = 边数 + 1。\n\n易错点：\n- 两两建图是 O(n²·L)，n 到 5000 时建图本身就超时——这正是引出『枚举字母替换』法的由头，面试先讲它再优化。\n- beginWord 不在 wordList 中也必须加入图，否则起点没有出边。\n- endWord 不在字典要先判 0，别白建一遍图。",
+          "code": "from collections import deque, defaultdict\n\ndef ladderLength(beginWord, endWord, wordList):\n    words = list(dict.fromkeys(wordList))       # 去重，保持稳定顺序\n    if endWord not in words:\n        return 0                                # 终点不在字典，必然无解\n    nodes = words + ([beginWord] if beginWord not in words else [])\n    def differ(a, b):                           # 两单词是否恰好一位不同\n        return len(a) == len(b) and sum(x != y for x, y in zip(a, b)) == 1\n    adj = defaultdict(list)\n    n = len(nodes)\n    for i in range(n):                          # 两两比较建无向边\n        for j in range(i + 1, n):\n            if differ(nodes[i], nodes[j]):\n                adj[nodes[i]].append(nodes[j])\n                adj[nodes[j]].append(nodes[i])\n    dist = {beginWord: 1}                       # 单词 -> 序列长度，兼任 visited\n    q = deque([beginWord])\n    while q:\n        cur = q.popleft()\n        if cur == endWord:\n            return dist[cur]                    # BFS 首次到达即最短\n        for nxt in adj[cur]:\n            if nxt not in dist:                 # 未访问的邻居才入队\n                dist[nxt] = dist[cur] + 1       # 入队即登记，防重复扩展\n                q.append(nxt)\n    return 0                                    # 搜索耗尽仍不可达"
+        },
+        {
+          "name": "枚举字母替换 + BFS（最优）",
+          "idea": "不显式建图：扩展每个单词时，枚举它的每一位替换成 26 个字母生成候选，用哈希集合 O(1) 判断候选是否在字典中，在字典中即存在一条边。从 beginWord 开始 BFS，第一次碰到 endWord 时已走的节点数就是答案。节点入队即标记已访问，防止回头路。",
+          "complexity": "时间 O(n·26·L²)，空间 O(n·L)",
+          "optimal": true,
+          "detail": "步骤拆解：\n1. words = set(wordList)，endWord 不在集合直接返回 0（最易漏的边界）。\n2. dist 表：dist[beginWord] = 1（求的是序列单词数，起点也要计数），兼任 visited。\n3. 出队 cur：cur == endWord 则返回 dist[cur]；否则对每一位 i（共 L 位）尝试 26 个字母：nxt = cur[:i] + c + cur[i+1:]，若 nxt 在 words 且不在 dist，登记 dist[nxt] = dist[cur] + 1 并入队。\n4. 队列耗尽返回 0。\n\n示例走查：dist={hit:1}。出队 hit：第 2 位 i 换成 o 得 hot ∈ 字典 → dist[hot]=2。出队 hot：换首字母得 dot、lot → dist=3。出队 dot：末位换 g 得 dog → dist=4。出队 lot：得 log → dist=4。出队 dog：首字母换 c 得 cog → dist[cog]=5。出队 cog 命中终点返回 5。\n\n为什么正确：不显式建图也能 BFS——枚举 26 字母相当于枚举 cur 的所有可能邻居，查哈希集合 O(1) 即可确认这条边是否存在；BFS 层序保证首达即最短。扩展代价 O(26·L²) 远小于两两建图的 O(n·L)。\n\n易错点：\n- 必须入队即登记 dist，出队才标记会让同层节点被多个邻居重复入队，复杂度爆炸甚至死循环。\n- 替换成原字母时 nxt == cur，但 cur 已在 dist 里会被挡掉，无需特判。\n- 答案是单词数不是转化次数：dist 初始为 1 而不是 0。",
+          "code": "from collections import deque\n\ndef ladderLength(beginWord, endWord, wordList):\n    words = set(wordList)               # 哈希集合：O(1) 判断候选是否在字典\n    if endWord not in words:\n        return 0                        # 终点不在字典，必然无解\n    dist = {beginWord: 1}               # 单词 -> 序列长度，兼任 visited 防回头\n    q = deque([beginWord])\n    while q:\n        cur = q.popleft()\n        if cur == endWord:\n            return dist[cur]            # BFS 首次到达即最短\n        for i in range(len(cur)):       # 枚举每一位\n            for c in 'abcdefghijklmnopqrstuvwxyz':\n                nxt = cur[:i] + c + cur[i+1:]   # 生成替换后的候选词\n                if nxt in words and nxt not in dist:\n                    dist[nxt] = dist[cur] + 1   # 入队即登记，杜绝重复扩展\n                    q.append(nxt)\n    return 0                            # 搜索耗尽仍不可达"
+        },
+        {
+          "name": "双向 BFS",
+          "idea": "同时从 beginWord 和 endWord 两端扩展，每轮始终扩展节点数较少的一端，两侧在中间相遇即得最短路。搜索范围从整棵树缩成两半，扩展节点数显著减少，词典很大时比单向 BFS 快数倍。",
+          "complexity": "时间 O(n·26·L²)，空间 O(n·L)",
+          "detail": "步骤拆解：\n1. 两端各维护『当前层集合』front/back 与距离表 d1/d2（各自到起/终点的序列长度，初值都是 1，兼任 visited）。\n2. 每轮始终扩展节点数较少的一端（len(front) > len(back) 时交换 front/back 和 d1/d2），保证搜索空间尽量对称。\n3. 扩展整层：对 front 中每个词枚举 26 字母生成候选 w；若 w 在对端距离表 d2 里 → 两侧相遇，返回 d1[cur] + d2[w]（两段路径在边 cur—w 处拼接）；否则 w 在字典且未访问时登记 d1[w] = d1[cur] + 1 加入下一层 nxt。\n4. front = nxt 继续下一轮；任一端队列耗尽仍未相遇，返回 0。\n\n示例走查：front={hit}(d=1)、back={cog}(d=1)。起点端：hit→hot→{dot,lot}（d=3）；终点端：cog→{dog,log}（d=2）。继续扩展终点端 {dog,log}：dog 生成候选 dot 时发现 dot 已在对端距离表 → 返回 2 + 3 = 5。全程每端只扩展了 2~3 层，而单向 BFS 要走满 4 层。\n\n为什么正确：BFS 从两端各按最短距离标记节点，相遇边的两段距离之和就是一条真实路径长度；始终扩展小端使两侧层深大致均衡，相遇点落在路径中部，扩展节点数显著减少。\n\n易错点：\n- 相遇检测要查对端的完整距离表（visited），只查对端『当前层集合』会漏掉已扩展过的相遇点，可能误判无解。\n- 相遇时直接返回 d1[cur] + d2[w]，两端各自把相遇边端点计入，不要再减 1。\n- beginWord == endWord 的退化情况返回 1，需单独处理。",
+          "code": "from collections import deque\n\ndef ladderLength(beginWord, endWord, wordList):\n    words = set(wordList)\n    if endWord not in words:\n        return 0\n    if beginWord == endWord:\n        return 1                        # 退化情况：序列只有起点一个词\n    front, back = {beginWord}, {endWord}        # 两端当前层的节点集合\n    d1, d2 = {beginWord: 1}, {endWord: 1}       # 两端到各词的序列长度，兼作 visited\n    while front and back:\n        if len(front) > len(back):          # 始终扩展较小的一端\n            front, back = back, front\n            d1, d2 = d2, d1\n        nxt = set()\n        for cur in front:                   # 整层扩展\n            for i in range(len(cur)):\n                for c in 'abcdefghijklmnopqrstuvwxyz':\n                    w = cur[:i] + c + cur[i+1:]\n                    if w == cur:\n                        continue\n                    if w in d2:             # 与对端相遇：两段路径在边 cur—w 拼接\n                        return d1[cur] + d2[w]\n                    if w in words and w not in d1:\n                        d1[w] = d1[cur] + 1 # 入队即登记\n                        nxt.add(w)\n        front = nxt\n    return 0                                # 任一端耗尽仍未相遇"
+        }
+      ],
+      "code": "from collections import deque\nclass Solution:\n    def ladderLength(self, beginWord: str, endWord: str, wordList: List[str]) -> int:\n        words = set(wordList)           # 哈希集合：O(1) 判断候选单词是否在字典中\n        if endWord not in words:        # 终点不在字典里，必然无法转化\n            return 0\n        dist = {}                       # 哈希表：单词 -> 序列长度，兼任 visited 防回头\n        dist[beginWord] = 1             # 起点自身也计入序列长度\n        q = deque([beginWord])\n        while q:\n            cur = q.popleft()\n            if cur == endWord:          # BFS 首次到达即最短，直接返回\n                return dist[cur]\n            for i in range(len(cur)):   # 枚举每一位，尝试替换成 26 个字母\n                for c in \"abcdefghijklmnopqrstuvwxyz\":\n                    nxt = cur[:i] + c + cur[i+1:]\n                    if nxt in words and nxt not in dist:  # 在字典中且未访问 = 相邻节点\n                        dist[nxt] = dist[cur] + 1  # 入队即登记，杜绝重复扩展\n                        q.append(nxt)\n        return 0                        # 搜索耗尽仍不可达，说明不存在转化序列",
+      "templates": [
+        "隐式图最短路模板：把『一次合法变换』当一条边，从起点 BFS，首次到达目标时的节点计数/层数即最短步数",
+        "BFS 访问标记口诀：入队时立刻标记（或从候选集删除），出队才标记会让同层重复入队导致超时"
+      ],
+      "companies": [
+        "拼多多"
+      ],
+      "samples": [
+        {
+          "input": "beginWord = \"hit\", endWord = \"cog\", wordList = [\"hot\",\"dot\",\"dog\",\"lot\",\"log\",\"cog\"]",
+          "output": "5",
+          "explain": "最短转化序列 hit -> hot -> dot -> dog -> cog，共 5 个单词（答案 = 转化边数 + 1）"
+        },
+        {
+          "input": "beginWord = \"hit\", endWord = \"cog\", wordList = [\"hot\",\"dot\",\"dog\",\"lot\",\"log\"]",
+          "output": "0",
+          "explain": "endWord cog 不在字典中，直接返回 0"
+        }
+      ],
+      "acmCode": "# ACM 模式：完整可运行程序（stdin -> stdout）\n# 输入格式：\n#   第一行：beginWord endWord\n#   第二行：n（字典单词数）\n#   接下来 n 行：每行一个字典单词\n# 输出格式：一个整数，最短转化序列的单词数目；不存在输出 0\nimport sys\nfrom collections import deque\n\ndef ladderLength(begin, end, word_list):\n    words = set(word_list)              # 哈希集合：O(1) 判断候选是否在字典\n    if end not in words:\n        return 0                        # 终点不在字典，必然无解\n    dist = {begin: 1}                   # 单词 -> 序列长度，兼任 visited 防回头\n    q = deque([begin])\n    while q:\n        cur = q.popleft()\n        if cur == end:\n            return dist[cur]            # BFS 首次到达即最短\n        for i in range(len(cur)):       # 枚举每一位替换成 26 个字母\n            for c in 'abcdefghijklmnopqrstuvwxyz':\n                nxt = cur[:i] + c + cur[i+1:]\n                if nxt in words and nxt not in dist:\n                    dist[nxt] = dist[cur] + 1   # 入队即登记，防重复扩展\n                    q.append(nxt)\n    return 0                            # 搜索耗尽仍不可达\n\ndef main():\n    data = sys.stdin.read().split()     # 一次性读入所有 token\n    begin, end = data[0], data[1]\n    n = int(data[2])\n    word_list = data[3:3 + n]\n    print(ladderLength(begin, end, word_list))\n\nif __name__ == '__main__':\n    main()",
+      "codeCpp": "class Solution {\npublic:\n    int ladderLength(string beginWord, string endWord, vector<string>& wordList) {\n        unordered_set<string> words(wordList.begin(), wordList.end()); // 哈希集合：O(1) 判断候选单词是否在字典\n        if (!words.count(endWord)) return 0;  // 终点不在字典里，必然无法转化\n        // dist: 单词 -> 序列长度，兼任 visited 防回头；起点自身也计入序列长度\n        unordered_map<string, int> dist{{beginWord, 1}};\n        queue<string> q;\n        q.push(beginWord);\n        while (!q.empty()) {\n            string cur = q.front();\n            q.pop();\n            if (cur == endWord) return dist[cur];  // BFS 首次到达即最短，直接返回\n            // 枚举每一位，尝试替换成 26 个字母构造相邻单词\n            for (int i = 0; i < (int)cur.size(); ++i) {\n                string nxt = cur;\n                for (char c = 'a'; c <= 'z'; ++c) {\n                    if (c == nxt[i]) continue;\n                    nxt[i] = c;\n                    // 在字典中且未访问 = 相邻节点\n                    if (words.count(nxt) && !dist.count(nxt)) {\n                        dist[nxt] = dist[cur] + 1;  // 入队即登记，杜绝重复扩展\n                        q.push(nxt);\n                    }\n                }\n            }\n        }\n        return 0;  // 搜索耗尽仍不可达，说明不存在转化序列\n    }\n};",
+      "acmCodeCpp": "// ACM 模式：完整可运行程序（stdin -> stdout）\n// 输入格式：\n//   第一行：beginWord endWord\n//   第二行：n（字典单词数）\n//   接下来 n 行：每行一个字典单词\n// 输出格式：一个整数，最短转化序列的单词数目；不存在输出 0\n#include <iostream>\n#include <queue>\n#include <string>\n#include <unordered_map>\n#include <unordered_set>\n#include <vector>\n\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);   // 关闭同步，读入更快\n    cin.tie(nullptr);\n\n    string begin, end;\n    int n;\n    cin >> begin >> end >> n;\n    unordered_set<string> words;   // 哈希集合：O(1) 判断候选是否在字典\n    for (int i = 0; i < n; ++i) {\n        string w;\n        cin >> w;\n        words.insert(std::move(w));\n    }\n    if (!words.count(end)) {       // 终点不在字典，必然无解\n        cout << 0 << endl;\n        return 0;\n    }\n\n    unordered_map<string, int> dist{{begin, 1}};  // 单词 -> 序列长度，兼任 visited\n    queue<string> q;\n    q.push(begin);\n    int ans = 0;\n    while (!q.empty()) {\n        string cur = q.front();\n        q.pop();\n        if (cur == end) {          // BFS 首次到达即最短\n            ans = dist[cur];\n            break;\n        }\n        for (int i = 0; i < (int)cur.size(); ++i) {  // 枚举每一位替换成 26 个字母\n            string nxt = cur;\n            for (char c = 'a'; c <= 'z'; ++c) {\n                if (c == nxt[i]) continue;\n                nxt[i] = c;\n                if (words.count(nxt) && !dist.count(nxt)) {\n                    dist[nxt] = dist[cur] + 1;    // 入队即登记，防重复扩展\n                    q.push(nxt);\n                }\n            }\n        }\n    }\n    cout << ans << endl;\n    return 0;\n}",
+      "codeJava": "class Solution {\n    public int ladderLength(String beginWord, String endWord, List<String> wordList) {\n        Set<String> words = new HashSet<>(wordList);  // 哈希集合：O(1) 判断候选单词是否在字典\n        if (!words.contains(endWord)) return 0;       // 终点不在字典里，必然无法转化\n        // dist: 单词 -> 序列长度，兼任 visited 防回头；起点自身也计入序列长度\n        Map<String, Integer> dist = new HashMap<>();\n        dist.put(beginWord, 1);\n        Queue<String> q = new ArrayDeque<>();\n        q.offer(beginWord);\n        while (!q.isEmpty()) {\n            String cur = q.poll();\n            if (cur.equals(endWord)) return dist.get(cur);  // BFS 首次到达即最短\n            // 枚举每一位替换成 26 个字母，构造相邻单词\n            for (int i = 0; i < cur.length(); i++) {\n                char[] arr = cur.toCharArray();\n                for (char c = 'a'; c <= 'z'; c++) {\n                    if (c == arr[i]) continue;\n                    arr[i] = c;\n                    String nxt = new String(arr);\n                    // 在字典中且未访问 = 相邻节点\n                    if (words.contains(nxt) && !dist.containsKey(nxt)) {\n                        dist.put(nxt, dist.get(cur) + 1);  // 入队即登记，杜绝重复扩展\n                        q.offer(nxt);\n                    }\n                }\n            }\n        }\n        return 0;  // 搜索耗尽仍不可达，说明不存在转化序列\n    }\n}",
+      "codeJs": "/**\n * @param {string} beginWord\n * @param {string} endWord\n * @param {string[]} wordList\n * @return {number}\n */\nvar ladderLength = function (beginWord, endWord, wordList) {\n  const words = new Set(wordList);        // 哈希集合：O(1) 判断候选单词是否在字典\n  if (!words.has(endWord)) return 0;      // 终点不在字典里，必然无法转化\n  const dist = new Map([[beginWord, 1]]); // 单词 -> 序列长度，兼任 visited；起点计入长度\n  const q = [beginWord];\n  while (q.length) {\n    const cur = q.shift();\n    if (cur === endWord) return dist.get(cur); // BFS 首次到达即最短，直接返回\n    // 枚举每一位替换成 26 个字母，构造相邻单词\n    for (let i = 0; i < cur.length; i++) {\n      for (let c = 97; c <= 122; c++) {    // 'a'..'z'\n        const nxt = cur.slice(0, i) + String.fromCharCode(c) + cur.slice(i + 1);\n        // 在字典中且未访问 = 相邻节点\n        if (words.has(nxt) && !dist.has(nxt)) {\n          dist.set(nxt, dist.get(cur) + 1);    // 入队即登记，杜绝重复扩展\n          q.push(nxt);\n        }\n      }\n    }\n  }\n  return 0;  // 搜索耗尽仍不可达，说明不存在转化序列\n};",
+      "codeGo": "func ladderLength(beginWord string, endWord string, wordList []string) int {\n\t// 哈希集合：O(1) 判断候选单词是否在字典\n\twords := map[string]bool{}\n\tfor _, w := range wordList {\n\t\twords[w] = true\n\t}\n\tif !words[endWord] { // 终点不在字典里，必然无法转化\n\t\treturn 0\n\t}\n\t// dist: 单词 -> 序列长度，兼任 visited 防回头；起点自身也计入序列长度\n\tdist := map[string]int{beginWord: 1}\n\tq := []string{beginWord}\n\tfor len(q) > 0 {\n\t\tcur := q[0]\n\t\tq = q[1:]\n\t\tif cur == endWord { // BFS 首次到达即最短，直接返回\n\t\t\treturn dist[cur]\n\t\t}\n\t\t// 枚举每一位替换成 26 个字母，构造相邻单词\n\t\tb := []byte(cur)\n\t\tfor i := 0; i < len(b); i++ {\n\t\t\told := b[i]\n\t\t\tfor c := byte('a'); c <= 'z'; c++ {\n\t\t\t\tif c == old {\n\t\t\t\t\tcontinue\n\t\t\t\t}\n\t\t\t\tb[i] = c\n\t\t\t\tnxt := string(b)\n\t\t\t\tif words[nxt] && dist[nxt] == 0 { // 在字典中且未访问 = 相邻节点\n\t\t\t\t\tdist[nxt] = dist[cur] + 1 // 入队即登记，杜绝重复扩展\n\t\t\t\t\tq = append(q, nxt)\n\t\t\t\t}\n\t\t\t}\n\t\t\tb[i] = old // 恢复该位，继续枚举下一位\n\t\t}\n\t}\n\treturn 0 // 搜索耗尽仍不可达，说明不存在转化序列\n}"
+    },
+    {
+      "id": 130,
+      "title": "Surrounded Regions",
+      "titleCn": "被围绕的区域",
+      "difficulty": "medium",
+      "frequency": 3,
+      "question": "给你一个 m×n 的矩阵 board，由若干字符 'X' 和 'O' 组成，捕获所有被围绕的区域：连接指单元格与水平或垂直方向上相邻的单元格连接；区域是连接所有相邻 'O' 形成的块；如果区域中所有 'O' 都不在棋盘边缘，则该区域被 'X' 完全围绕。通过原地把被围绕区域中的所有 'O' 替换为 'X' 来完成捕获，不需要返回任何值。\n\n示例 1：输入 board = [[\"X\",\"X\",\"X\",\"X\"],[\"X\",\"O\",\"O\",\"X\"],[\"X\",\"X\",\"O\",\"X\"],[\"X\",\"O\",\"X\",\"X\"]]，输出 [[\"X\",\"X\",\"X\",\"X\"],[\"X\",\"X\",\"X\",\"X\"],[\"X\",\"X\",\"X\",\"X\"],[\"X\",\"O\",\"X\",\"X\"]]，底部的区域在棋盘边缘，不会被捕获。\n示例 2：输入 board = [[\"X\"]]，输出 [[\"X\"]]。",
+      "hints": [
+        "审题诀窍：正着找『被围住的 O』很难判断，倒过来想——凡是与边界上的 O 连通的 O 都不会被围住，其余的 O 全部翻成 X。",
+        "审题诀窍：安全区的入口只可能出现在四条边上，所以只需从四条边界的 O 出发搜索，无需全图扫描起点。",
+        "突破口：用一个占位符（如 '#'）临时标记安全 O，与原始字符区分；处理完再统一还原：'#' 变回 'O'，剩余 'O' 翻成 'X'。",
+        "追问预备：如果不用占位符 '#' 该怎么做？（先把所有安全 O 坐标收进集合再统一翻转，需 O(mn) 额外空间）大矩阵递归爆栈怎么办？（改 BFS 队列扩散，或并查集免递归）"
+      ],
+      "keyPoints": [
+        "正难则反：与边界 O 连通的保留，不连通的全部填充",
+        "从四条边上的每个 O 启动 DFS/BFS 覆盖所有安全连通块",
+        "访问过的安全 O 改成占位符 '#'，既防重复访问又不与原始值混淆",
+        "最后一趟扫描统一还原，避免额外矩阵开销"
+      ],
+      "structureTags": [
+        "dfs",
+        "recursion",
+        "matrix"
+      ],
+      "approaches": [
+        {
+          "name": "并查集",
+          "idea": "设一个虚拟超级节点 safe，每个边界上的 O 都与 safe 合并；内部相邻的 O 互相合并。最后扫描全盘，凡不与 safe 同集合的 O 就是被围绕的，全部翻成 X。",
+          "complexity": "时间 O(mn·α(mn))，空间 O(mn)",
+          "detail": "步骤拆解：\n1. 初始化 parent[0..mn]，多开一个虚拟超级节点 safe = m*n 代表『与边界连通的安全区』；find 用路径压缩，union 简单挂接（可加按秩合并）。\n2. 扫描全盘：每个 'O' 格（一维坐标 idx = i*n + j）与右、下方向的 O 邻居 union；若它在边界（i==0 / i==m-1 / j==0 / j==n-1），额外 union(idx, safe)。\n3. 再扫一遍全盘：board[i][j] == 'O' 且 find(idx) != find(safe) → 与任何边界 O 都不同集合，必被围绕 → 翻成 'X'；同集合的保留。\n\n示例走查（示例 1）：(3,1) 是边界 O → 与 safe 合并；(1,1)(1,2)(2,2) 互相合并成一个集合，但集合里没有 safe → 第二趟扫描时 find 不同 → 全部翻 'X'；(3,1) 与 safe 同根，保留。\n\n为什么正确：并查集把『连通』抽象成『同集合』，虚拟超级节点把『与边界 O 连通』变成『与 safe 同根』——不在 safe 集合里的 O 四周必然全是 X。\n\n易错点：\n- 忘建虚拟 safe 节点的话，就得维护『所有边界 O 的集合并』，逻辑复杂易漏。\n- 二维坐标一维化 idx = i*n + j，n 必须是列数，写成行数会串位。\n- 判定阶段必须先 find 再比较根，直接比较 parent 数组内容是错的（parent 只是中间态）。",
+          "code": "class DSU:\n    def __init__(self, n):\n        self.p = list(range(n))         # parent 数组，初始各自成集合\n    def find(self, x):\n        while self.p[x] != x:           # 路径压缩：边找边把节点挂到祖父\n            self.p[x] = self.p[self.p[x]]\n            x = self.p[x]\n        return x\n    def union(self, a, b):\n        ra, rb = self.find(a), self.find(b)\n        if ra != rb:\n            self.p[ra] = rb             # 简单合并（可加按秩优化）\n            return True\n        return False\n\ndef solve(board):\n    if not board or not board[0]:\n        return\n    m, n = len(board), len(board[0])\n    dsu = DSU(m * n + 1)\n    safe = m * n                        # 虚拟超级节点：代表边界安全区\n    for i in range(m):\n        for j in range(n):\n            if board[i][j] != 'O':\n                continue\n            if i == 0 or i == m - 1 or j == 0 or j == n - 1:\n                dsu.union(i * n + j, safe)          # 边界 O 归入安全区\n            if j + 1 < n and board[i][j+1] == 'O':\n                dsu.union(i * n + j, i * n + j + 1) # 与右邻居合并\n            if i + 1 < m and board[i+1][j] == 'O':\n                dsu.union(i * n + j, (i + 1) * n + j)   # 与下邻居合并\n    for i in range(m):                  # 第二趟：不在安全区集合的 O 全部翻转\n        for j in range(n):\n            if board[i][j] == 'O' and dsu.find(i * n + j) != dsu.find(safe):\n                board[i][j] = 'X'"
+        },
+        {
+          "name": "DFS 标记边界连通 O（最优）",
+          "idea": "从四条边上的每个 O 出发 DFS，把与边界连通的所有 O 改成占位符 '#'；随后再扫一遍全盘：'#' 还原为 'O'，其余的 'O' 翻成 'X'。一次标记一次还原，原地完成，无需额外数组。",
+          "complexity": "时间 O(mn)，空间 O(mn)",
+          "optimal": true,
+          "detail": "步骤拆解：\n1. 定义 dfs(i, j)：越界或 board[i][j] != 'O' 直接返回——不是 O 的格子包括 X 和已标记的 '#'，天然充当 visited，无需额外数组。\n2. 进入即把 board[i][j] 改成 '#'（占位标记），再向上下左右四个方向递归，把整个『与边界连通的 O』连通块染成 '#'。\n3. 启动点只在四条边：枚举第一/最后一行、第一/最后一列，凡边界格是 'O' 就 dfs——安全 O 的入口只可能在边界，内部 O 不用做起点。\n4. 收尾一趟双分支扫描：'#' → 还原为 'O'；仍是 'O'（没被染到，即被围绕）→ 翻成 'X'。\n\n示例走查（示例 1）：底边 (3,1) 是 O → dfs 把它染成 '#'，邻居 (2,1) 是 X 停止。随后扫全盘：(1,1)(1,2)(2,2) 从未被染到仍是 'O' → 翻 'X'；(3,1) 由 '#' 还原为 'O'。最终第 2、3 行全 X，底行保留 XOXX。\n\n为什么正确：『被围绕』的否定形式是『与边界连通』——正难则反。从边界反向染色恰好覆盖所有安全的 O，剩下的自然全是要翻转的；一次标记一次还原，原地完成 O(mn)。\n\n易错点：\n- 忘了最后还原 '#'，输出会带杂字符，判题必错。\n- 只从全盘每个 O 都启动 dfs 也能过但浪费，且容易漏掉『必须先标记后还原』的顺序。\n- 大矩阵递归深度可达 mn，Python 默认递归上限 1000，笔试要 sys.setrecursionlimit 或直接改写 BFS 版。",
+          "code": "def solve(board):\n    if not board or not board[0]:\n        return\n    m, n = len(board), len(board[0])\n\n    def dfs(i, j):\n        # 越界，或当前格不是未标记的安全 'O' 时停止\n        if i < 0 or i >= m or j < 0 or j >= n or board[i][j] != 'O':\n            return\n        board[i][j] = '#'               # 占位：标记为与边界连通的安全 O\n        dfs(i + 1, j); dfs(i - 1, j)    # 四方向扩散，标记整个安全连通块\n        dfs(i, j + 1); dfs(i, j - 1)\n\n    for i in range(m):                  # 左、右两条边上的 O 作为入口\n        dfs(i, 0); dfs(i, n - 1)\n    for j in range(n):                  # 上、下两条边上的 O 作为入口\n        dfs(0, j); dfs(m - 1, j)\n\n    for i in range(m):                  # 统一还原：'#' 恢复 'O'，剩余 'O' 翻 'X'\n        for j in range(n):\n            if board[i][j] == '#':\n                board[i][j] = 'O'\n            elif board[i][j] == 'O':\n                board[i][j] = 'X'"
+        },
+        {
+          "name": "BFS 逐层扩散",
+          "idea": "思路与 DFS 版完全相同，只是改用队列从边界 O 逐层向外扩散标记安全区。在矩阵很大时可以避免递归深度过大导致的栈溢出。",
+          "complexity": "时间 O(mn)，空间 O(mn)",
+          "detail": "步骤拆解：\n1. 种子收集：扫描四条边（i 在 {0, m-1} 或 j 在 {0, n-1}）上的所有 'O' 格，入队同时置 '#'——入队即标记，防止重复入队。\n2. 扩散：出队 (i, j)，检查上下左右四邻：在界内、是 'O' → 置 '#' 并入队；重复直到队空。所有与边界连通的 O 都被染成 '#'。\n3. 收尾与 DFS 版完全相同：一趟扫描，'#' 还原 'O'，剩余 'O' 翻 'X'。\n\n示例走查（示例 1）：边界扫描发现 (3,1) 是 O → 入队并染 '#'。出队 (3,1)：四邻 (2,1)(3,0)(3,2) 及越界方向都不是 'O'，无新入队。队空后收尾：(1,1)(1,2)(2,2) 翻 'X'，(3,1) 还原 'O'。\n\n为什么正确：与 DFS 版完全同构，只是把『递归栈的隐式回溯』换成『队列的显式逐层扩散』，可达集合一模一样；BFS 队列峰值约为边界长度，超大矩阵不会爆递归栈。\n\n易错点：\n- 必须入队同时置 '#'，出队才标记会让同一格被多个邻居重复入队，常数翻倍。\n- 种子要四条边一起扫，漏掉一条边（尤其右列/底行）就漏一片安全区。\n- 队列元素存 (i, j) 元组，用 deque 而不是 list.pop(0)（后者 O(n)）。",
+          "code": "from collections import deque\n\ndef solve(board):\n    if not board or not board[0]:\n        return\n    m, n = len(board), len(board[0])\n    q = deque()\n    for i in range(m):                  # 四条边上的 O 全部作为种子\n        for j in range(n):\n            if (i in (0, m - 1) or j in (0, n - 1)) and board[i][j] == 'O':\n                board[i][j] = '#'       # 入队即标记，防重复入队\n                q.append((i, j))\n    while q:\n        i, j = q.popleft()\n        for ni, nj in ((i+1, j), (i-1, j), (i, j+1), (i, j-1)):\n            if 0 <= ni < m and 0 <= nj < n and board[ni][nj] == 'O':\n                board[ni][nj] = '#'     # 扩散到的新 O 标记并入队\n                q.append((ni, nj))\n    for i in range(m):                  # 收尾：'#' 还原 'O'，剩余 'O' 翻 'X'\n        for j in range(n):\n            if board[i][j] == '#':\n                board[i][j] = 'O'\n            elif board[i][j] == 'O':\n                board[i][j] = 'X'"
+        }
+      ],
+      "code": "class Solution:\n    def solve(self, board: List[List[str]]) -> None:\n        if not board or not board[0]:\n            return\n        m, n = len(board), len(board[0])\n\n        def dfs(i: int, j: int) -> None:\n            # 越界，或当前格不是未标记的安全 'O' 时停止\n            if i < 0 or i >= m or j < 0 or j >= n or board[i][j] != 'O':\n                return\n            board[i][j] = '#'           # 占位：标记为与边界连通的安全 O\n            dfs(i + 1, j); dfs(i - 1, j)  # 向四方向扩散，标记整个安全连通块\n            dfs(i, j + 1); dfs(i, j - 1)\n\n        for i in range(m):              # 只有边界上的 O 才可能不被围绕\n            dfs(i, 0); dfs(i, n - 1)    # 从左、右两条边的 O 出发\n        for j in range(n):\n            dfs(0, j); dfs(m - 1, j)    # 从上、下两条边的 O 出发\n\n        for i in range(m):              # 统一还原：'#' 恢复 'O'，剩余 'O' 全部翻成 'X'\n            for j in range(n):\n                if board[i][j] == '#':\n                    board[i][j] = 'O'\n                elif board[i][j] == 'O':\n                    board[i][j] = 'X'",
+      "templates": [
+        "网格 DFS 染色模板：越界或字符不符即 return，先改当前格再向四方向递归；用 '#' 等占位符区分『已访问』与『原始值』",
+        "正难则反模板：『保留与边界连通的』远易于『找被包围的』——从边界逆向外向扩散，最后统一还原/翻转"
+      ],
+      "companies": [
+        "华为"
+      ],
+      "samples": [
+        {
+          "input": "board = [[\"X\",\"X\",\"X\",\"X\"],[\"X\",\"O\",\"O\",\"X\"],[\"X\",\"X\",\"O\",\"X\"],[\"X\",\"O\",\"X\",\"X\"]]",
+          "output": "[[\"X\",\"X\",\"X\",\"X\"],[\"X\",\"X\",\"X\",\"X\"],[\"X\",\"X\",\"X\",\"X\"],[\"X\",\"O\",\"X\",\"X\"]]",
+          "explain": "四条边上的 O（含底行 (3,1)）与边界连通，保留；内部的 (1,1)(1,2)(2,2) 被完全围绕，翻成 X"
+        },
+        {
+          "input": "board = [[\"X\"]]",
+          "output": "[[\"X\"]]",
+          "explain": "棋盘上没有 O，原样输出"
+        }
+      ],
+      "acmCode": "# ACM 模式：完整可运行程序（stdin -> stdout）\n# 输入格式：\n#   第一行：n m（网格行数、列数）\n#   接下来 n 行：每行一个长度为 m 的字符串，由 'X' 和 'O' 组成\n# 输出格式：n 行，每行为捕获被围绕区域后的网格字符串\nimport sys\nsys.setrecursionlimit(10 ** 5)\n\ndef solve(board):\n    m, n = len(board), len(board[0])\n\n    def dfs(i, j):\n        # 越界，或当前格不是未标记的安全 'O' 时停止\n        if i < 0 or i >= m or j < 0 or j >= n or board[i][j] != 'O':\n            return\n        board[i][j] = '#'               # 占位：标记为与边界连通的安全 O\n        dfs(i + 1, j); dfs(i - 1, j)    # 四方向扩散整块安全区\n        dfs(i, j + 1); dfs(i, j - 1)\n\n    for i in range(m):                  # 左、右两条边上的 O 作为入口\n        dfs(i, 0); dfs(i, n - 1)\n    for j in range(n):                  # 上、下两条边上的 O 作为入口\n        dfs(0, j); dfs(m - 1, j)\n\n    for i in range(m):                  # 统一还原：'#' 恢复 'O'，剩余 'O' 翻 'X'\n        for j in range(n):\n            if board[i][j] == '#':\n                board[i][j] = 'O'\n            elif board[i][j] == 'O':\n                board[i][j] = 'X'\n\ndef main():\n    data = sys.stdin.read().split()     # 每行一个无空格字符串，split 恰好按行切开\n    n, m = int(data[0]), int(data[1])\n    board = [list(row) for row in data[2:2 + n]]\n    solve(board)\n    print('\\n'.join(''.join(row) for row in board))\n\nif __name__ == '__main__':\n    main()",
+      "codeCpp": "class Solution {\npublic:\n    void solve(vector<vector<char>>& board) {\n        int m = board.size(), n = board[0].size();\n        // 只有边界上的 O 才可能不被围绕：从四条边的 O 出发 DFS 标记安全区\n        for (int i = 0; i < m; ++i) {\n            dfs(board, i, 0);      // 左边缘\n            dfs(board, i, n - 1);  // 右边缘\n        }\n        for (int j = 0; j < n; ++j) {\n            dfs(board, 0, j);      // 上边缘\n            dfs(board, m - 1, j);  // 下边缘\n        }\n        // 统一还原：'#' 是与边界连通的安全 O，恢复为 'O'；剩余 'O' 全部被围绕，翻成 'X'\n        for (int i = 0; i < m; ++i) {\n            for (int j = 0; j < n; ++j) {\n                if (board[i][j] == '#') board[i][j] = 'O';\n                else if (board[i][j] == 'O') board[i][j] = 'X';\n            }\n        }\n    }\n\nprivate:\n    // 越界，或当前格不是未标记的安全 'O' 时停止\n    void dfs(vector<vector<char>>& board, int i, int j) {\n        if (i < 0 || i >= (int)board.size() || j < 0 || j >= (int)board[0].size()\n            || board[i][j] != 'O') return;\n        board[i][j] = '#';   // 占位：标记为与边界连通的安全 O\n        dfs(board, i + 1, j);  // 向四方向扩散，标记整个安全连通块\n        dfs(board, i - 1, j);\n        dfs(board, i, j + 1);\n        dfs(board, i, j - 1);\n    }\n};",
+      "acmCodeCpp": "// ACM 模式：完整可运行程序（stdin -> stdout）\n// 输入格式：\n//   第一行：n m（网格行数、列数）\n//   接下来 n 行：每行一个长度为 m 的字符串，由 'X' 和 'O' 组成\n// 输出格式：n 行，每行为捕获被围绕区域后的网格字符串\n#include <iostream>\n#include <string>\n#include <vector>\n\nusing namespace std;\n\nint m, n;\nvector<string> board;\n\n// 越界，或当前格不是未标记的安全 'O' 时停止\nvoid dfs(int i, int j) {\n    if (i < 0 || i >= m || j < 0 || j >= n || board[i][j] != 'O') return;\n    board[i][j] = '#';               // 占位：标记为与边界连通的安全 O\n    dfs(i + 1, j); dfs(i - 1, j);    // 四方向扩散整块安全区\n    dfs(i, j + 1); dfs(i, j - 1);\n}\n\nint main() {\n    ios::sync_with_stdio(false);\n    cin.tie(nullptr);\n    cin >> m >> n;\n    board.resize(m);\n    for (int i = 0; i < m; ++i) cin >> board[i];   // 每行一个 X/O 串\n\n    for (int i = 0; i < m; ++i) {    // 左、右两条边上的 O 作为入口\n        dfs(i, 0); dfs(i, n - 1);\n    }\n    for (int j = 0; j < n; ++j) {    // 上、下两条边上的 O 作为入口\n        dfs(0, j); dfs(m - 1, j);\n    }\n    for (int i = 0; i < m; ++i) {    // 统一还原：'#' 恢复 'O'，剩余 'O' 翻 'X'\n        for (int j = 0; j < n; ++j) {\n            if (board[i][j] == '#') board[i][j] = 'O';\n            else if (board[i][j] == 'O') board[i][j] = 'X';\n        }\n        cout << board[i] << \"\\n\";    // 每行输出处理后的网格字符串\n    }\n    return 0;\n}",
+      "codeJava": "class Solution {\n    public void solve(char[][] board) {\n        int m = board.length, n = board[0].length;\n        // 只有边界上的 O 才可能不被围绕：从四条边的 O 出发 DFS 标记安全区\n        for (int i = 0; i < m; i++) { dfs(board, i, 0); dfs(board, i, n - 1); }\n        for (int j = 0; j < n; j++) { dfs(board, 0, j); dfs(board, m - 1, j); }\n        // 统一还原：'#' 恢复为 'O'，剩余 'O' 全部被围绕，翻成 'X'\n        for (int i = 0; i < m; i++) {\n            for (int j = 0; j < n; j++) {\n                if (board[i][j] == '#') board[i][j] = 'O';\n                else if (board[i][j] == 'O') board[i][j] = 'X';\n            }\n        }\n    }\n\n    // 越界，或当前格不是未标记的安全 'O' 时停止\n    private void dfs(char[][] board, int i, int j) {\n        if (i < 0 || i >= board.length || j < 0 || j >= board[0].length\n                || board[i][j] != 'O') return;\n        board[i][j] = '#';   // 占位：标记为与边界连通的安全 O\n        dfs(board, i + 1, j);  // 向四方向扩散，标记整个安全连通块\n        dfs(board, i - 1, j);\n        dfs(board, i, j + 1);\n        dfs(board, i, j - 1);\n    }\n}",
+      "codeJs": "/**\n * @param {character[][]} board\n * @return {void} Do not return anything, modify board in-place instead.\n */\nvar solve = function (board) {\n  const m = board.length, n = board[0].length;\n  // 越界，或当前格不是未标记的安全 'O' 时停止\n  const dfs = (i, j) => {\n    if (i < 0 || i >= m || j < 0 || j >= n || board[i][j] !== 'O') return;\n    board[i][j] = '#';            // 占位：标记为与边界连通的安全 O\n    dfs(i + 1, j); dfs(i - 1, j); // 向四方向扩散，标记整个安全连通块\n    dfs(i, j + 1); dfs(i, j - 1);\n  };\n  // 只有边界上的 O 才可能不被围绕：从四条边的 O 出发\n  for (let i = 0; i < m; i++) { dfs(i, 0); dfs(i, n - 1); }\n  for (let j = 0; j < n; j++) { dfs(0, j); dfs(m - 1, j); }\n  // 统一还原：'#' 恢复 'O'，剩余 'O' 全部被围绕，翻成 'X'\n  for (let i = 0; i < m; i++) {\n    for (let j = 0; j < n; j++) {\n      if (board[i][j] === '#') board[i][j] = 'O';\n      else if (board[i][j] === 'O') board[i][j] = 'X';\n    }\n  }\n};",
+      "codeGo": "func solve(board [][]byte) {\n\tm, n := len(board), len(board[0])\n\t// 越界，或当前格不是未标记的安全 'O' 时停止\n\tvar dfs func(i, j int)\n\tdfs = func(i, j int) {\n\t\tif i < 0 || i >= m || j < 0 || j >= n || board[i][j] != 'O' {\n\t\t\treturn\n\t\t}\n\t\tboard[i][j] = '#'  // 占位：标记为与边界连通的安全 O\n\t\tdfs(i+1, j)        // 向四方向扩散，标记整个安全连通块\n\t\tdfs(i-1, j)\n\t\tdfs(i, j+1)\n\t\tdfs(i, j-1)\n\t}\n\t// 只有边界上的 O 才可能不被围绕：从四条边的 O 出发\n\tfor i := 0; i < m; i++ {\n\t\tdfs(i, 0)\n\t\tdfs(i, n-1)\n\t}\n\tfor j := 0; j < n; j++ {\n\t\tdfs(0, j)\n\t\tdfs(m-1, j)\n\t}\n\t// 统一还原：'#' 恢复 'O'，剩余 'O' 全部被围绕，翻成 'X'\n\tfor i := 0; i < m; i++ {\n\t\tfor j := 0; j < n; j++ {\n\t\t\tif board[i][j] == '#' {\n\t\t\t\tboard[i][j] = 'O'\n\t\t\t} else if board[i][j] == 'O' {\n\t\t\t\tboard[i][j] = 'X'\n\t\t\t}\n\t\t}\n\t}\n}"
+    },
+    {
+      "id": 133,
+      "title": "Clone Graph",
+      "titleCn": "克隆图",
+      "difficulty": "medium",
+      "frequency": 4,
+      "question": "给你无向连通图中一个节点的引用，请你返回该图的深拷贝（克隆）。图中的每个节点都包含它的值 val（int）和其邻居的列表 neighbors（List[Node]）。class Node { public int val; public List<Node> neighbors; } 测试用例格式：每个节点的值都与其索引相同，例如第一个节点值为 1（val = 1），adjList[i] 表示值为 i+1 的节点的邻居列表。\n\n示例 1：输入 adjList = [[2,4],[1,3],[2,4],[1,3]]，输出 [[2,4],[1,3],[2,4],[1,3]]，图中有 4 个节点，克隆后结构完全一致。\n示例 2：输入 adjList = [[]]，输出 [[]]，图中只有一个值为 1、没有邻居的节点。\n示例 3：输入 adjList = []，输出 []，图为空。",
+      "hints": [
+        "审题诀窍：无向图中边是双向的（1 的邻居有 2，2 的邻居必有 1），克隆时要双向补全，但绝不能把同一个节点克隆两次。",
+        "审题诀窍：图里可能存在环（如 1↔2 互为邻居），朴素递归会死循环——必须用哈希表记录『原节点 → 克隆节点』，克隆前先查表。",
+        "突破口：哈希表 visited 一表两用：既是去重/防环的 visited 标记，又能让邻居表直接引用已经克隆好的克隆体。",
+        "追问预备：如果图不连通、给的是全部节点列表怎么办？（对每个未克隆过的节点各跑一遍克隆）如果节点还带随机指针（138 题）呢？（同样是 原节点→克隆 哈希表，先建骨架再补随机边）"
+      ],
+      "keyPoints": [
+        "哈希表建立 原节点 → 克隆节点 映射，同时承担 visited 防环职责",
+        "第一次遇到节点时先创建克隆并登记，再处理邻居（先登记可防自环）",
+        "邻居列表逐个查表取克隆体挂接，天然处理环与共享节点",
+        "空图直接返回 None，每个节点和每条边只处理一次"
+      ],
+      "structureTags": [
+        "hashmap",
+        "dfs",
+        "recursion"
+      ],
+      "approaches": [
+        {
+          "name": "BFS + 哈希表",
+          "idea": "用队列做层序遍历，哈希表记录原节点到克隆节点的映射。出队一个克隆节点时，遍历其原节点的邻居：没克隆过的就创建克隆并入队，再把克隆邻居挂进当前克隆节点的邻居表。",
+          "complexity": "时间 O(V+E)，空间 O(V)",
+          "detail": "步骤拆解：\n1. 空图判空返回 None。建 visited = {node: Node(node.val)}——先把起点克隆登记，表兼任 visited 防环。\n2. 队列存『原节点』。出队 cur：遍历 cur.neighbors，对每个邻居 nb 做三连：不在 visited → 克隆 nb、登记 visited[nb]、nb 入队；然后无条件执行 visited[cur].neighbors.append(visited[nb])，把克隆体挂到 cur 的克隆体上。\n3. 队列空即整张图克隆完毕，返回 visited[node]。\n\n示例走查（示例 1，环 1-2-3-4-1）：visited={1:1'}，队=[1]。出队原 1：邻居 2、4 → 克隆 2'、4' 入队，1'.neighbors=[2',4']。出队原 2：邻居 1 已在表 → 2'.neighbors=[1']；邻居 3 → 克隆 3' 入队，2'.neighbors=[1',3']。……处理到原 4 时邻居 1、3 都在表，直接查表挂接。环上每个节点只克隆一次，不会死循环。\n\n为什么正确：visited 保证每个原节点恰好克隆一次（去重 + 防环），挂边时总是查表取克隆体，克隆图与原图的节点、边一一对应，结构完全一致。\n\n易错点：\n- 想清楚队列存原节点还是克隆节点：存原节点时挂边用 visited[cur].neighbors，别把原节点直接挂进克隆图。\n- 克隆邻居的时机在『遍历邻居时』而不是出队时，否则漏挂边。\n- 起点必须先克隆登记，否则起点会被二次克隆成两个对象。",
+          "code": "from collections import deque\n\nclass Node:\n    def __init__(self, val=0, neighbors=None):\n        self.val = val\n        self.neighbors = neighbors if neighbors is not None else []\n\ndef cloneGraph(node):\n    if not node:\n        return None                     # 空图直接返回 None\n    visited = {node: Node(node.val)}    # 原节点 -> 克隆节点，兼作 visited\n    q = deque([node])                   # 队列里放原节点\n    while q:\n        cur = q.popleft()\n        for nb in cur.neighbors:        # 遍历原节点的邻居\n            if nb not in visited:       # 三连：克隆、登记、入队\n                visited[nb] = Node(nb.val)\n                q.append(nb)\n            visited[cur].neighbors.append(visited[nb])  # 查表挂接克隆体\n    return visited[node]"
+        },
+        {
+          "name": "DFS + 哈希表（最优）",
+          "idea": "递归克隆：进入节点先查哈希表，命中说明克隆过，直接返回克隆体（这一步同时解决成环死循环）；未命中则新建克隆节点并登记，再对每个邻居递归 dfs，把返回的克隆体追加到克隆节点的邻居表。",
+          "complexity": "时间 O(V+E)，空间 O(V)",
+          "optimal": true,
+          "detail": "步骤拆解：\n1. dfs(cur) 进入先查哈希表 visited：命中说明克隆过，直接返回克隆体——这一步既是去重也是防环（遇到 1↔2 互指的环时，第二次进入直接命中返回，递归终止）。\n2. 未命中：clone = Node(cur.val)，立刻 visited[cur] = clone——先建档再递归邻居，防自环死循环。\n3. 对每个邻居 nb 递归 dfs(nb)，把返回的克隆体 append 到 clone.neighbors——递归返回值天然就是『对应的克隆节点』。\n4. 主函数判空后 return dfs(node)。\n\n示例走查（示例 1，环 1-2-3-4-1）：dfs(1)：建 1' 建档 → dfs(2)：建 2' 建档 → dfs(1) 查表命中返回 1' → 2'.neighbors=[1'] → dfs(3)：建 3' → 邻居 2 查表命中 → 3'.neighbors=[2',...]…… 递归逐层回溯，每个克隆节点的邻居表被完整补齐。\n\n为什么正确：图的深拷贝 = 每个节点克隆一次 + 每条边在克隆体之间复刻。哈希表保证『一次』（查表命中即复用），递归返回值保证『复刻』（拿到与原邻居对应的克隆体）。每个节点、每条边只处理一次，O(V+E)。\n\n易错点：\n- 先建档再递归，顺序反了遇自环或二元环就无限递归爆栈。\n- append 的是递归返回的克隆体，不是原邻居节点。\n- Python 递归深度受系统限制，超大图建议换 BFS 版或显式栈。",
+          "code": "class Node:\n    def __init__(self, val=0, neighbors=None):\n        self.val = val\n        self.neighbors = neighbors if neighbors is not None else []\n\ndef cloneGraph(node):\n    if not node:\n        return None                     # 空图直接返回 None\n    visited = {}                        # 哈希表：原节点 -> 克隆节点，兼作 visited\n\n    def dfs(cur):\n        if cur in visited:              # 已克隆过：直接复用克隆体，防环\n            return visited[cur]\n        clone = Node(cur.val)           # 先创建克隆并登记，再克隆邻居（防自环）\n        visited[cur] = clone\n        for nb in cur.neighbors:\n            clone.neighbors.append(dfs(nb))   # 挂接邻居的克隆体\n        return clone\n\n    return dfs(node)"
+        }
+      ],
+      "code": "class Node:\n    def __init__(self, val=0, neighbors=None):\n        self.val = val\n        self.neighbors = neighbors if neighbors is not None else []\n\nclass Solution:\n    def cloneGraph(self, node: 'Node') -> 'Node':\n        if not node:                    # 空图直接返回 None\n            return None\n        visited = {}                    # 哈希表：原节点 -> 克隆节点，兼作 visited 防环\n\n        def dfs(cur: 'Node') -> 'Node':\n            if cur in visited:          # 已克隆过：直接复用克隆体，避免环上死循环\n                return visited[cur]\n            clone = Node(cur.val)       # 先创建克隆并登记，再克隆邻居（防自环）\n            visited[cur] = clone\n            for nb in cur.neighbors:    # 邻居的克隆体依次挂到当前克隆节点上\n                clone.neighbors.append(dfs(nb))\n            return clone\n\n        return dfs(node)",
+      "templates": [
+        "图克隆/去重模板：哈希表存 原节点→克隆节点，进入节点先建档再递归邻居；查表命中直接返回已克隆体，环与共享节点一并解决",
+        "图遍历必带 visited：树无环可不标记，图必有环，DFS/BFS 都要先查标记再前进"
+      ],
+      "companies": [
+        "字节跳动"
+      ],
+      "samples": [
+        {
+          "input": "adjList = [[2,4],[1,3],[2,4],[1,3]]",
+          "output": "[[2,4],[1,3],[2,4],[1,3]]",
+          "explain": "四个节点连成环 1-2-3-4-1，深拷贝后 val 与邻居关系完全一致"
+        },
+        {
+          "input": "adjList = [[]]",
+          "output": "[[]]",
+          "explain": "只有一个值为 1 的节点且无邻居"
+        },
+        {
+          "input": "adjList = []",
+          "output": "[]",
+          "explain": "空图直接返回空"
+        }
+      ],
+      "acmCode": "# ACM 模式：完整可运行程序（stdin -> stdout）\n# 输入格式：\n#   第一行：n m（节点数，节点值为 1..n；无向边数）\n#   接下来 m 行：每行两个整数 u v，表示节点 u 与 v 相邻\n# 输出格式：n 行，第 i 行为克隆图中节点 i 的邻居编号（空格分隔，顺序与输入一致；无邻居输出空行）\nimport sys\nsys.setrecursionlimit(10 ** 5)\n\nclass Node:\n    def __init__(self, val):\n        self.val = val                  # 节点值\n        self.neighbors = []             # 邻居克隆体列表\n\ndef main():\n    data = sys.stdin.read().split()\n    if not data:\n        return\n    n, m = int(data[0]), int(data[1])\n    adj = [[] for _ in range(n + 1)]    # 1..n 的原邻接表\n    idx = 2\n    for _ in range(m):\n        u, v = int(data[idx]), int(data[idx + 1])\n        adj[u].append(v)                # 无向边双向挂接\n        adj[v].append(u)\n        idx += 2\n\n    visited = {}                        # 哈希表：原节点编号 -> 克隆节点，兼作 visited\n\n    def dfs(u):\n        if u in visited:                # 已克隆过：直接复用克隆体，防环\n            return visited[u]\n        c = Node(u)                     # 先创建克隆并登记，再克隆邻居（防自环）\n        visited[u] = c\n        for v in adj[u]:\n            c.neighbors.append(dfs(v))  # 挂接邻居的克隆体\n        return c\n\n    for u in range(1, n + 1):           # 输入保证连通，循环写法更稳\n        if u not in visited:\n            dfs(u)\n\n    out = [' '.join(str(nb.val) for nb in visited[u].neighbors)\n           for u in range(1, n + 1)]\n    if out:\n        print('\\n'.join(out))\n\nif __name__ == '__main__':\n    main()",
+      "codeCpp": "// 图节点定义（LeetCode 平台已提供，这里一并给出便于本地编译）\nclass Node {\npublic:\n    int val;\n    vector<Node*> neighbors;\n    Node() : val(0) {}\n    explicit Node(int _val) : val(_val) {}\n    Node(int _val, vector<Node*> _neighbors)\n        : val(_val), neighbors(std::move(_neighbors)) {}\n};\n\nclass Solution {\npublic:\n    Node* cloneGraph(Node* node) {\n        if (!node) return nullptr;  // 空图直接返回 nullptr\n        // 哈希表：原节点 -> 克隆节点，兼作 visited 防环\n        unordered_map<Node*, Node*> visited;\n        // DFS 克隆：先创建克隆体并登记，再克隆邻居（先登记可防自环死循环）\n        function<Node*(Node*)> dfs = [&](Node* cur) -> Node* {\n            auto it = visited.find(cur);\n            if (it != visited.end()) return it->second;  // 已克隆过：直接复用克隆体\n            Node* clone = new Node(cur->val);\n            visited[cur] = clone;  // 先登记再展开邻居，环上不会重复创建\n            for (Node* nb : cur->neighbors) {\n                clone->neighbors.push_back(dfs(nb));  // 邻居的克隆体依次挂接\n            }\n            return clone;\n        };\n        return dfs(node);\n    }\n};",
+      "acmCodeCpp": "// ACM 模式：完整可运行程序（stdin -> stdout）\n// 输入格式：\n//   第一行：n m（节点数，节点值为 1..n；无向边数）\n//   接下来 m 行：每行两个整数 u v，表示节点 u 与 v 相邻\n// 输出格式：n 行，第 i 行为克隆图中节点 i 的邻居编号（空格分隔，顺序与输入一致；无邻居输出空行）\n#include <iostream>\n#include <unordered_map>\n#include <vector>\n\nusing namespace std;\n\nstruct Node {\n    int val;\n    vector<Node*> neighbors;\n    explicit Node(int v) : val(v) {}\n};\n\nint n, m;\nvector<vector<int>> adj;            // 1..n 的原邻接表\nunordered_map<int, Node*> visited;  // 原节点编号 -> 克隆节点，兼作 visited\n\n// DFS 克隆：先创建克隆体并登记，再克隆邻居（先登记可防自环死循环）\nNode* dfs(int u) {\n    auto it = visited.find(u);\n    if (it != visited.end()) return it->second;  // 已克隆过：直接复用克隆体，防环\n    Node* c = new Node(u);\n    visited[u] = c;                 // 先登记再展开邻居\n    for (int v : adj[u]) {\n        c->neighbors.push_back(dfs(v));  // 挂接邻居的克隆体\n    }\n    return c;\n}\n\nint main() {\n    ios::sync_with_stdio(false);\n    cin.tie(nullptr);\n    cin >> n >> m;\n    adj.assign(n + 1, {});\n    for (int i = 0; i < m; ++i) {\n        int u, v;\n        cin >> u >> v;\n        adj[u].push_back(v);        // 无向边双向挂接\n        adj[v].push_back(u);\n    }\n    for (int u = 1; u <= n; ++u) {  // 输入保证连通，循环写法更稳\n        if (!visited.count(u)) dfs(u);\n    }\n    for (int u = 1; u <= n; ++u) {  // 输出克隆图中各节点的邻居编号\n        for (int k = 0; k < (int)visited[u]->neighbors.size(); ++k) {\n            if (k) cout << ' ';\n            cout << visited[u]->neighbors[k]->val;\n        }\n        cout << \"\\n\";\n    }\n    return 0;\n}",
+      "codeJava": "class Node {\n    public int val;\n    public List<Node> neighbors;\n    public Node() { val = 0; neighbors = new ArrayList<Node>(); }\n    public Node(int val) { this.val = val; neighbors = new ArrayList<Node>(); }\n    public Node(int val, List<Node> neighbors) { this.val = val; this.neighbors = neighbors; }\n}\n\nclass Solution {\n    public Node cloneGraph(Node node) {\n        if (node == null) return null;  // 空图直接返回 null\n        // 哈希表：原节点 -> 克隆节点，兼作 visited 防环\n        Map<Node, Node> visited = new HashMap<>();\n        return dfs(node, visited);\n    }\n\n    // DFS 克隆：先创建克隆体并登记，再克隆邻居（先登记可防自环死循环）\n    private Node dfs(Node cur, Map<Node, Node> visited) {\n        if (visited.containsKey(cur)) return visited.get(cur);  // 已克隆过：直接复用\n        Node clone = new Node(cur.val);\n        visited.put(cur, clone);  // 先登记再展开邻居，环上不会重复创建\n        for (Node nb : cur.neighbors) {\n            clone.neighbors.add(dfs(nb, visited));  // 邻居的克隆体依次挂接\n        }\n        return clone;\n    }\n}",
+      "codeJs": "/**\n * // Definition for a Node.\n * function Node(val, neighbors) {\n *    this.val = val === undefined ? 0 : val;\n *    this.neighbors = neighbors === undefined ? [] : neighbors;\n * }\n */\n/**\n * @param {Node} node\n * @return {Node}\n */\nvar cloneGraph = function (node) {\n  if (!node) return null;       // 空图直接返回 null\n  const visited = new Map();    // 哈希表：原节点 -> 克隆节点，兼作 visited 防环\n  // DFS 克隆：先创建克隆体并登记，再克隆邻居（先登记可防自环死循环）\n  const dfs = (cur) => {\n    if (visited.has(cur)) return visited.get(cur);  // 已克隆过：直接复用克隆体\n    const clone = new Node(cur.val);\n    visited.set(cur, clone);    // 先登记再展开邻居，环上不会重复创建\n    for (const nb of cur.neighbors) {\n      clone.neighbors.push(dfs(nb));  // 邻居的克隆体依次挂接\n    }\n    return clone;\n  };\n  return dfs(node);\n};",
+      "codeGo": "// 节点定义（LeetCode 平台已提供）：\n// type Node struct { Val int; Neighbors []*Node }\nfunc cloneGraph(node *Node) *Node {\n\tif node == nil { // 空图直接返回 nil\n\t\treturn nil\n\t}\n\tvisited := map[*Node]*Node{} // 哈希表：原节点 -> 克隆节点，兼作 visited 防环\n\t// DFS 克隆：先创建克隆体并登记，再克隆邻居（先登记可防自环死循环）\n\tvar dfs func(cur *Node) *Node\n\tdfs = func(cur *Node) *Node {\n\t\tif c, ok := visited[cur]; ok { // 已克隆过：直接复用克隆体，防环\n\t\t\treturn c\n\t\t}\n\t\tclone := &Node{Val: cur.Val}\n\t\tvisited[cur] = clone // 先登记再展开邻居，环上不会重复创建\n\t\tfor _, nb := range cur.Neighbors {\n\t\t\tclone.Neighbors = append(clone.Neighbors, dfs(nb)) // 邻居克隆体依次挂接\n\t\t}\n\t\treturn clone\n\t}\n\treturn dfs(node)\n}"
+    },
+    {
+      "id": 200,
+      "title": "Number of Islands",
+      "titleCn": "岛屿数量",
+      "difficulty": "medium",
+      "frequency": 5,
+      "question": "给你一个由 '1'（陆地）和 '0'（水）组成的二维网格 grid，请你计算网格中岛屿的数量。岛屿总是被水包围，并且每座岛屿只能由水平方向和/或竖直方向上相邻的陆地连接形成。你可以假设该网格的四条边均被水包围。\n\n示例 1：输入 grid = [[\"1\",\"1\",\"1\",\"1\",\"0\"],[\"1\",\"1\",\"0\",\"1\",\"0\"],[\"1\",\"1\",\"0\",\"0\",\"0\"],[\"0\",\"0\",\"0\",\"0\",\"0\"]]，输出 1。\n示例 2：输入 grid = [[\"1\",\"1\",\"0\",\"0\",\"0\"],[\"1\",\"1\",\"0\",\"0\",\"0\"],[\"0\",\"0\",\"1\",\"0\",\"0\"],[\"0\",\"0\",\"0\",\"1\",\"1\"]]，输出 3。",
+      "hints": [
+        "审题诀窍：格子里存的是字符 '1'/'0' 而不是数字 1/0，判断条件写成 grid[i][j] == '1'，别和 695 题抄混。",
+        "审题诀窍：只有上下左右算相邻，斜对角不算——DFS/BFS 只走四个方向。",
+        "突破口：每发现一个还没被访问的 '1'，岛屿数 +1，并立刻把整个连通块『沉岛』置 '0'；之后扫描再也不会撞见它，天然去重。",
+        "追问预备：若边刷边加陆地、随时询问岛屿数（305 号问题）怎么做？（并查集：新陆地把岛数 +1，每次成功合并 -1）若要求输出每座岛的面积列表怎么办？（同框架，把沉岛改成累计计数）"
+      ],
+      "keyPoints": [
+        "岛屿数 = 陆地连通块个数，双重循环寻找触发搜索的起点",
+        "找到 '1' 就 DFS 沉岛，把整个连通块改成 '0'，防止重复计数",
+        "沉岛法原地修改省掉 visited 矩阵，空间更省",
+        "网格边界视同为水，越界即返回"
+      ],
+      "structureTags": [
+        "dfs",
+        "recursion",
+        "matrix"
+      ],
+      "approaches": [
+        {
+          "name": "BFS 洪水填充",
+          "idea": "扫描网格遇到 '1' 就计数 +1 并入队，同时置 '0'；用队列逐层向四方向扩散把整个连通块清除。超大全 1 矩阵下 BFS 队列峰值约为对角线长度，比 DFS 的递归栈更省。",
+          "complexity": "时间 O(mn)，空间 O(min(m, n))",
+          "detail": "步骤拆解：\n1. 双重循环扫描网格，遇到 grid[i][j] == '1'：count += 1（发现新岛），立即 grid[i][j] = '0'（沉岛），并把 (i, j) 入队。\n2. BFS：出队 (x, y)，检查上下左右四邻 (nx, ny)：在界内且 grid[nx][ny] == '1' → 置 '0' 并入队；队列空说明这座岛被清除完毕。\n3. 继续外层扫描，下一个未访问的 '1' 又是一座新岛。\n\n示例走查（示例 2）：扫到 (0,0) '1' → count=1，BFS 依次清掉 (0,1)(1,0)(1,1)；扫到 (2,2) → count=2，清 1 格；扫到 (3,3) → count=3，清 (3,3)(3,4)。返回 3。\n\n为什么正确：每个连通块只会在第一次被扫描撞见时计数一次，BFS 把整块沉没成 '0'，之后扫描不会再撞见它——计数次数恰好等于连通块个数。\n\n易错点：\n- 必须入队同时置 '0'，出队才置会让同一格被多个邻居重复入队。\n- 本题格子是字符 '1'，与 695 题的整数 1 区分，判断条件别抄混。\n- BFS 空间是 O(min(m, n))（队列峰值约为对角线长度），不是 O(mn)，这是相对 DFS 的卖点。",
+          "code": "from collections import deque\n\ndef numIslands(grid):\n    m, n = len(grid), len(grid[0])\n    count = 0\n    for i in range(m):\n        for j in range(n):\n            if grid[i][j] == '1':       # 发现未访问的陆地：新岛屿\n                count += 1\n                grid[i][j] = '0'        # 入队前先沉岛，防重复入队\n                q = deque([(i, j)])\n                while q:\n                    x, y = q.popleft()\n                    for nx, ny in ((x+1, y), (x-1, y), (x, y+1), (x, y-1)):\n                        if 0 <= nx < m and 0 <= ny < n and grid[nx][ny] == '1':\n                            grid[nx][ny] = '0'   # 扩散时同步沉岛\n                            q.append((nx, ny))\n    return count"
+        },
+        {
+          "name": "DFS 沉岛（最优）",
+          "idea": "双重循环找到未访问的 '1' 时岛屿数 +1，立即从该格 DFS 把整座岛改成 '0'（沉岛），使每个连通块只被统计一次。沉岛替代 visited 矩阵，代码最短、常数最小，是面试标准答案。",
+          "complexity": "时间 O(mn)，空间 O(mn)",
+          "optimal": true,
+          "detail": "步骤拆解：\n1. dfs(i, j)：越界或 grid[i][j] != '1' 直接返回——'0' 既包括水也包括已沉的岛，一个判断同时充当边界检查和 visited。\n2. 进入即 grid[i][j] = '0'（沉岛），再向上下左右四个方向递归——一次 dfs 调用抹掉整座岛。\n3. 主循环：扫描遇到 '1' 就 count += 1，然后调用 dfs(i, j) 沉掉整座岛。\n\n示例走查（示例 1）：扫到 (0,0) → count=1；dfs 深入 (0,1)(0,2)(0,3)，回溯途中清掉 (1,0)(1,1)(1,2)(1,3) 等，7 个 '1' 全变 '0'；后续扫描再也遇不到 '1'，返回 1。\n\n为什么正确：连通块个数 = 搜索被触发的次数；沉岛保证每个格子只归属第一次触发它的那次搜索，既不重复计数也不漏计。每个格子最多进出 dfs 一次，时间 O(mn)，原地修改空间最省（不计递归栈）。\n\n易错点：\n- 判断条件用 grid[i][j] != '1' 一次覆盖水和已访问；写成 == '0' 会漏掉已沉的格。\n- 必须先 count += 1 再 dfs，顺序反了会少计。\n- 全 1 大矩阵递归深度达 mn，Python 默认递归限 1000，笔试要么 setrecursionlimit 要么主动改 BFS。",
+          "code": "def numIslands(grid):\n    m, n = len(grid), len(grid[0])\n\n    def dfs(i, j):\n        # 越界或踩到水（含已沉掉的岛）就停，等价于隐式 visited\n        if i < 0 or i >= m or j < 0 or j >= n or grid[i][j] != '1':\n            return\n        grid[i][j] = '0'                # 沉岛：先标记再向四方向扩散\n        dfs(i + 1, j); dfs(i - 1, j)\n        dfs(i, j + 1); dfs(i, j - 1)\n\n    count = 0\n    for i in range(m):                  # 扫描全图，每个未访问的 '1' 都是新岛\n        for j in range(n):\n            if grid[i][j] == '1':\n                count += 1              # 发现新岛屿，计数 +1\n                dfs(i, j)               # 沉掉整座岛，之后不会再遇到它\n    return count"
+        },
+        {
+          "name": "并查集",
+          "idea": "每块陆地初始化为独立集合，遍历时把相邻的陆地合并；最终不同根的陆地格数量即岛屿数。在静态计数题上不如 DFS 简洁，但适合『边加陆地边问岛数』的动态变体（如 305 题）。",
+          "complexity": "时间 O(mn·α(mn))，空间 O(mn)",
+          "detail": "步骤拆解：\n1. 每个陆地格初始化为独立集合（一维坐标 idx = i*n + j），island = 陆地格总数。\n2. 扫描每个陆地格，只与右、下两个方向的陆地邻居 union：合并成功（根不同）→ island -= 1；根相同说明本来就同岛，跳过。\n3. 扫描结束，island 即岛屿数（'0' 格从不参与集合）。\n\n示例走查（示例 2）：7 个陆地格 island=7；(0,0)-(0,1) 合并 → 6；(0,0)-(1,0) → 5；(0,1)-(1,1) → 4；(1,0)-(1,1) 已同根不动；(3,3)-(3,4) → 3。返回 3。\n\n为什么正确：每条『有效合并』恰好把两个不同连通块合成一个，岛数减一；所有相邻关系处理完后，剩余集合数就是连通块个数。无需第二次扫描。\n\n易错点：\n- union 前必须先 find 比较根，盲目把所有相邻对都算成合并会让 island 减多。\n- 一维化 idx = i*n + j 的 n 是列数。\n- 静态计数题上并查集不如 DFS 简洁，它的价值在『动态加陆地边问岛数』的变体（305 题），面试可作为加分项提一句。",
+          "code": "class DSU:\n    def __init__(self, n):\n        self.p = list(range(n))\n    def find(self, x):\n        while self.p[x] != x:           # 路径压缩\n            self.p[x] = self.p[self.p[x]]\n            x = self.p[x]\n        return x\n    def union(self, a, b):\n        ra, rb = self.find(a), self.find(b)\n        if ra != rb:\n            self.p[ra] = rb             # 合并成功\n            return True\n        return False                    # 本就同集合\n\ndef numIslands(grid):\n    m, n = len(grid), len(grid[0])\n    dsu = DSU(m * n)\n    island = sum(grid[i][j] == '1' for i in range(m) for j in range(n))\n    for i in range(m):\n        for j in range(n):\n            if grid[i][j] != '1':\n                continue\n            if j + 1 < n and grid[i][j+1] == '1' and dsu.union(i*n+j, i*n+j+1):\n                island -= 1             # 两个陆地块合一，岛数 -1\n            if i + 1 < m and grid[i+1][j] == '1' and dsu.union(i*n+j, (i+1)*n+j):\n                island -= 1\n    return island"
+        }
+      ],
+      "code": "class Solution:\n    def numIslands(self, grid: List[List[str]]) -> int:\n        m, n = len(grid), len(grid[0])\n        count = 0\n\n        def dfs(i: int, j: int) -> None:\n            # 越界或踩到水（含已沉掉的岛）就停，等价于隐式 visited\n            if i < 0 or i >= m or j < 0 or j >= n or grid[i][j] != '1':\n                return\n            grid[i][j] = '0'            # 沉岛：立刻置 '0'，保证同一块只统计一次\n            dfs(i + 1, j); dfs(i - 1, j)  # 向上下左右四个方向扩散整座岛\n            dfs(i, j + 1); dfs(i, j - 1)\n\n        for i in range(m):              # 扫描全图，每个未访问的 '1' 都是一座新岛\n            for j in range(n):\n                if grid[i][j] == '1':\n                    count += 1          # 发现新岛屿，计数 +1\n                    dfs(i, j)           # 沉掉整座岛，之后不会再遇到它\n        return count",
+      "templates": [
+        "网格 DFS 沉岛模板：dfs 里越界或 grid[i][j] != '1' 直接 return，先置 '0' 再递归四方向；外层扫描遇 '1' 计数即岛屿数",
+        "连通块计数模板：连通块个数 = 触发搜索的次数，搜索负责抹掉（或标记）整个连通块"
+      ],
+      "companies": [
+        "字节跳动",
+        "美团",
+        "华为"
+      ],
+      "samples": [
+        {
+          "input": "grid = [[\"1\",\"1\",\"1\",\"1\",\"0\"],[\"1\",\"1\",\"0\",\"1\",\"0\"],[\"1\",\"1\",\"0\",\"0\",\"0\"],[\"0\",\"0\",\"0\",\"0\",\"0\"]]",
+          "output": "1",
+          "explain": "左上角的 7 个 '1' 上下左右连通，组成一整座岛"
+        },
+        {
+          "input": "grid = [[\"1\",\"1\",\"0\",\"0\",\"0\"],[\"1\",\"1\",\"0\",\"0\",\"0\"],[\"0\",\"0\",\"1\",\"0\",\"0\"],[\"0\",\"0\",\"0\",\"1\",\"1\"]]",
+          "output": "3",
+          "explain": "左上 4 格、中部 1 格、右下 3 格，三座岛互不相连"
+        }
+      ],
+      "acmCode": "# ACM 模式：完整可运行程序（stdin -> stdout）\n# 输入格式：\n#   第一行：n m（网格行数、列数）\n#   接下来 n 行：每行一个长度为 m 的 01 串（'1' 陆地，'0' 水）\n# 输出格式：一个整数，岛屿数量\nimport sys\nsys.setrecursionlimit(10 ** 5)\n\ndef main():\n    data = sys.stdin.read().split()     # 每行一个无空格 01 串，split 恰好按行切开\n    n, m = int(data[0]), int(data[1])\n    grid = [list(row) for row in data[2:2 + n]]\n\n    def dfs(i, j):\n        # 越界或踩到水（含已沉掉的岛）就停，等价于隐式 visited\n        if i < 0 or i >= n or j < 0 or j >= m or grid[i][j] != '1':\n            return\n        grid[i][j] = '0'                # 沉岛：先标记再扩散\n        dfs(i + 1, j); dfs(i - 1, j)\n        dfs(i, j + 1); dfs(i, j - 1)\n\n    count = 0\n    for i in range(n):\n        for j in range(m):\n            if grid[i][j] == '1':\n                count += 1              # 每次触发搜索 = 一座新岛\n                dfs(i, j)               # 沉掉整座岛\n    print(count)\n\nif __name__ == '__main__':\n    main()",
+      "codeCpp": "class Solution {\npublic:\n    int numIslands(vector<vector<char>>& grid) {\n        int m = grid.size(), n = grid[0].size();\n        int count = 0;\n        for (int i = 0; i < m; ++i) {  // 扫描全图，每个未访问的 '1' 都是一座新岛\n            for (int j = 0; j < n; ++j) {\n                if (grid[i][j] == '1') {\n                    ++count;           // 发现新岛屿，计数 +1\n                    dfs(grid, i, j);   // 沉掉整座岛，之后不会再遇到它\n                }\n            }\n        }\n        return count;\n    }\n\nprivate:\n    // 越界或踩到水（含已沉掉的岛）就停，等价于隐式 visited\n    void dfs(vector<vector<char>>& grid, int i, int j) {\n        if (i < 0 || i >= (int)grid.size() || j < 0 || j >= (int)grid[0].size()\n            || grid[i][j] != '1') return;\n        grid[i][j] = '0';      // 沉岛：立刻置 '0'，保证同一块只统计一次\n        dfs(grid, i + 1, j);   // 向上下左右四个方向扩散整座岛\n        dfs(grid, i - 1, j);\n        dfs(grid, i, j + 1);\n        dfs(grid, i, j - 1);\n    }\n};",
+      "acmCodeCpp": "// ACM 模式：完整可运行程序（stdin -> stdout）\n// 输入格式：\n//   第一行：n m（网格行数、列数）\n//   接下来 n 行：每行一个长度为 m 的 01 串（'1' 陆地，'0' 水）\n// 输出格式：一个整数，岛屿数量\n#include <iostream>\n#include <string>\n#include <vector>\n\nusing namespace std;\n\nint n, m;\nvector<string> grid;\n\n// 越界或踩到水（含已沉掉的岛）就停，等价于隐式 visited\nvoid dfs(int i, int j) {\n    if (i < 0 || i >= n || j < 0 || j >= m || grid[i][j] != '1') return;\n    grid[i][j] = '0';                // 沉岛：先标记再扩散\n    dfs(i + 1, j); dfs(i - 1, j);    // 上下左右四个方向扩散整座岛\n    dfs(i, j + 1); dfs(i, j - 1);\n}\n\nint main() {\n    ios::sync_with_stdio(false);\n    cin.tie(nullptr);\n    cin >> n >> m;\n    grid.resize(n);\n    for (int i = 0; i < n; ++i) cin >> grid[i];  // 每行一个 01 串\n\n    int count = 0;\n    for (int i = 0; i < n; ++i) {\n        for (int j = 0; j < m; ++j) {\n            if (grid[i][j] == '1') {\n                ++count;             // 每次触发搜索 = 一座新岛\n                dfs(i, j);           // 沉掉整座岛\n            }\n        }\n    }\n    cout << count << endl;\n    return 0;\n}",
+      "codeJava": "class Solution {\n    public int numIslands(char[][] grid) {\n        int count = 0;\n        for (int i = 0; i < grid.length; i++) {  // 扫描全图，每个未访问的 '1' 都是一座新岛\n            for (int j = 0; j < grid[0].length; j++) {\n                if (grid[i][j] == '1') {\n                    count++;                     // 发现新岛屿，计数 +1\n                    dfs(grid, i, j);             // 沉掉整座岛，之后不会再遇到它\n                }\n            }\n        }\n        return count;\n    }\n\n    // 越界或踩到水（含已沉掉的岛）就停，等价于隐式 visited\n    private void dfs(char[][] grid, int i, int j) {\n        if (i < 0 || i >= grid.length || j < 0 || j >= grid[0].length\n                || grid[i][j] != '1') return;\n        grid[i][j] = '0';    // 沉岛：立刻置 '0'，保证同一块只统计一次\n        dfs(grid, i + 1, j); // 向上下左右四个方向扩散整座岛\n        dfs(grid, i - 1, j);\n        dfs(grid, i, j + 1);\n        dfs(grid, i, j - 1);\n    }\n}",
+      "codeJs": "/**\n * @param {character[][]} grid\n * @return {number}\n */\nvar numIslands = function (grid) {\n  const m = grid.length, n = grid[0].length;\n  // 越界或踩到水（含已沉掉的岛）就停，等价于隐式 visited\n  const dfs = (i, j) => {\n    if (i < 0 || i >= m || j < 0 || j >= n || grid[i][j] !== '1') return;\n    grid[i][j] = '0';             // 沉岛：立刻置 '0'，保证同一块只统计一次\n    dfs(i + 1, j); dfs(i - 1, j); // 向上下左右四个方向扩散整座岛\n    dfs(i, j + 1); dfs(i, j - 1);\n  };\n  let count = 0;\n  for (let i = 0; i < m; i++) {   // 扫描全图，每个未访问的 '1' 都是一座新岛\n    for (let j = 0; j < n; j++) {\n      if (grid[i][j] === '1') {\n        count++;                  // 发现新岛屿，计数 +1\n        dfs(i, j);                // 沉掉整座岛，之后不会再遇到它\n      }\n    }\n  }\n  return count;\n};",
+      "codeGo": "func numIslands(grid [][]byte) int {\n\tm, n := len(grid), len(grid[0])\n\tcount := 0\n\t// 越界或踩到水（含已沉掉的岛）就停，等价于隐式 visited\n\tvar dfs func(i, j int)\n\tdfs = func(i, j int) {\n\t\tif i < 0 || i >= m || j < 0 || j >= n || grid[i][j] != '1' {\n\t\t\treturn\n\t\t}\n\t\tgrid[i][j] = '0' // 沉岛：立刻置 '0'，保证同一块只统计一次\n\t\tdfs(i+1, j)      // 向上下左右四个方向扩散整座岛\n\t\tdfs(i-1, j)\n\t\tdfs(i, j+1)\n\t\tdfs(i, j-1)\n\t}\n\tfor i := 0; i < m; i++ { // 扫描全图，每个未访问的 '1' 都是一座新岛\n\t\tfor j := 0; j < n; j++ {\n\t\t\tif grid[i][j] == '1' {\n\t\t\t\tcount++   // 发现新岛屿，计数 +1\n\t\t\t\tdfs(i, j) // 沉掉整座岛，之后不会再遇到它\n\t\t\t}\n\t\t}\n\t}\n\treturn count\n}"
+    },
+    {
+      "id": 207,
+      "title": "Course Schedule",
+      "titleCn": "课程表",
+      "difficulty": "medium",
+      "frequency": 5,
+      "question": "这个学期你必须选修 numCourses 门课程，记为 0 到 numCourses - 1。有些课程有先修要求，例如 prerequisites[i] = [ai, bi] 表示如果想学课程 ai，必须先完成课程 bi。请你判断是否可能完成所有课程：可以则返回 true，否则返回 false。\n\n示例 1：输入 numCourses = 2, prerequisites = [[1,0]]，输出 true，先修课程 0 再修课程 1 即可。\n示例 2：输入 numCourses = 2, prerequisites = [[1,0],[0,1]]，输出 false，两门课互相依赖形成环，无法完成。",
+      "hints": [
+        "审题诀窍：本题本质是问有向图是否存在环——能修完所有课 ⇔ 图无环 ⇔ 拓扑排序能排出所有课程。",
+        "审题诀窍：注意 prerequisites[i] = [a, b] 表示『先修 b 后修 a』，有向边是 b→a，方向建反结果就全错。",
+        "突破口：入度为 0 的课没有任何未满足的先修，可以立刻上；修完一门就把它的所有后继入度 -1，入度减到 0 的课解锁入队——这就是 Kahn 拓扑排序。",
+        "追问预备：如何输出具体的修课顺序？（就是 210 题：Kahn 出队序列即答案）如何找出环上的具体课程？（DFS 三色法里维护递归栈，撞到状态 1 时把栈中路径取出）"
+      ],
+      "keyPoints": [
+        "课程为节点、先修关系为有向边，问题转化为检测有向图是否无环",
+        "BFS 拓扑排序（Kahn）：入度表 + 队列，从所有入度 0 的节点出发",
+        "出队时给后继减入度，减到 0 即解锁入队",
+        "最终出队课程数等于总课程数则无环，否则有环返回 false"
+      ],
+      "structureTags": [
+        "bfs",
+        "queue"
+      ],
+      "approaches": [
+        {
+          "name": "DFS 三色标记判环",
+          "idea": "每个节点三种状态：0 未访问、1 递归栈中、2 已完成。DFS 过程中再次遇到状态为 1 的节点，说明找到一条回边，即图中存在环。判环正确，但只回答『能否修完』，不直接给出修课顺序。",
+          "complexity": "时间 O(V+E)，空间 O(V+E)",
+          "detail": "步骤拆解：\n1. 建邻接表 graph[b].append(a)（[a, b] 表示先修 b 后修 a，边方向 b→a），color 数组三态：0 未访问 / 1 在当前递归栈中 / 2 已完成。\n2. 对每个 color==0 的节点启动 dfs(u)：先把 color[u]=1（入栈）；遍历后继 v——color[v]==1 说明 v 在当前 DFS 路径上，u→v 是回边，有环返回 False；color[v]==0 则递归 dfs(v)，返回 False 就一路向上传。\n3. u 的所有后继都安全后 color[u]=2（出栈），返回 True。主函数对所有节点启动过 dfs 且都返回 True，才能修完。\n\n示例走查（示例 2）：dfs(0)：0 置 1 → 邻居 1 未访问 → dfs(1)：1 置 1 → 邻居 0 的 color==1 → 发现回边，逐层返回 False。\n\n为什么正确：有向图存在环 ⇔ DFS 存在回边（指向递归栈中节点的边）。三色区分了『栈中』与『已完成』，避免把指向已完成节点的交叉边误判为环。\n\n易错点：\n- 三色缺一不可：只用『访问过/没访问过』两色，菱形依赖（1→2、1→3、2→4、3→4）里的 1→…→4 与 3→4 交叉边会被误判成环。\n- 建边方向是 b→a，方向反了等于把先修关系倒置，小样例可能碰巧对、大数据必错。\n- 图可能不连通，主函数要枚举所有节点启动 dfs。",
+          "code": "from collections import defaultdict\n\ndef canFinish(numCourses, prerequisites):\n    graph = defaultdict(list)\n    for a, b in prerequisites:\n        graph[b].append(a)              # 先修 b 才能修 a：建边 b -> a\n    color = [0] * numCourses            # 0 未访问 / 1 递归栈中 / 2 已完成\n\n    def dfs(u):\n        color[u] = 1                    # 入栈\n        for v in graph[u]:\n            if color[v] == 1:           # 指向栈中节点：回边，有环\n                return False\n            if color[v] == 0 and not dfs(v):\n                return False            # 后继子图有环，向上传递\n        color[u] = 2                    # 出栈：u 及其整棵子树都安全\n        return True\n\n    return all(dfs(i) for i in range(numCourses) if color[i] == 0)"
+        },
+        {
+          "name": "BFS 拓扑排序（Kahn 算法，最优）",
+          "idea": "统计每门课的入度（未满足的先修数量），把入度为 0 的课先入队。每修完一门课，就把它指向的课程入度 -1，减到 0 的课解锁入队。最终出队课程数等于总课程数则无环可修完，否则图中有环。同一框架还能直接输出修课顺序（210 题）。",
+          "complexity": "时间 O(V+E)，空间 O(V+E)",
+          "optimal": true,
+          "detail": "步骤拆解：\n1. 建图 graph[b].append(a)，入度表 indeg[a] += 1——a 的入度就是它还差几门先修课。\n2. 把所有 indeg==0 的课入队（没有任何未满足的前置，立刻能上）。\n3. 出队 cur，done += 1；对每个后继 nxt：indeg[nxt] -= 1（cur 修完，nxt 少一个依赖），减到 0 的课解锁入队。\n4. 队空后 return done == numCourses——出不完的课互相等待，即图中有环。\n\n示例走查（示例 2）：indeg=[1,1]，队空，done=0 != 2 → false。示例 1：indeg=[0,1]，队=[0] → 出队 0，done=1，indeg[1] 减到 0 入队 → 出队 1，done=2 → true。\n\n为什么正确：Kahn 每次出队的节点入度为 0（所有依赖已满足），出队序列就是一份合法拓扑序；能把全部节点排完 ⇔ 无环。环上节点的入度永远减不到 0，队会提前空，用 done 对比即可识别。\n\n易错点：\n- done 只在出队时 +1，别在入队时加。\n- 有环时队提前空是正常出口，靠 done != n 判环返回 false，不要写死循环等待。\n- prerequisites 若有重复对（LeetCode 不给），入度会虚高，严谨实现可先去重。",
+          "code": "from collections import deque, defaultdict\n\ndef canFinish(numCourses, prerequisites):\n    graph = defaultdict(list)           # 邻接表：先修课 -> 修完后可解锁的课\n    indeg = [0] * numCourses            # 入度：每门课还差多少门先修\n    for a, b in prerequisites:\n        graph[b].append(a)              # [a, b] 表示先修 b 后修 a，建边 b -> a\n        indeg[a] += 1\n\n    q = deque(i for i in range(numCourses) if indeg[i] == 0)  # 无先修的课先入队\n    done = 0                            # 已完成（出队）的课程数\n    while q:\n        cur = q.popleft()               # 取一门当前可以上的课\n        done += 1\n        for nxt in graph[cur]:          # 修完 cur，后继课程各减一个依赖\n            indeg[nxt] -= 1\n            if indeg[nxt] == 0:         # 先修全部满足，解锁入队\n                q.append(nxt)\n    return done == numCourses           # 全部出队 = 无环；出不完 = 有环"
+        }
+      ],
+      "code": "from collections import deque, defaultdict\nclass Solution:\n    def canFinish(self, numCourses: int, prerequisites: List[List[int]]) -> bool:\n        graph = defaultdict(list)       # 邻接表：先修课 -> 修完后可解锁的课列表\n        indeg = [0] * numCourses        # 入度表：每门课还差多少门先修课\n        for a, b in prerequisites:\n            graph[b].append(a)          # [a, b] 表示先修 b 后修 a，建边 b -> a\n            indeg[a] += 1               # a 的先修需求 +1\n\n        q = deque(i for i in range(numCourses) if indeg[i] == 0)  # 无先修的课先入队\n        done = 0                        # 已完成（出队）的课程数\n        while q:\n            cur = q.popleft()           # 取一门当前可以上的课\n            done += 1\n            for nxt in graph[cur]:      # 修完 cur，它后继课程的先修需求各减一\n                indeg[nxt] -= 1\n                if indeg[nxt] == 0:     # 先修全部满足，解锁并入队\n                    q.append(nxt)\n        return done == numCourses       # 全部出队 = 无环；出不完说明图中有环",
+      "templates": [
+        "拓扑排序（Kahn）模板：入度表 + 队列，入度 0 入队；出队时给所有后继入度 -1，减到 0 即入队；出队总数 < 节点数 ⇒ 有环",
+        "先修课建边口诀：prerequisites 中 [a, b] 表示先修 b 后修 a，建边 b→a，入度记在 a 上"
+      ],
+      "companies": [
+        "字节跳动",
+        "腾讯"
+      ],
+      "samples": [
+        {
+          "input": "numCourses = 2, prerequisites = [[1,0]]",
+          "output": "true",
+          "explain": "先修课程 0，再修课程 1，无环可完成"
+        },
+        {
+          "input": "numCourses = 2, prerequisites = [[1,0],[0,1]]",
+          "output": "false",
+          "explain": "两门课互为先修，形成环，无法完成"
+        }
+      ],
+      "acmCode": "# ACM 模式：完整可运行程序（stdin -> stdout）\n# 输入格式：\n#   第一行：n m（课程数 0..n-1，先修关系条数）\n#   接下来 m 行：每行两个整数 a b，表示先修 b 才能修 a\n# 输出格式：true / false\nimport sys\nfrom collections import deque, defaultdict\n\ndef main():\n    data = sys.stdin.read().split()\n    n, m = int(data[0]), int(data[1])\n    graph = defaultdict(list)\n    indeg = [0] * n\n    idx = 2\n    for _ in range(m):\n        a, b = int(data[idx]), int(data[idx + 1])\n        graph[b].append(a)              # 先修 b 才能修 a：建边 b -> a\n        indeg[a] += 1                   # a 的未满足先修数 +1\n        idx += 2\n\n    q = deque(i for i in range(n) if indeg[i] == 0)   # 无先修的课先入队\n    done = 0\n    while q:\n        cur = q.popleft()\n        done += 1                       # 出队 = 修完一门\n        for nxt in graph[cur]:\n            indeg[nxt] -= 1             # cur 修完，后继少一个依赖\n            if indeg[nxt] == 0:         # 依赖清零，解锁入队\n                q.append(nxt)\n    print('true' if done == n else 'false')   # 排不完 = 有环\n\nif __name__ == '__main__':\n    main()",
+      "codeCpp": "class Solution {\npublic:\n    bool canFinish(int numCourses, vector<vector<int>>& prerequisites) {\n        vector<vector<int>> graph(numCourses);  // 邻接表：先修课 -> 修完后可解锁的课列表\n        vector<int> indeg(numCourses, 0);       // 入度表：每门课还差多少门先修课\n        for (auto& p : prerequisites) {\n            graph[p[1]].push_back(p[0]);        // [a, b] 表示先修 b 后修 a，建边 b -> a\n            ++indeg[p[0]];                      // a 的先修需求 +1\n        }\n        queue<int> q;                           // 无先修的课先入队\n        for (int i = 0; i < numCourses; ++i) {\n            if (indeg[i] == 0) q.push(i);\n        }\n        int done = 0;                           // 已完成（出队）的课程数\n        while (!q.empty()) {\n            int cur = q.front();\n            q.pop();\n            ++done;\n            for (int nxt : graph[cur]) {  // 修完 cur，它后继课程的先修需求各减一\n                if (--indeg[nxt] == 0) q.push(nxt);  // 先修全部满足，解锁并入队\n            }\n        }\n        return done == numCourses;  // 全部出队 = 无环；出不完说明图中有环\n    }\n};",
+      "acmCodeCpp": "// ACM 模式：完整可运行程序（stdin -> stdout）\n// 输入格式：\n//   第一行：n m（课程数 0..n-1，先修关系条数）\n//   接下来 m 行：每行两个整数 a b，表示先修 b 才能修 a\n// 输出格式：true / false\n#include <iostream>\n#include <queue>\n#include <vector>\n\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);\n    cin.tie(nullptr);\n    int n, m;\n    cin >> n >> m;\n    vector<vector<int>> graph(n);   // 邻接表：b -> [修完 b 后可解锁的课]\n    vector<int> indeg(n, 0);\n    for (int i = 0; i < m; ++i) {\n        int a, b;\n        cin >> a >> b;\n        graph[b].push_back(a);      // 先修 b 才能修 a：建边 b -> a\n        ++indeg[a];                 // a 的未满足先修数 +1\n    }\n\n    queue<int> q;                   // 无先修的课先入队\n    for (int i = 0; i < n; ++i) {\n        if (indeg[i] == 0) q.push(i);\n    }\n    int done = 0;\n    while (!q.empty()) {\n        int cur = q.front();\n        q.pop();\n        ++done;                     // 出队 = 修完一门\n        for (int nxt : graph[cur]) {\n            if (--indeg[nxt] == 0) q.push(nxt);  // 依赖清零，解锁入队\n        }\n    }\n    cout << (done == n ? \"true\" : \"false\") << endl;  // 排不完 = 有环\n    return 0;\n}",
+      "codeJava": "class Solution {\n    public boolean canFinish(int numCourses, int[][] prerequisites) {\n        List<List<Integer>> graph = new ArrayList<>();  // 邻接表：先修课 -> 可解锁的课列表\n        int[] indeg = new int[numCourses];              // 入度表：每门课还差多少门先修课\n        for (int i = 0; i < numCourses; i++) graph.add(new ArrayList<>());\n        for (int[] p : prerequisites) {\n            graph.get(p[1]).add(p[0]);  // [a, b] 表示先修 b 后修 a，建边 b -> a\n            indeg[p[0]]++;              // a 的先修需求 +1\n        }\n        Queue<Integer> q = new ArrayDeque<>();  // 无先修的课先入队\n        for (int i = 0; i < numCourses; i++) {\n            if (indeg[i] == 0) q.offer(i);\n        }\n        int done = 0;  // 已完成（出队）的课程数\n        while (!q.isEmpty()) {\n            int cur = q.poll();\n            done++;\n            for (int nxt : graph.get(cur)) {  // 修完 cur，它后继课程的先修需求各减一\n                if (--indeg[nxt] == 0) q.offer(nxt);  // 先修全部满足，解锁并入队\n            }\n        }\n        return done == numCourses;  // 全部出队 = 无环；出不完说明图中有环\n    }\n}",
+      "codeJs": "/**\n * @param {number} numCourses\n * @param {number[][]} prerequisites\n * @return {boolean}\n */\nvar canFinish = function (numCourses, prerequisites) {\n  const graph = Array.from({ length: numCourses }, () => []); // 邻接表：先修课 -> 可解锁的课\n  const indeg = new Array(numCourses).fill(0);  // 入度表：每门课还差多少门先修课\n  for (const [a, b] of prerequisites) {\n    graph[b].push(a);  // [a, b] 表示先修 b 后修 a，建边 b -> a\n    indeg[a]++;        // a 的先修需求 +1\n  }\n  const q = [];  // 无先修的课先入队\n  for (let i = 0; i < numCourses; i++) {\n    if (indeg[i] === 0) q.push(i);\n  }\n  let done = 0;  // 已完成（出队）的课程数\n  while (q.length) {\n    const cur = q.shift();\n    done++;\n    for (const nxt of graph[cur]) {  // 修完 cur，它后继课程的先修需求各减一\n      if (--indeg[nxt] === 0) q.push(nxt);  // 先修全部满足，解锁并入队\n    }\n  }\n  return done === numCourses;  // 全部出队 = 无环；出不完说明图中有环\n};",
+      "codeGo": "func canFinish(numCourses int, prerequisites [][]int) bool {\n\t// 邻接表：先修课 -> 修完后可解锁的课列表\n\tgraph := make([][]int, numCourses)\n\tindeg := make([]int, numCourses) // 入度表：每门课还差多少门先修课\n\tfor _, p := range prerequisites {\n\t\ta, b := p[0], p[1]\n\t\tgraph[b] = append(graph[b], a) // [a, b] 表示先修 b 后修 a，建边 b -> a\n\t\tindeg[a]++                     // a 的先修需求 +1\n\t}\n\tq := []int{} // 无先修的课先入队\n\tfor i := 0; i < numCourses; i++ {\n\t\tif indeg[i] == 0 {\n\t\t\tq = append(q, i)\n\t\t}\n\t}\n\tdone := 0 // 已完成（出队）的课程数\n\tfor len(q) > 0 {\n\t\tcur := q[0]\n\t\tq = q[1:]\n\t\tdone++\n\t\tfor _, nxt := range graph[cur] { // 修完 cur，它后继课程的先修需求各减一\n\t\t\tindeg[nxt]--\n\t\t\tif indeg[nxt] == 0 { // 先修全部满足，解锁并入队\n\t\t\t\tq = append(q, nxt)\n\t\t\t}\n\t\t}\n\t}\n\treturn done == numCourses // 全部出队 = 无环；出不完说明图中有环\n}"
+    },
+    {
+      "id": 210,
+      "title": "Course Schedule II",
+      "titleCn": "课程表 II",
+      "difficulty": "medium",
+      "frequency": 4,
+      "question": "现在你总共有 numCourses 门课需要选，记为 0 到 numCourses - 1。给定数组 prerequisites，其中 prerequisites[i] = [ai, bi] 表示在选修课程 ai 之前必须先选修课程 bi。返回你为了学完所有课程所安排的学习顺序。可能会有多个正确的顺序，只要返回任意一种即可。如果不可能完成所有课程，返回一个空数组。\n\n示例 1：输入 numCourses = 4, prerequisites = [[1,0],[2,0],[3,1],[3,2]]，输出 [0,1,2,3]（或 [0,2,1,3]，均为合法修课顺序）。\n示例 2：输入 numCourses = 2, prerequisites = [[1,0],[0,1]]，输出 []，两门课互相依赖，无法完成。",
+      "hints": [
+        "审题诀窍：与 207 题唯一区别是从『判断能否修完』升级为『输出一个合法顺序』——拓扑排序的出队序列本身就是答案。",
+        "审题诀窍：答案不唯一，返回任意一个拓扑序都正确，不必追求字典序最小。",
+        "突破口：出队时把课程号追加到结果列表；若最终结果长度小于 numCourses，说明有环，返回空数组。",
+        "追问预备：若要求字典序最小的修课顺序怎么办？（把普通队列换成小根堆，每次取最小编号出队，即『最小拓扑序』）如何判断拓扑序是否唯一？（Kahn 每一轮队列长度始终为 1 ⇔ 唯一）"
+      ],
+      "keyPoints": [
+        "207 的判断题升级为构造题，BFS 拓扑序即答案",
+        "出队顺序天然满足『先修课排在前』",
+        "结果长度 < numCourses ⇔ 有环 ⇔ 返回 []",
+        "边方向仍是 b→a，入度记在 a 上"
+      ],
+      "structureTags": [
+        "bfs",
+        "queue"
+      ],
+      "approaches": [
+        {
+          "name": "DFS 后序逆推",
+          "idea": "先三色 DFS 判环；无环时，节点在回溯完成时加入列表，最后把该列表整体逆序即得到一个拓扑序（后完成者依赖更少、应排前面）。可行但需要两次加工且判环逻辑更繁琐。",
+          "complexity": "时间 O(V+E)，空间 O(V+E)",
+          "detail": "步骤拆解：\n1. 三色 DFS 判环：graph[b].append(a)，color 0/1/2 同 207 题；撞到 color==1 的后继说明有环，直接返回 []。\n2. 每个节点在『回溯完成时』（color 置 2 前）把 u 追加到 post 列表——这就是 DFS 后序。\n3. 全部节点 DFS 完后，post 的逆序即一个拓扑序：越晚完成的节点被依赖越多、依赖越少，应排越前。\n4. return post[::-1]（有环则提前返回 []）。\n\n示例走查（示例 1）：图边 0→1、0→2、1→3、2→3。dfs(0)：深入 1 → 深入 3（无后继，post=[3]，回溯）→ 1 完成 post=[3,1] → 深入 2（后继 3 已完成）→ post=[3,1,2] → 0 完成 post=[3,1,2,0]。逆序得 [0,2,1,3] ✓ 合法。\n\n为什么正确：DFS 后序有个铁律——任何边 u→v 都有 v 先于 u 完成（树边、前向边、交叉边皆如此），所以『被依赖者 v』总排在 post 前面，逆序后 v 排在 u 前面，恰好是拓扑序。\n\n易错点：\n- 忘记逆序直接输出 post，得到的是『反拓扑序』（依赖者在前）。\n- 判环与后序记录必须在同一次 DFS 完成，拆成两遍既慢又容易状态不同步。\n- 有环必须返回 []，不能返回部分序列。",
+          "code": "from collections import defaultdict\n\ndef findOrder(numCourses, prerequisites):\n    graph = defaultdict(list)\n    for a, b in prerequisites:\n        graph[b].append(a)              # 先修 b 才能修 a：建边 b -> a\n    color = [0] * numCourses            # 0 未访问 / 1 递归栈中 / 2 已完成\n    post = []                           # DFS 后序完成序列\n\n    def dfs(u):\n        color[u] = 1                    # 入栈\n        for v in graph[u]:\n            if color[v] == 1:           # 回边：有环\n                return False\n            if color[v] == 0 and not dfs(v):\n                return False            # 后继子图有环，向上传递\n        color[u] = 2                    # 出栈\n        post.append(u)                  # 回溯完成时记录后序\n        return True\n\n    for i in range(numCourses):\n        if color[i] == 0 and not dfs(i):\n            return []                   # 有环，无法安排\n    return post[::-1]                   # 后序逆序 = 一个合法拓扑序"
+        },
+        {
+          "name": "BFS 拓扑排序（Kahn 算法，最优）",
+          "idea": "与 207 题完全相同的入度表 + 队列流程，唯一区别是出队时把课程号追加到结果列表——出队序列天然是一份合法修课顺序。若结果长度不足 numCourses 说明有环，返回空数组。",
+          "complexity": "时间 O(V+E)，空间 O(V+E)",
+          "optimal": true,
+          "detail": "步骤拆解：\n1. 与 207 题完全相同：建图 graph[b].append(a)、入度表 indeg[a] += 1、所有 indeg==0 的课入队。\n2. 唯一区别：出队 cur 时执行 order.append(cur)——Kahn 只在依赖全部满足时出队，出队序列天然满足『先修课排在前』。\n3. 后继入度减到 0 即入队；队空后检查 len(order) == numCourses：不足说明有环，返回 []。\n\n示例走查（示例 1）：indeg=[0,1,1,2]，队=[0]。出队 0 → order=[0]，indeg[1]、indeg[2] 减到 0 入队。出队 1 → order=[0,1]，indeg[3]=1。出队 2 → order=[0,1,2]，indeg[3]=0 入队。出队 3 → order=[0,1,2,3]，长度 4 == 4 ✓。\n\n为什么正确：Kahn 出队条件『入度为 0』与拓扑序定义『所有前驱已输出』等价，所以出队序列就是合法拓扑序；出队总数 < n ⇔ 存在入度永不为 0 的环。\n\n易错点：\n- 结果长度校验不能省，有环时必须输出 [] 而不是残缺序列。\n- 答案不唯一，[0,1,2,3] 与 [0,2,1,3] 都对，自测对拍要按拓扑序合法性验证而不是固定序列。\n- 边方向 b→a、入度记在 a 上；建成 a→b 顺序全反，样例可能碰巧对。",
+          "code": "from collections import deque\n\ndef findOrder(numCourses, prerequisites):\n    graph = [[] for _ in range(numCourses)]  # 邻接表：b -> [修完 b 可解锁的课]\n    indeg = [0] * numCourses            # 入度：每门课未满足的先修数量\n    for a, b in prerequisites:\n        graph[b].append(a)              # 先修 b 才能修 a，建边 b -> a\n        indeg[a] += 1\n\n    q = deque(i for i in range(numCourses) if indeg[i] == 0)  # 起点组：无先修课\n    order = []                          # 出队序列就是一份合法修课顺序\n    while q:\n        cur = q.popleft()\n        order.append(cur)               # 当前课可以上，记入答案\n        for nxt in graph[cur]:          # 释放它解锁的后续课程\n            indeg[nxt] -= 1\n            if indeg[nxt] == 0:         # 先修全部满足，入队\n                q.append(nxt)\n    return order if len(order) == numCourses else []  # 排不完说明有环，返回 []"
+        }
+      ],
+      "code": "from collections import deque\nclass Solution:\n    def findOrder(self, numCourses: int, prerequisites: List[List[int]]) -> List[int]:\n        graph = [[] for _ in range(numCourses)]  # 邻接表：b -> [修完 b 后可解锁的课]\n        indeg = [0] * numCourses        # 入度：每门课未满足的先修数量\n        for a, b in prerequisites:\n            graph[b].append(a)          # 先修 b 才能修 a，建边 b -> a\n            indeg[a] += 1\n\n        q = deque(i for i in range(numCourses) if indeg[i] == 0)  # 起点组：无先修课\n        order = []                      # 出队序列就是一份合法修课顺序\n        while q:\n            cur = q.popleft()\n            order.append(cur)           # 当前课可以上，记入答案\n            for nxt in graph[cur]:      # 释放它解锁的后续课程\n                indeg[nxt] -= 1\n                if indeg[nxt] == 0:     # 先修全部满足，入队\n                    q.append(nxt)\n        return order if len(order) == numCourses else []  # 排不完说明有环，返回 []",
+      "templates": [
+        "拓扑排序输出模板：Kahn 出队时把节点 append 到结果数组，出队序列即一个合法拓扑序；最后校验结果长度判环",
+        "构造拓扑序优先 BFS：需要输出顺序本身时用 Kahn 出队序；DFS 后序逆序也可，但需额外三色判环"
+      ],
+      "companies": [
+        "字节跳动",
+        "腾讯"
+      ],
+      "samples": [
+        {
+          "input": "numCourses = 4, prerequisites = [[1,0],[2,0],[3,1],[3,2]]",
+          "output": "[0,1,2,3]",
+          "explain": "[0,2,1,3] 也是合法答案，返回任意一个拓扑序均可"
+        },
+        {
+          "input": "numCourses = 2, prerequisites = [[1,0],[0,1]]",
+          "output": "[]",
+          "explain": "两门课互相依赖形成环，无法完成，返回空数组"
+        }
+      ],
+      "acmCode": "# ACM 模式：完整可运行程序（stdin -> stdout）\n# 输入格式：\n#   第一行：n m（课程数 0..n-1，先修关系条数）\n#   接下来 m 行：每行两个整数 a b，表示先修 b 才能修 a\n# 输出格式：一行修课顺序（空格分隔，任意合法拓扑序均可）；无法完成时无输出\nimport sys\nfrom collections import deque\n\ndef main():\n    data = sys.stdin.read().split()\n    n, m = int(data[0]), int(data[1])\n    graph = [[] for _ in range(n)]      # 邻接表：b -> [修完 b 可解锁的课]\n    indeg = [0] * n\n    idx = 2\n    for _ in range(m):\n        a, b = int(data[idx]), int(data[idx + 1])\n        graph[b].append(a)              # 先修 b 才能修 a，建边 b -> a\n        indeg[a] += 1\n        idx += 2\n\n    q = deque(i for i in range(n) if indeg[i] == 0)   # 无先修的课先入队\n    order = []\n    while q:\n        cur = q.popleft()\n        order.append(cur)               # 出队序列即修课顺序\n        for nxt in graph[cur]:\n            indeg[nxt] -= 1\n            if indeg[nxt] == 0:         # 先修全部满足，入队\n                q.append(nxt)\n    if len(order) == n:                 # 排不完说明有环，无输出\n        print(' '.join(map(str, order)))\n\nif __name__ == '__main__':\n    main()",
+      "codeCpp": "class Solution {\npublic:\n    vector<int> findOrder(int numCourses, vector<vector<int>>& prerequisites) {\n        vector<vector<int>> graph(numCourses);  // 邻接表：b -> [修完 b 后可解锁的课]\n        vector<int> indeg(numCourses, 0);       // 入度：每门课未满足的先修数量\n        for (auto& p : prerequisites) {\n            graph[p[1]].push_back(p[0]);        // 先修 b 才能修 a，建边 b -> a\n            ++indeg[p[0]];\n        }\n        queue<int> q;                           // 起点组：无先修课\n        for (int i = 0; i < numCourses; ++i) {\n            if (indeg[i] == 0) q.push(i);\n        }\n        vector<int> order;                      // 出队序列就是一份合法修课顺序\n        while (!q.empty()) {\n            int cur = q.front();\n            q.pop();\n            order.push_back(cur);               // 当前课可以上，记入答案\n            for (int nxt : graph[cur]) {        // 释放它解锁的后续课程\n                if (--indeg[nxt] == 0) q.push(nxt);  // 先修全部满足，入队\n            }\n        }\n        // 排不完说明有环，返回空数组\n        if ((int)order.size() != numCourses) return {};\n        return order;\n    }\n};",
+      "acmCodeCpp": "// ACM 模式：完整可运行程序（stdin -> stdout）\n// 输入格式：\n//   第一行：n m（课程数 0..n-1，先修关系条数）\n//   接下来 m 行：每行两个整数 a b，表示先修 b 才能修 a\n// 输出格式：一行修课顺序（空格分隔，任意合法拓扑序均可）；无法完成时无输出\n#include <iostream>\n#include <queue>\n#include <vector>\n\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);\n    cin.tie(nullptr);\n    int n, m;\n    cin >> n >> m;\n    vector<vector<int>> graph(n);   // 邻接表：b -> [修完 b 可解锁的课]\n    vector<int> indeg(n, 0);\n    for (int i = 0; i < m; ++i) {\n        int a, b;\n        cin >> a >> b;\n        graph[b].push_back(a);      // 先修 b 才能修 a：建边 b -> a\n        ++indeg[a];\n    }\n\n    queue<int> q;                   // 无先修的课先入队\n    for (int i = 0; i < n; ++i) {\n        if (indeg[i] == 0) q.push(i);\n    }\n    vector<int> order;              // 出队序列即修课顺序\n    while (!q.empty()) {\n        int cur = q.front();\n        q.pop();\n        order.push_back(cur);\n        for (int nxt : graph[cur]) {\n            if (--indeg[nxt] == 0) q.push(nxt);  // 先修全部满足，入队\n        }\n    }\n    if ((int)order.size() == n) {   // 排不完说明有环，无输出\n        for (int k = 0; k < n; ++k) {\n            if (k) cout << ' ';\n            cout << order[k];\n        }\n        cout << \"\\n\";\n    }\n    return 0;\n}",
+      "codeJava": "class Solution {\n    public int[] findOrder(int numCourses, int[][] prerequisites) {\n        List<List<Integer>> graph = new ArrayList<>();  // 邻接表：b -> [修完 b 可解锁的课]\n        int[] indeg = new int[numCourses];              // 入度：每门课未满足的先修数量\n        for (int i = 0; i < numCourses; i++) graph.add(new ArrayList<>());\n        for (int[] p : prerequisites) {\n            graph.get(p[1]).add(p[0]);  // 先修 b 才能修 a，建边 b -> a\n            indeg[p[0]]++;\n        }\n        Queue<Integer> q = new ArrayDeque<>();  // 起点组：无先修课\n        for (int i = 0; i < numCourses; i++) {\n            if (indeg[i] == 0) q.offer(i);\n        }\n        int[] order = new int[numCourses];  // 出队序列就是一份合法修课顺序\n        int idx = 0;\n        while (!q.isEmpty()) {\n            int cur = q.poll();\n            order[idx++] = cur;             // 当前课可以上，记入答案\n            for (int nxt : graph.get(cur)) {  // 释放它解锁的后续课程\n                if (--indeg[nxt] == 0) q.offer(nxt);  // 先修全部满足，入队\n            }\n        }\n        // 排不完说明有环，返回空数组\n        return idx == numCourses ? order : new int[0];\n    }\n}",
+      "codeJs": "/**\n * @param {number} numCourses\n * @param {number[][]} prerequisites\n * @return {number[]}\n */\nvar findOrder = function (numCourses, prerequisites) {\n  const graph = Array.from({ length: numCourses }, () => []); // 邻接表：b -> [修完 b 可解锁的课]\n  const indeg = new Array(numCourses).fill(0);  // 入度：每门课未满足的先修数量\n  for (const [a, b] of prerequisites) {\n    graph[b].push(a);  // 先修 b 才能修 a，建边 b -> a\n    indeg[a]++;\n  }\n  const q = [];  // 起点组：无先修课\n  for (let i = 0; i < numCourses; i++) {\n    if (indeg[i] === 0) q.push(i);\n  }\n  const order = [];  // 出队序列就是一份合法修课顺序\n  while (q.length) {\n    const cur = q.shift();\n    order.push(cur);  // 当前课可以上，记入答案\n    for (const nxt of graph[cur]) {  // 释放它解锁的后续课程\n      if (--indeg[nxt] === 0) q.push(nxt);  // 先修全部满足，入队\n    }\n  }\n  return order.length === numCourses ? order : [];  // 排不完说明有环，返回 []\n};",
+      "codeGo": "func findOrder(numCourses int, prerequisites [][]int) []int {\n\t// 邻接表：b -> [修完 b 后可解锁的课]\n\tgraph := make([][]int, numCourses)\n\tindeg := make([]int, numCourses) // 入度：每门课未满足的先修数量\n\tfor _, p := range prerequisites {\n\t\ta, b := p[0], p[1]\n\t\tgraph[b] = append(graph[b], a) // 先修 b 才能修 a，建边 b -> a\n\t\tindeg[a]++\n\t}\n\tq := []int{} // 起点组：无先修课\n\tfor i := 0; i < numCourses; i++ {\n\t\tif indeg[i] == 0 {\n\t\t\tq = append(q, i)\n\t\t}\n\t}\n\torder := []int{} // 出队序列就是一份合法修课顺序\n\tfor len(q) > 0 {\n\t\tcur := q[0]\n\t\tq = q[1:]\n\t\torder = append(order, cur) // 当前课可以上，记入答案\n\t\tfor _, nxt := range graph[cur] { // 释放它解锁的后续课程\n\t\t\tindeg[nxt]--\n\t\t\tif indeg[nxt] == 0 { // 先修全部满足，入队\n\t\t\t\tq = append(q, nxt)\n\t\t\t}\n\t\t}\n\t}\n\tif len(order) != numCourses { // 排不完说明有环，返回空\n\t\treturn []int{}\n\t}\n\treturn order\n}"
+    },
+    {
+      "id": 399,
+      "title": "Evaluate Division",
+      "titleCn": "除法求值",
+      "difficulty": "medium",
+      "frequency": 4,
+      "question": "给定变量对数组 equations 和实数数组 values 作为已知条件，其中 equations[i] = [Ai, Bi] 和 values[i] 共同表示等式 Ai / Bi = values[i]。每个 Ai 或 Bi 是一个表示单个变量的字符串。另有一些以数组 queries 表示的问题，其中 queries[j] = [Cj, Dj] 表示第 j 个问题，请根据已知条件找出 Cj / Dj = ? 的结果作为答案返回。如果存在某个无法确定的答案，则用 -1.0 替代。注意：输入总是有效的，除法运算中不会出现除数为 0 的情况，且不存在任何矛盾的结果。\n\n示例 1：输入 equations = [[\"a\",\"b\"],[\"b\",\"c\"]], values = [2.0, 3.0], queries = [[\"a\",\"c\"],[\"b\",\"a\"],[\"a\",\"e\"],[\"a\",\"a\"],[\"x\",\"x\"]]，输出 [6.00000, 0.50000, -1.00000, 1.00000, -1.00000]。解释：a/c = (a/b)*(b/c) = 6；b/a = 0.5；a/e 无定义；a/a = 1；x/x 中 x 未出现过，无定义。",
+      "hints": [
+        "审题诀窍：把变量当节点、等式当双向边——正向边权是 Ai/Bi，反向边权是 1/(Ai/Bi)，除法查询就是两点路径上边权的乘积。",
+        "审题诀窍：a/a = 1 仅当 a 在等式中出现过；查询涉及的变量从未出现时直接返回 -1，不用进图搜索。",
+        "突破口：每次查询做一次携带累积乘积的 DFS/BFS，首达目标的路径乘积即答案（条件无矛盾，任意可达路径乘积相同）。",
+        "追问预备：查询量极大时怎么优化？（带权并查集：离线合并后单次查询近乎 O(1)）为什么『不存在矛盾』这个前提很重要？（它保证任意可达路径的乘积唯一，DFS/BFS 首达即可返回，无需比较多条路径）"
+      ],
+      "keyPoints": [
+        "建图：字符串变量为节点，每条等式建正反两条带权边（反边取倒数）",
+        "查询 = 求两点路径的权值乘积，DFS/BFS 沿途累积",
+        "未出现过的变量、处于不同连通分量的查询都返回 -1.0",
+        "visited 防环；同分子同分母（a/a）在起点即命中，返回 1.0"
+      ],
+      "structureTags": [
+        "hashmap",
+        "dfs",
+        "recursion"
+      ],
+      "approaches": [
+        {
+          "name": "BFS 求带权路径",
+          "idea": "每个查询从分子出发 BFS，队列元素携带从起点到当前变量的累积乘积，首次到达分母时该乘积即答案。与 DFS 版同复杂度，图很深时队列更稳。",
+          "complexity": "时间 O(Q·(V+E))，空间 O(V+E)",
+          "detail": "步骤拆解：\n1. 建图：graph[a][b] = v、graph[b][a] = 1/v，每条等式产生正反两条带权边；用 defaultdict(dict) 免去手动判键。\n2. 查询 (a, b)：a 或 b 不在图中直接 -1；否则 BFS，队列元素是 (当前变量, 起点到它的累积乘积)，起点 (a, 1.0)，visited 集合先放 a。\n3. 出队 (cur, acc)：cur == b → 返回 acc（BFS 首达即最短，条件无矛盾保证唯一）；否则把每个未访问邻居 (nxt, acc * w) 入队。\n4. 队空仍没到 b → -1（两点在不同连通分量）。\n\n示例走查：查 (a, c)（a/b=2, b/c=3）：队=[(a,1.0)] → 出队 a，visited={a}，入队 (b,2.0) → 出队 (b,2.0)，入队 (c,6.0)、(a,已访问跳过) → 出队 (c,6.0) 命中，返回 6.0。\n\n为什么正确：商的传递性把『a/c』变成路径 (a→b→c) 上边权的乘积；visited 保证每个变量只入队一次，单次查询 O(V+E)。\n\n易错点：\n- 起点要先放进 visited，否则 a==b 的查询会把 a 再扩展一圈；且 a==b 应在出队即命中返回 1.0。\n- 反向边权存 1/v，不要顺手又存成 v。\n- 多个查询不能共用一个 visited，每次查询都要新建。",
+          "code": "from collections import defaultdict, deque\n\ndef calcEquation(equations, values, queries):\n    graph = defaultdict(dict)           # a -> {b: a/b 的值}\n    for (a, b), v in zip(equations, values):\n        graph[a][b] = v                 # 正向边权 a/b = v\n        graph[b][a] = 1 / v             # 反向边权 b/a = 1/v\n\n    def bfs(src, dst):\n        if src not in graph or dst not in graph:\n            return -1.0                 # 未出现过的变量无定义\n        q = deque([(src, 1.0)])         # (当前变量, 起点到它的累积乘积)\n        visited = {src}                 # 每次查询独立建 visited\n        while q:\n            cur, acc = q.popleft()\n            if cur == dst:              # 首达目标，累积乘积即商\n                return acc\n            for nxt, w in graph[cur].items():\n                if nxt not in visited:\n                    visited.add(nxt)\n                    q.append((nxt, acc * w))   # 边权累乘传递\n        return -1.0                     # 不可达：不同连通分量\n\n    return [bfs(a, b) for a, b in queries]"
+        },
+        {
+          "name": "DFS 递归传递累积商（最优）",
+          "idea": "把变量当作节点、等式当作带权双向边（反向边权取倒数），每次查询就是求两点路径上边权的乘积。DFS 携带累积乘积递归，visited 防环；分子或分母未在等式中出现过直接返回 -1，同点相除自然返回 1。",
+          "complexity": "时间 O(Q·(V+E))，空间 O(V+E)",
+          "optimal": true,
+          "detail": "步骤拆解：\n1. 建图：graph = defaultdict(dict)，graph[a][b] = v、graph[b][a] = 1/v——把变量当节点、等式当双向带权边。\n2. dfs(cur, dst, acc, visited)：cur == dst 返回 acc（a==b 的查询在起点即命中，天然返回 1.0）；否则 visited.add(cur)，对每个未访问邻居递归 dfs(nxt, dst, acc * w, visited)，子调用返回非 -1.0 就逐层原样上传。\n3. 主循环：a 或 b 从未在等式出现 → 直接 -1；否则 dfs(a, b, 1.0, set())。\n\n示例走查：查 (b, a)：dfs(b,a,1.0)：b≠a，邻居 a（边权 1/2）→ dfs(a,a,0.5) 命中返回 0.5。查 (a, c)：a→b（权 2）→ c（权 3）→ dfs 到 c 时 acc=6.0 返回。查 (a, e)：e 不在 graph，主循环直接 -1，不进搜索。\n\n为什么正确：a/c = (a/b)·(b/c)，任意一条 a 到 c 的路径乘积都等于答案（条件无矛盾，各路径一致）；visited 防止沿环打转；-1.0 作哨兵安全，因为真实边权全为正，乘积不可能等于 -1。\n\n易错点：\n- 判 r != -1.0 来决定是否上传，是因为 -1 不可能是真实乘积；若题目允许负值就要换哨兵方案。\n- visited 每次查询新建，跨查询复用会漏解。\n- 除零：题目保证 v != 0，但写 1/v 时心里要有这根弦。",
+          "code": "from collections import defaultdict\n\ndef calcEquation(equations, values, queries):\n    graph = defaultdict(dict)           # 邻接表：a -> {b: a/b 的值}\n    for (a, b), v in zip(equations, values):\n        graph[a][b] = v                 # 正向边权 a/b\n        graph[b][a] = 1 / v             # 反向边权 b/a，取倒数\n\n    def dfs(cur, dst, acc, visited):\n        if cur == dst:                  # 到达目标，累积乘积即为所求商\n            return acc\n        visited.add(cur)                # 标记当前节点，防止沿环死循环\n        for nxt, w in graph[cur].items():\n            if nxt not in visited:      # 只走向未访问的邻居\n                r = dfs(nxt, dst, acc * w, visited)   # 边权累乘传递\n                if r != -1.0:           # 找到可达路径，逐层原样返回\n                    return r\n        return -1.0                     # 所有分支都不通，无定义\n\n    ans = []\n    for a, b in queries:\n        if a not in graph or b not in graph:\n            ans.append(-1.0)            # 未出现过的变量无定义\n        else:\n            ans.append(dfs(a, b, 1.0, set()))   # a == b 时立刻返回 1.0\n    return ans"
+        },
+        {
+          "name": "带权并查集",
+          "idea": "合并每条等式两端，并在父指针上记录『节点到父节点的比值』；路径压缩时顺带累乘出『节点到根的比值』。查询 a/b 时若两者同根，答案 = a 到根比值 / b 到根比值，单次查询近乎 O(1)，适合查询量极大的场景。",
+          "complexity": "时间 O((N+Q)·α(V))，空间 O(V)",
+          "detail": "步骤拆解：\n1. 每个变量一个节点：parent[x] 与 weight[x]（x 到父节点的比值），初始化 parent[x]=x、weight[x]=1.0；add(x) 查缺补漏。\n2. find(x) 递归找根，回溯时执行 weight[x] *= weight[parent[x]]（此时 parent[x] 已被路径压缩成指向根）——把 weight 升级成『x 到根的比值』，再 parent[x] = root。\n3. union(a, b, v)（已知 a/b=v）：ra, rb = find(a), find(b)；若不同根，parent[ra] = rb 且 weight[ra] = v * weight[b] / weight[a]（推导：a/b = weight[a]·weight[ra] / weight[b] = v）。\n4. 查询 (a, b)：变量未出现或 find(a) != find(b) → -1；否则答案 = weight[a] / weight[b]（两者到根比值相除，根约掉）。\n\n示例走查：a/b=2 → parent[a]=b、weight[a]=2。b/c=3 → parent[b]=c、weight[b]=3。查 (a, c)：find 顺带压缩，weight[a]=2·3=6、weight[c]=1，同根 → 6/1=6 ✓。\n\n为什么正确：带权并查集在每个节点维护『到根的比值』，路径压缩时累乘更新；同根两点的商 = 两者到根比值之商，单次查询近乎 O(1)，适合查询量极大的场景。\n\n易错点：\n- union 里 weight[ra] = v * weight[b] / weight[a] 用的是 find 之后的 weight 值，顺序错了全盘错。\n- 查询前必须先 find(a)、find(b) 再取 weight（find 负责压缩更新），直接读 weight 是旧值。\n- 浮点连乘有精度误差，本题数据友好可忽略。",
+          "code": "class WDSU:\n    def __init__(self):\n        self.parent = {}                # 变量 -> 父变量\n        self.weight = {}                # 变量到父变量的比值\n    def add(self, x):\n        if x not in self.parent:\n            self.parent[x] = x\n            self.weight[x] = 1.0\n    def find(self, x):\n        if self.parent[x] != x:         # 路径压缩：顺带把比值累乘成到根的比值\n            root = self.find(self.parent[x])\n            self.weight[x] *= self.weight[self.parent[x]]\n            self.parent[x] = root\n        return self.parent[x]\n    def union(self, a, b, v):           # 已知 a / b = v\n        self.add(a); self.add(b)\n        ra, rb = self.find(a), self.find(b)\n        if ra != rb:\n            self.parent[ra] = rb\n            self.weight[ra] = v * self.weight[b] / self.weight[a]\n    def query(self, a, b):\n        if a not in self.parent or b not in self.parent:\n            return -1.0\n        ra, rb = self.find(a), self.find(b)\n        if ra != rb:\n            return -1.0                 # 不同连通分量\n        return self.weight[a] / self.weight[b]   # 到根比值相除，根约掉\n\ndef calcEquation(equations, values, queries):\n    dsu = WDSU()\n    for (a, b), v in zip(equations, values):\n        dsu.union(a, b, v)              # 每条等式合并一次\n    return [dsu.query(a, b) for a, b in queries]"
+        }
+      ],
+      "code": "from collections import defaultdict\nclass Solution:\n    def calcEquation(self, equations: List[List[str]], values: List[float], queries: List[List[str]]) -> List[float]:\n        graph = defaultdict(dict)       # 邻接表：a -> {b: a/b 的值}\n        for (a, b), v in zip(equations, values):\n            graph[a][b] = v             # 正向边权 a/b\n            graph[b][a] = 1 / v         # 反向边权 b/a，取倒数\n\n        def dfs(cur: str, dst: str, acc: float, visited: set) -> float:\n            if cur == dst:              # 到达目标，累积乘积即为所求商\n                return acc\n            visited.add(cur)            # 标记当前节点，防止沿环死循环\n            for nxt, w in graph[cur].items():\n                if nxt not in visited:  # 只走向未访问的邻居\n                    r = dfs(nxt, dst, acc * w, visited)  # 边权累乘传递\n                    if r != -1.0:       # 找到可达路径，逐层原样返回\n                        return r\n            return -1.0                 # 所有分支都不通，无定义\n\n        ans = []\n        for a, b in queries:\n            if a not in graph or b not in graph:  # 未出现过的变量无定义\n                ans.append(-1.0)\n            else:\n                ans.append(dfs(a, b, 1.0, set()))  # a == b 时立刻返回 1.0\n        return ans",
+      "templates": [
+        "带权图路径乘积模板：正反向建边（反边权取倒数），DFS/BFS 携带累积乘积，首达目标即答案；不可达/未出现返回 -1",
+        "字符串建图模板：defaultdict(dict) 或 defaultdict(list) 免去手动判键，直接以变量名为节点挂邻居"
+      ],
+      "companies": [
+        "字节跳动",
+        "阿里巴巴"
+      ],
+      "samples": [
+        {
+          "input": "equations = [[\"a\",\"b\"],[\"b\",\"c\"]], values = [2.0, 3.0], queries = [[\"a\",\"c\"],[\"b\",\"a\"],[\"a\",\"e\"],[\"a\",\"a\"],[\"x\",\"x\"]]",
+          "output": "[6.00000,0.50000,-1.00000,1.00000,-1.00000]",
+          "explain": "a/c = (a/b)*(b/c) = 6；b/a = 0.5；a/e 无定义；a/a = 1；x/x 中 x 未出现过，无定义"
+        },
+        {
+          "input": "equations = [[\"a\",\"b\"]], values = [0.5], queries = [[\"a\",\"b\"],[\"b\",\"a\"],[\"a\",\"c\"],[\"a\",\"a\"]]",
+          "output": "[0.50000,2.00000,-1.00000,1.00000]",
+          "explain": "反向查询取倒数得 2.0；c 从未出现返回 -1；a/a 在起点即命中返回 1"
+        }
+      ],
+      "acmCode": "# ACM 模式：完整可运行程序（stdin -> stdout）\n# 输入格式：\n#   第一行：n（等式数）\n#   接下来 n 行：每行 A B v，表示 A / B = v（v 为浮点数，空格分隔）\n#   下一行：q（查询数）\n#   接下来 q 行：每行 C D，表示询问 C / D\n# 输出格式：q 行，每行一个结果保留 5 位小数；无定义输出 -1.00000\nimport sys\n\ndef main():\n    data = sys.stdin.read().split()\n    pos = 0\n    n = int(data[pos]); pos += 1\n    graph = {}                          # a -> {b: a/b 的值}\n    for _ in range(n):\n        a, b, v = data[pos], data[pos + 1], float(data[pos + 2])\n        pos += 3\n        graph.setdefault(a, {})[b] = v          # 正向边权 a/b\n        graph.setdefault(b, {})[a] = 1 / v      # 反向边权取倒数\n\n    def dfs(cur, dst, acc, visited):\n        if cur == dst:                  # 到达目标：累积乘积即商\n            return acc\n        visited.add(cur)\n        for nxt, w in graph[cur].items():\n            if nxt not in visited:\n                r = dfs(nxt, dst, acc * w, visited)\n                if r != -1.0:           # 找到可达路径，原样上传\n                    return r\n        return -1.0                     # 所有分支不通\n\n    q = int(data[pos]); pos += 1\n    out = []\n    for _ in range(q):\n        a, b = data[pos], data[pos + 1]; pos += 2\n        if a not in graph or b not in graph:\n            out.append(-1.0)            # 未出现过的变量无定义\n        else:\n            out.append(dfs(a, b, 1.0, set()))   # a == b 时立刻返回 1.0\n    print('\\n'.join(f'{x:.5f}' for x in out))\n\nif __name__ == '__main__':\n    main()",
+      "codeCpp": "class Solution {\npublic:\n    vector<double> calcEquation(vector<vector<string>>& equations, vector<double>& values,\n                                vector<vector<string>>& queries) {\n        // 邻接表：a -> {b: a/b 的值}\n        unordered_map<string, unordered_map<string, double>> graph;\n        for (int i = 0; i < (int)equations.size(); ++i) {\n            const string& a = equations[i][0];\n            const string& b = equations[i][1];\n            graph[a][b] = values[i];        // 正向边权 a/b\n            graph[b][a] = 1.0 / values[i];  // 反向边权 b/a，取倒数\n        }\n\n        // DFS：cur 到 dst 的累积乘积即所求商；不通返回 -1\n        function<double(const string&, const string&, double, unordered_set<string>&)> dfs =\n            [&](const string& cur, const string& dst, double acc,\n                unordered_set<string>& visited) -> double {\n            if (cur == dst) return acc;  // 到达目标，累积乘积即为所求商\n            visited.insert(cur);         // 标记当前节点，防止沿环死循环\n            for (const auto& [nxt, w] : graph[cur]) {  // C++17 结构化绑定遍历邻居\n                if (!visited.count(nxt)) {\n                    double r = dfs(nxt, dst, acc * w, visited);  // 边权累乘传递\n                    if (r != -1.0) return r;  // 找到可达路径，逐层原样返回\n                }\n            }\n            return -1.0;  // 所有分支都不通，无定义\n        };\n\n        vector<double> ans;\n        ans.reserve(queries.size());\n        for (auto& q : queries) {\n            const string& a = q[0];\n            const string& b = q[1];\n            if (!graph.count(a) || !graph.count(b)) {\n                ans.push_back(-1.0);  // 未出现过的变量无定义\n            } else {\n                unordered_set<string> visited;\n                ans.push_back(dfs(a, b, 1.0, visited));  // a == b 时立刻返回 1.0\n            }\n        }\n        return ans;\n    }\n};",
+      "acmCodeCpp": "// ACM 模式：完整可运行程序（stdin -> stdout）\n// 输入格式：\n//   第一行：n（等式数）\n//   接下来 n 行：每行 A B v，表示 A / B = v（v 为浮点数，空格分隔）\n//   下一行：q（查询数）\n//   接下来 q 行：每行 C D，表示询问 C / D\n// 输出格式：q 行，每行一个结果保留 5 位小数；无定义输出 -1.00000\n#include <iomanip>\n#include <iostream>\n#include <string>\n#include <unordered_map>\n#include <unordered_set>\n\nusing namespace std;\n\nunordered_map<string, unordered_map<string, double>> graph;  // a -> {b: a/b 的值}\n\n// DFS：cur 到 dst 的累积乘积即所求商；不通返回 -1\ndouble dfs(const string& cur, const string& dst, double acc,\n           unordered_set<string>& visited) {\n    if (cur == dst) return acc;     // 到达目标：累积乘积即商\n    visited.insert(cur);\n    for (const auto& [nxt, w] : graph[cur]) {\n        if (!visited.count(nxt)) {\n            double r = dfs(nxt, dst, acc * w, visited);  // 边权累乘传递\n            if (r != -1.0) return r;    // 找到可达路径，原样上传\n        }\n    }\n    return -1.0;                        // 所有分支不通\n}\n\nint main() {\n    ios::sync_with_stdio(false);\n    cin.tie(nullptr);\n    int n;\n    cin >> n;\n    for (int i = 0; i < n; ++i) {\n        string a, b;\n        double v;\n        cin >> a >> b >> v;\n        graph[a][b] = v;                // 正向边权 a/b\n        graph[b][a] = 1.0 / v;          // 反向边权取倒数\n    }\n\n    int q;\n    cin >> q;\n    cout << fixed << setprecision(5);   // 统一保留 5 位小数\n    for (int i = 0; i < q; ++i) {\n        string a, b;\n        cin >> a >> b;\n        if (!graph.count(a) || !graph.count(b)) {\n            cout << -1.0 << \"\\n\";       // 未出现过的变量无定义\n        } else {\n            unordered_set<string> visited;\n            cout << dfs(a, b, 1.0, visited) << \"\\n\";  // a == b 时立刻返回 1.0\n        }\n    }\n    return 0;\n}",
+      "codeJava": "class Solution {\n    public double[] calcEquation(List<List<String>> equations, double[] values,\n                                 List<List<String>> queries) {\n        // 邻接表：a -> {b: a/b 的值}\n        Map<String, Map<String, Double>> graph = new HashMap<>();\n        for (int i = 0; i < equations.size(); i++) {\n            String a = equations.get(i).get(0), b = equations.get(i).get(1);\n            graph.computeIfAbsent(a, k -> new HashMap<>()).put(b, values[i]);        // 正向边权\n            graph.computeIfAbsent(b, k -> new HashMap<>()).put(a, 1.0 / values[i]);  // 反向取倒数\n        }\n\n        double[] ans = new double[queries.size()];\n        for (int i = 0; i < queries.size(); i++) {\n            String a = queries.get(i).get(0), b = queries.get(i).get(1);\n            if (!graph.containsKey(a) || !graph.containsKey(b)) {\n                ans[i] = -1.0;  // 未出现过的变量无定义\n            } else {\n                ans[i] = dfs(a, b, 1.0, graph, new HashSet<>());  // a == b 时立刻返回 1.0\n            }\n        }\n        return ans;\n    }\n\n    // DFS：cur 到 dst 的累积乘积即所求商；不通返回 -1\n    private double dfs(String cur, String dst, double acc,\n                       Map<String, Map<String, Double>> graph, Set<String> visited) {\n        if (cur.equals(dst)) return acc;  // 到达目标，累积乘积即为所求商\n        visited.add(cur);                 // 标记当前节点，防止沿环死循环\n        for (Map.Entry<String, Double> e : graph.get(cur).entrySet()) {\n            if (!visited.contains(e.getKey())) {\n                double r = dfs(e.getKey(), dst, acc * e.getValue(), graph, visited);\n                if (r != -1.0) return r;  // 找到可达路径，逐层原样返回\n            }\n        }\n        return -1.0;  // 所有分支都不通，无定义\n    }\n}",
+      "codeJs": "/**\n * @param {string[][]} equations\n * @param {number[]} values\n * @param {string[][]} queries\n * @return {number[]}\n */\nvar calcEquation = function (equations, values, queries) {\n  const graph = new Map();  // 邻接表：a -> Map(b -> a/b 的值)\n  for (let i = 0; i < equations.length; i++) {\n    const [a, b] = equations[i];\n    if (!graph.has(a)) graph.set(a, new Map());\n    if (!graph.has(b)) graph.set(b, new Map());\n    graph.get(a).set(b, values[i]);      // 正向边权 a/b\n    graph.get(b).set(a, 1 / values[i]);  // 反向边权 b/a，取倒数\n  }\n  // DFS：cur 到 dst 的累积乘积即所求商；不通返回 -1\n  const dfs = (cur, dst, acc, visited) => {\n    if (cur === dst) return acc;  // 到达目标，累积乘积即为所求商\n    visited.add(cur);             // 标记当前节点，防止沿环死循环\n    for (const [nxt, w] of graph.get(cur)) {\n      if (!visited.has(nxt)) {\n        const r = dfs(nxt, dst, acc * w, visited);  // 边权累乘传递\n        if (r !== -1) return r;  // 找到可达路径，逐层原样返回\n      }\n    }\n    return -1;  // 所有分支都不通，无定义\n  };\n  return queries.map(([a, b]) => {\n    if (!graph.has(a) || !graph.has(b)) return -1;  // 未出现过的变量无定义\n    return dfs(a, b, 1.0, new Set());  // a == b 时立刻返回 1.0\n  });\n};",
+      "codeGo": "func calcEquation(equations [][]string, values []float64, queries [][]string) []float64 {\n\t// 邻接表：a -> {b: a/b 的值}\n\tgraph := map[string]map[string]float64{}\n\tfor i, eq := range equations {\n\t\ta, b := eq[0], eq[1]\n\t\tif graph[a] == nil {\n\t\t\tgraph[a] = map[string]float64{}\n\t\t}\n\t\tif graph[b] == nil {\n\t\t\tgraph[b] = map[string]float64{}\n\t\t}\n\t\tgraph[a][b] = values[i]     // 正向边权 a/b\n\t\tgraph[b][a] = 1 / values[i] // 反向边权取倒数\n\t}\n\t// DFS：cur 到 dst 的累积乘积即所求商；不通返回 -1\n\tvar dfs func(cur, dst string, acc float64, visited map[string]bool) float64\n\tdfs = func(cur, dst string, acc float64, visited map[string]bool) float64 {\n\t\tif cur == dst { // 到达目标，累积乘积即为所求商\n\t\t\treturn acc\n\t\t}\n\t\tvisited[cur] = true // 标记当前节点，防止沿环死循环\n\t\tfor nxt, w := range graph[cur] {\n\t\t\tif !visited[nxt] {\n\t\t\t\tif r := dfs(nxt, dst, acc*w, visited); r != -1 { // 边权累乘传递\n\t\t\t\t\treturn r // 找到可达路径，逐层原样返回\n\t\t\t\t}\n\t\t\t}\n\t\t}\n\t\treturn -1 // 所有分支都不通，无定义\n\t}\n\tans := make([]float64, len(queries))\n\tfor i, q := range queries {\n\t\ta, b := q[0], q[1]\n\t\tif graph[a] == nil || graph[b] == nil {\n\t\t\tans[i] = -1 // 未出现过的变量无定义\n\t\t} else {\n\t\t\tans[i] = dfs(a, b, 1, map[string]bool{}) // a == b 时立刻返回 1\n\t\t}\n\t}\n\treturn ans\n}"
+    },
+    {
+      "id": 417,
+      "title": "Pacific Atlantic Water Flow",
+      "titleCn": "太平洋大西洋水流问题",
+      "difficulty": "medium",
+      "frequency": 3,
+      "question": "有一个 m×n 的长方形岛屿，太平洋与大西洋围绕岛屿：太平洋处于左、上两侧，大西洋处于右、下两侧。雨水只能从高处流向低处，或流向等高的相邻格子（只能由不低于自身的格子流向相邻格子）。返回既能流向太平洋、又能流向大西洋的陆地单元格坐标列表，顺序不限。位于边界上的格子紧邻对应海洋，可以直接流入。\n\n示例 1：输入 heights = [[1,2,2,3,5],[3,2,3,4,4],[2,4,5,3,1],[6,7,1,4,5],[5,1,1,2,4]]，输出 [[0,4],[1,3],[1,4],[2,2],[3,0],[3,1],[4,0]]（顺序可不同）。\n示例 2：输入 heights = [[1]]，输出 [[0,0]]，单格同时紧邻两个海洋。",
+      "hints": [
+        "审题诀窍：正向模拟『水往低处流』需要给每个格子做一次搜索，O((mn)²) 必然超时——倒过来让水『爬山』：从海洋出发逆向找所有能漫到的格子。",
+        "审题诀窍：太平洋的入口是第一行和第一列，大西洋的入口是最后一行和最后一列，各做一轮从边界出发的逆向搜索即可。",
+        "突破口：逆向扩散时约束反转为『相邻格高度 ≥ 当前格』（取等号，等高也能流）；两个海洋的可达集合求交集就是答案。",
+        "追问预备：矩阵巨大时递归爆栈怎么办？（改多源 BFS：把一个海洋的全部边界入口先入队再逐层扩散）若要求输出水流路径本身怎么改？（DFS 里带 path 参数或 parent 表回溯）"
+      ],
+      "keyPoints": [
+        "逆向思维：从海洋边界向内『爬坡』，一次搜索标记整片可达区域",
+        "太平洋、大西洋各维护一个 visited 集合，避免重复搜索",
+        "扩散条件取 ≥：等高格子之间水也能流动",
+        "两个可达集合的交集即双重可达的格子，每格最多被访问两次"
+      ],
+      "structureTags": [
+        "dfs",
+        "recursion",
+        "matrix"
+      ],
+      "approaches": [
+        {
+          "name": "逐格正向搜索",
+          "idea": "对每个格子分别做 DFS/BFS，模拟水往低处流，检查能否分别到达太平洋和大西洋的边界，两者都可达才加入答案。思路直观，但每个格子都要一次近乎全图的搜索，复杂度无法接受。",
+          "complexity": "时间 O((mn)²)，空间 O(mn)",
+          "detail": "步骤拆解：\n1. 对每个格子 (i, j) 调 can_reach(i, j, to_pacific)：用栈模拟 DFS，从 (i, j) 出发只走向『高度 ≤ 当前格』的邻格（水往低处流，等高也算）。\n2. 途中遇到第一行/第一列 → 能入太平洋；遇到最后一行/最后一列 → 能入大西洋；每次搜索用局部 seen 集合防绕环。\n3. 两个方向都可达的格子收进答案。\n\n示例走查：格 (1,3) 高 4：向上 (0,3)=3 ≤ 4 → 第一行 → 太平洋 ✓；向右 (1,4)=4 ≤ 4（等高）→ 最后一列 → 大西洋 ✓ → 收进答案。\n\n为什么正确：逐格独立模拟『水往低处流』，语义与题面一一对应，是理解问题最好的基线；但每个格子都要做一次近乎全图的搜索，O((mn)²) 在大矩阵必然超时——正是引出逆向法的反例。\n\n易错点：\n- 流动条件是相邻格高度 ≤ 当前格（往低走），写成 ≥ 就变成爬坡，方向全错。\n- 每个格子的搜索要独立的 seen，用全局集合会残留上一格的痕迹。\n- 别忘了等高格子之间水能流动，条件要用 ≤ 不是 <。",
+          "code": "def pacificAtlantic(heights):\n    if not heights or not heights[0]:\n        return []\n    m, n = len(heights), len(heights[0])\n\n    def can_reach(i, j, to_pacific):\n        # 正向模拟：水从 (i,j) 只流向不高过自己的邻格\n        stack = [(i, j)]\n        seen = {(i, j)}                 # 每次搜索独立的 visited\n        while stack:\n            x, y = stack.pop()\n            if to_pacific and (x == 0 or y == 0):\n                return True             # 到达第一行/列：入太平洋\n            if not to_pacific and (x == m - 1 or y == n - 1):\n                return True             # 到达最后一行/列：入大西洋\n            for nx, ny in ((x+1, y), (x-1, y), (x, y+1), (x, y-1)):\n                if (0 <= nx < m and 0 <= ny < n and (nx, ny) not in seen\n                        and heights[nx][ny] <= heights[x][y]):\n                    seen.add((nx, ny))\n                    stack.append((nx, ny))\n        return False\n\n    ans = []\n    for i in range(m):\n        for j in range(n):\n            if can_reach(i, j, True) and can_reach(i, j, False):\n                ans.append([i, j])      # 双海可达\n    return ans"
+        },
+        {
+          "name": "从海洋逆向爬坡 DFS（最优）",
+          "idea": "倒过来想：与其问『每个格子能否流到海』，不如问『海能否爬坡漫到格子』。分别从太平洋边界（第一行、第一列）和大西洋边界（最后一行、最后一列）启动 DFS，扩散条件为相邻格高度不低于当前格，得到两个可达集合，交集即答案。每个格子最多被两轮搜索各访问一次。",
+          "complexity": "时间 O(mn)，空间 O(mn)",
+          "optimal": true,
+          "detail": "步骤拆解：\n1. 定义 dfs(i, j, seen)：(i, j) 已在 seen 直接返回；否则加入 seen；对四邻 (ni, nj)：在界内且 heights[ni][nj] >= heights[i][j] → 递归（逆向『爬坡』，取等号，等高也能流）。\n2. 太平洋轮：第一行、第一列的所有格子作为起点 dfs 进 pac 集合；大西洋轮：最后一行、最后一列进 atl 集合。两个集合各自独立。\n3. 答案 = pac ∩ atl（集合交集），转成坐标列表返回，顺序不限。\n\n示例走查：(1,3)=4：太平洋轮从 (0,3)=3 出发，爬坡到 (1,3)（4 ≥ 3）→ 进 pac；大西洋轮从 (1,4)=4 出发，等高爬到 (1,3) → 进 atl → 双海 ✓。(2,2)=5：太平洋轮 (0,2)=2 → (1,2)=3 → (2,2)（5≥3）进 pac；大西洋轮 (4,2)=1 → (3,2)=1（等高）→ (2,2) 进 atl ✓。\n\n为什么正确：逆向条件『邻格 ≥ 当前』精确反演『水从邻格流向当前格』，从海洋出发的可达集恰好是『能流入该海的格子全体』；两个可达集合求交即双海可达。每个格子最多被两轮搜索各标记一次，O(mn)。\n\n易错点：\n- 逆向条件是 ≥ 不是 >，漏了等号就丢了等高路径。\n- 两轮搜索必须用不同的 seen 集合，混用一个会互相污染。\n- 输出顺序任意，LeetCode 判题接受；自己写对拍时先排序再比较。",
+          "code": "def pacificAtlantic(heights):\n    if not heights or not heights[0]:\n        return []\n    m, n = len(heights), len(heights[0])\n    pac = set()                         # 太平洋能逆向爬坡到达的格子\n    atl = set()                         # 大西洋对应的可达集合\n\n    def dfs(i, j, seen):\n        if (i, j) in seen:              # 已标记过，剪枝\n            return\n        seen.add((i, j))                # 标记当前格的水可以流到该海洋\n        for ni, nj in ((i+1, j), (i-1, j), (i, j+1), (i, j-1)):\n            # 逆向爬坡：相邻格不低于当前格，海水才能倒灌漫到这里\n            if 0 <= ni < m and 0 <= nj < n and heights[ni][nj] >= heights[i][j]:\n                dfs(ni, nj, seen)\n\n    for i in range(m):                  # 太平洋入口：第一列；大西洋入口：最后一列\n        dfs(i, 0, pac); dfs(i, n - 1, atl)\n    for j in range(n):                  # 太平洋入口：第一行；大西洋入口：最后一行\n        dfs(0, j, pac); dfs(m - 1, j, atl)\n\n    return [list(p) for p in pac & atl]  # 两个可达集合的交集即答案"
+        },
+        {
+          "name": "多源边界 BFS",
+          "idea": "同逆向思路改用队列：把一个海洋的所有边界入口先全部入队，逐层扩散标记可达格，最后两个集合求交集。好处是避免超大矩阵下递归栈溢出。",
+          "complexity": "时间 O(mn)，空间 O(mn)",
+          "detail": "步骤拆解：\n1. 与逆向 DFS 同思路，改用队列：bfs(seeds) 把一个海洋的所有边界入口先全部入队并加入 seen（入队即标记）。\n2. 出队 (i, j)，检查四邻：在界内、不在 seen、且 heights[ni][nj] >= heights[i][j] → 加入 seen 并入队；重复直到队空，得到该海洋的完整可达集合。\n3. 太平洋种子 = 第一行 + 第一列；大西洋种子 = 最后一行 + 最后一列；两个集合求交集输出。\n\n示例走查：大西洋轮：第 4 行与第 4 列全部入队。出队 (4,2)=1 → 邻 (3,2)=1 等高入队 → 出队 (3,2) → 邻 (2,2)=5 ≥ 1 入队 → (2,2) 进 atl。太平洋轮类似从第一行/列漫入。交集即答案。\n\n为什么正确：BFS 与 DFS 的可达集合完全相同，只是遍历顺序不同；队列峰值约为一圈边界长度，超大矩阵（10^5 格级）不会像递归那样爆栈，工程上更稳。\n\n易错点：\n- 种子入队时就要加入 seen，出队才加会让同一格被多个种子重复处理。\n- 扩散条件同样是 ≥，要与 DFS 版保持一致。\n- 用 collections.deque，别用 list.pop(0)（O(n) 拖慢整体）。",
+          "code": "from collections import deque\n\ndef pacificAtlantic(heights):\n    if not heights or not heights[0]:\n        return []\n    m, n = len(heights), len(heights[0])\n\n    def bfs(seeds):\n        seen = set()\n        q = deque()\n        for i, j in seeds:              # 一个海洋的所有边界入口同时入队\n            seen.add((i, j))\n            q.append((i, j))\n        while q:\n            i, j = q.popleft()\n            for ni, nj in ((i+1, j), (i-1, j), (i, j+1), (i, j-1)):\n                # 逆向爬坡：邻格不低于当前格，等高也能流\n                if (0 <= ni < m and 0 <= nj < n and (ni, nj) not in seen\n                        and heights[ni][nj] >= heights[i][j]):\n                    seen.add((ni, nj))\n                    q.append((ni, nj))\n        return seen\n\n    pac = bfs([(i, 0) for i in range(m)] + [(0, j) for j in range(n)])\n    atl = bfs([(i, n - 1) for i in range(m)] + [(m - 1, j) for j in range(n)])\n    return [list(p) for p in pac & atl]  # 交集即双海可达"
+        }
+      ],
+      "code": "class Solution:\n    def pacificAtlantic(self, heights: List[List[int]]) -> List[List[int]]:\n        if not heights or not heights[0]:\n            return []\n        m, n = len(heights), len(heights[0])\n        pac = set()                     # 太平洋能逆向『爬坡』到达的格子集合\n        atl = set()                     # 大西洋对应的可达集合\n\n        def dfs(i: int, j: int, seen: set) -> None:\n            if (i, j) in seen:          # 已标记过，剪枝\n                return\n            seen.add((i, j))            # 标记当前格的水可以流到该海洋\n            for di, dj in ((1, 0), (-1, 0), (0, 1), (0, -1)):\n                ni, nj = i + di, j + dj\n                # 逆向爬坡：相邻格不低于当前格，海水才能倒灌漫到这里\n                if 0 <= ni < m and 0 <= nj < n and heights[ni][nj] >= heights[i][j]:\n                    dfs(ni, nj, seen)\n\n        for i in range(m):              # 太平洋入口：第一列；大西洋入口：最后一列\n            dfs(i, 0, pac); dfs(i, n - 1, atl)\n        for j in range(n):              # 太平洋入口：第一行；大西洋入口：最后一行\n            dfs(0, j, pac); dfs(m - 1, j, atl)\n\n        return [list(p) for p in pac & atl]  # 两个可达集合的交集即答案",
+      "templates": [
+        "多源逆向扩散模板：从所有边界入口各做一轮 DFS/BFS 打标记，多个标记集合求交集（或并集）得最终答案",
+        "逆向翻转化模板：『每格能否流出海』→『海能否爬坡漫入格』，扩散条件取 ≥ 且允许等高通过"
+      ],
+      "companies": [
+        "Momenta"
+      ],
+      "samples": [
+        {
+          "input": "heights = [[1,2,2,3,5],[3,2,3,4,4],[2,4,5,3,1],[6,7,1,4,5],[5,1,1,2,4]]",
+          "output": "[[0,4],[1,3],[1,4],[2,2],[3,0],[3,1],[4,0]]",
+          "explain": "顺序可以不同，这些格子既能流入太平洋（左/上）也能流入大西洋（右/下）"
+        },
+        {
+          "input": "heights = [[1]]",
+          "output": "[[0,0]]",
+          "explain": "唯一格子同时紧邻两个海洋"
+        }
+      ],
+      "acmCode": "# ACM 模式：完整可运行程序（stdin -> stdout）\n# 输入格式：\n#   第一行：n m（网格行数、列数）\n#   接下来 n 行：每行 m 个整数（海拔），空格分隔\n# 输出格式：每行一个坐标 i j（既能流入太平洋又能流入大西洋的格子），按行优先排序\nimport sys\nsys.setrecursionlimit(10 ** 5)\n\ndef main():\n    data = sys.stdin.read().split()\n    n, m = int(data[0]), int(data[1])\n    h = []\n    idx = 2\n    for i in range(n):\n        h.append([int(x) for x in data[idx:idx + m]])\n        idx += m\n\n    pac, atl = set(), set()             # 两个海洋的逆向可达集合\n\n    def dfs(i, j, seen):\n        if (i, j) in seen:              # 已标记过，剪枝\n            return\n        seen.add((i, j))\n        for ni, nj in ((i+1, j), (i-1, j), (i, j+1), (i, j-1)):\n            # 逆向爬坡：邻格不低于当前格，等高也能流\n            if 0 <= ni < n and 0 <= nj < m and h[ni][nj] >= h[i][j]:\n                dfs(ni, nj, seen)\n\n    for i in range(n):                  # 左列入太平洋、右列入大西洋\n        dfs(i, 0, pac); dfs(i, m - 1, atl)\n    for j in range(m):                  # 上行入太平洋、下行入大西洋\n        dfs(0, j, pac); dfs(n - 1, j, atl)\n\n    for i, j in sorted(pac & atl):      # 排序保证输出确定\n        print(i, j)\n\nif __name__ == '__main__':\n    main()",
+      "codeCpp": "class Solution {\npublic:\n    vector<vector<int>> pacificAtlantic(vector<vector<int>>& heights) {\n        int m = heights.size(), n = heights[0].size();\n        vector<vector<char>> pac(m, vector<char>(n, 0));  // 太平洋能逆向『爬坡』到达的格子\n        vector<vector<char>> atl(m, vector<char>(n, 0));  // 大西洋对应的可达标记\n\n        // 逆向 DFS：从海洋边界出发，向『不低于当前格』的邻格扩散，海水才能倒灌漫到这里\n        function<void(int, int, vector<vector<char>>&)> dfs =\n            [&](int i, int j, vector<vector<char>>& seen) {\n            if (seen[i][j]) return;  // 已标记过，剪枝\n            seen[i][j] = 1;          // 标记当前格的水可以流到该海洋\n            static const int di[] = {1, -1, 0, 0}, dj[] = {0, 0, 1, -1};\n            for (int d = 0; d < 4; ++d) {\n                int ni = i + di[d], nj = j + dj[d];\n                // 逆向爬坡：相邻格不低于当前格，等高也能流\n                if (ni >= 0 && ni < m && nj >= 0 && nj < n\n                    && heights[ni][nj] >= heights[i][j]) {\n                    dfs(ni, nj, seen);\n                }\n            }\n        };\n\n        for (int i = 0; i < m; ++i) {  // 太平洋入口：第一列；大西洋入口：最后一列\n            dfs(i, 0, pac);\n            dfs(i, n - 1, atl);\n        }\n        for (int j = 0; j < n; ++j) {  // 太平洋入口：第一行；大西洋入口：最后一行\n            dfs(0, j, pac);\n            dfs(m - 1, j, atl);\n        }\n\n        vector<vector<int>> ans;\n        for (int i = 0; i < m; ++i) {  // 两个可达集合的交集即答案，按行优先收集\n            for (int j = 0; j < n; ++j) {\n                if (pac[i][j] && atl[i][j]) ans.push_back({i, j});\n            }\n        }\n        return ans;\n    }\n};",
+      "acmCodeCpp": "// ACM 模式：完整可运行程序（stdin -> stdout）\n// 输入格式：\n//   第一行：n m（网格行数、列数）\n//   接下来 n 行：每行 m 个整数（海拔），空格分隔\n// 输出格式：每行一个坐标 i j（既能流入太平洋又能流入大西洋的格子），按行优先排序\n#include <iostream>\n#include <vector>\n\nusing namespace std;\n\nint n, m;\nvector<vector<int>> h;     // 海拔网格\nvector<vector<char>> pac;  // 太平洋能逆向爬坡到达的格子\nvector<vector<char>> atl;  // 大西洋对应的可达标记\n\n// 逆向 DFS：从海洋边界出发，向『不低于当前格』的邻格扩散\nvoid dfs(int i, int j, vector<vector<char>>& seen) {\n    if (seen[i][j]) return;  // 已标记过，剪枝\n    seen[i][j] = 1;          // 标记当前格的水可以流到该海洋\n    int di[] = {1, -1, 0, 0}, dj[] = {0, 0, 1, -1};\n    for (int d = 0; d < 4; ++d) {\n        int ni = i + di[d], nj = j + dj[d];\n        // 逆向爬坡：邻格不低于当前格，等高也能流\n        if (ni >= 0 && ni < n && nj >= 0 && nj < m && h[ni][nj] >= h[i][j]) {\n            dfs(ni, nj, seen);\n        }\n    }\n}\n\nint main() {\n    ios::sync_with_stdio(false);\n    cin.tie(nullptr);\n    cin >> n >> m;\n    h.assign(n, vector<int>(m));\n    pac.assign(n, vector<char>(m, 0));\n    atl.assign(n, vector<char>(m, 0));\n    for (int i = 0; i < n; ++i) {\n        for (int j = 0; j < m; ++j) cin >> h[i][j];\n    }\n\n    for (int i = 0; i < n; ++i) {  // 左列入太平洋、右列入大西洋\n        dfs(i, 0, pac); dfs(i, m - 1, atl);\n    }\n    for (int j = 0; j < m; ++j) {  // 上行入太平洋、下行入大西洋\n        dfs(0, j, pac); dfs(n - 1, j, atl);\n    }\n    for (int i = 0; i < n; ++i) {  // 按行优先输出两个可达集合的交集\n        for (int j = 0; j < m; ++j) {\n            if (pac[i][j] && atl[i][j]) cout << i << ' ' << j << \"\\n\";\n        }\n    }\n    return 0;\n}",
+      "codeJava": "class Solution {\n    private int m, n;\n    private int[][] heights;\n    private boolean[][] pac, atl;\n\n    public List<List<Integer>> pacificAtlantic(int[][] heights) {\n        this.heights = heights;\n        m = heights.length;\n        n = heights[0].length;\n        pac = new boolean[m][n];  // 太平洋能逆向『爬坡』到达的格子\n        atl = new boolean[m][n];  // 大西洋对应的可达标记\n        for (int i = 0; i < m; i++) {  // 太平洋入口：第一列；大西洋入口：最后一列\n            dfs(i, 0, pac);\n            dfs(i, n - 1, atl);\n        }\n        for (int j = 0; j < n; j++) {  // 太平洋入口：第一行；大西洋入口：最后一行\n            dfs(0, j, pac);\n            dfs(m - 1, j, atl);\n        }\n        List<List<Integer>> ans = new ArrayList<>();\n        for (int i = 0; i < m; i++) {  // 两个可达集合的交集即答案，按行优先收集\n            for (int j = 0; j < n; j++) {\n                if (pac[i][j] && atl[i][j]) ans.add(Arrays.asList(i, j));\n            }\n        }\n        return ans;\n    }\n\n    // 逆向 DFS：从海洋边界出发，向『不低于当前格』的邻格扩散，海水才能倒灌漫到这里\n    private void dfs(int i, int j, boolean[][] seen) {\n        if (seen[i][j]) return;  // 已标记过，剪枝\n        seen[i][j] = true;       // 标记当前格的水可以流到该海洋\n        int[][] dirs = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}};\n        for (int[] d : dirs) {\n            int ni = i + d[0], nj = j + d[1];\n            // 逆向爬坡：相邻格不低于当前格，等高也能流\n            if (ni >= 0 && ni < m && nj >= 0 && nj < n\n                    && heights[ni][nj] >= heights[i][j]) {\n                dfs(ni, nj, seen);\n            }\n        }\n    }\n}",
+      "codeJs": "/**\n * @param {number[][]} heights\n * @return {number[][]}\n */\nvar pacificAtlantic = function (heights) {\n  const m = heights.length, n = heights[0].length;\n  const pac = Array.from({ length: m }, () => new Array(n).fill(false)); // 太平洋可达标记\n  const atl = Array.from({ length: m }, () => new Array(n).fill(false)); // 大西洋可达标记\n  // 逆向 DFS：从海洋边界出发，向『不低于当前格』的邻格扩散，海水才能倒灌漫到这里\n  const dfs = (i, j, seen) => {\n    if (seen[i][j]) return;  // 已标记过，剪枝\n    seen[i][j] = true;       // 标记当前格的水可以流到该海洋\n    for (const [di, dj] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {\n      const ni = i + di, nj = j + dj;\n      // 逆向爬坡：相邻格不低于当前格，等高也能流\n      if (ni >= 0 && ni < m && nj >= 0 && nj < n && heights[ni][nj] >= heights[i][j]) {\n        dfs(ni, nj, seen);\n      }\n    }\n  };\n  for (let i = 0; i < m; i++) {  // 太平洋入口：第一列；大西洋入口：最后一列\n    dfs(i, 0, pac); dfs(i, n - 1, atl);\n  }\n  for (let j = 0; j < n; j++) {  // 太平洋入口：第一行；大西洋入口：最后一行\n    dfs(0, j, pac); dfs(m - 1, j, atl);\n  }\n  const ans = [];\n  for (let i = 0; i < m; i++) {  // 两个可达集合的交集即答案，按行优先收集\n    for (let j = 0; j < n; j++) {\n      if (pac[i][j] && atl[i][j]) ans.push([i, j]);\n    }\n  }\n  return ans;\n};",
+      "codeGo": "func pacificAtlantic(heights [][]int) [][]int {\n\tm, n := len(heights), len(heights[0])\n\tpac := make([][]bool, m) // 太平洋能逆向『爬坡』到达的格子\n\tatl := make([][]bool, m) // 大西洋对应的可达标记\n\tfor i := range pac {\n\t\tpac[i] = make([]bool, n)\n\t\tatl[i] = make([]bool, n)\n\t}\n\t// 逆向 DFS：从海洋边界出发，向『不低于当前格』的邻格扩散，海水才能倒灌漫到这里\n\tvar dfs func(i, j int, seen [][]bool)\n\tdfs = func(i, j int, seen [][]bool) {\n\t\tif seen[i][j] { // 已标记过，剪枝\n\t\t\treturn\n\t\t}\n\t\tseen[i][j] = true // 标记当前格的水可以流到该海洋\n\t\tfor _, d := range [4][2]int{{1, 0}, {-1, 0}, {0, 1}, {0, -1}} {\n\t\t\tni, nj := i+d[0], j+d[1]\n\t\t\t// 逆向爬坡：相邻格不低于当前格，等高也能流\n\t\t\tif ni >= 0 && ni < m && nj >= 0 && nj < n && heights[ni][nj] >= heights[i][j] {\n\t\t\t\tdfs(ni, nj, seen)\n\t\t\t}\n\t\t}\n\t}\n\tfor i := 0; i < m; i++ { // 太平洋入口：第一列；大西洋入口：最后一列\n\t\tdfs(i, 0, pac)\n\t\tdfs(i, n-1, atl)\n\t}\n\tfor j := 0; j < n; j++ { // 太平洋入口：第一行；大西洋入口：最后一行\n\t\tdfs(0, j, pac)\n\t\tdfs(m-1, j, atl)\n\t}\n\tans := [][]int{}\n\tfor i := 0; i < m; i++ { // 两个可达集合的交集即答案，按行优先收集\n\t\tfor j := 0; j < n; j++ {\n\t\t\tif pac[i][j] && atl[i][j] {\n\t\t\t\tans = append(ans, []int{i, j})\n\t\t\t}\n\t\t}\n\t}\n\treturn ans\n}"
+    },
+    {
+      "id": 695,
+      "title": "Max Area of Island",
+      "titleCn": "岛屿的最大面积",
+      "difficulty": "medium",
+      "frequency": 4,
+      "question": "给你一个大小为 m×n 的二进制矩阵 grid，由若干 0 和 1 组成。岛屿是由一些相邻的 1 组合形成的组合（相邻指水平或垂直方向，不考虑对角线）。岛屿的面积是岛上值为 1 的单元格数目。返回 grid 中最大的岛屿面积；如果没有岛屿，返回 0。\n\n示例 1：输入 grid = [[0,0,1,0,0,0,0,1,0,0,0,0,0],[0,0,0,0,0,0,0,1,1,1,0,0,0],[0,1,1,0,1,0,0,0,0,0,0,0,0],[0,1,0,0,1,1,0,0,1,0,1,0,0],[0,1,0,0,1,1,0,0,1,1,1,0,0],[0,0,0,0,0,0,0,0,0,0,1,0,0],[0,0,0,0,0,0,0,1,1,1,0,0,0],[0,0,0,0,0,0,0,1,1,0,0,0,0]]，输出 6，中部偏右那座岛面积为 6。\n示例 2：输入 grid = [[0,0,0,0,0,0,0,0]]，输出 0，没有岛屿。",
+      "hints": [
+        "审题诀窍：本题格子是整数 0/1，而 200 题是字符 '1'/'0'，判断条件 grid[i][j] != 1，抄题时最容易踩坑。",
+        "审题诀窍：不求岛屿个数而求最大面积——每个连通块搜索时顺便数格子数，最后取最大值即可，框架完全复用 200 题。",
+        "突破口：让 dfs 返回当前连通块的大小：1 + 四个方向返回值之和；先沉岛再累加，天然不会重复计数。",
+        "追问预备：若要求岛屿的周长（463 题）怎么做？（每块陆地贡献 4 - 相邻陆地数×2，一次扫描即可；或 DFS 边走边数临水边）若允许对角线相邻怎么改？（把方向数组扩成 8 个偏移）"
+      ],
+      "keyPoints": [
+        "与 200 同框架：扫描 + 沉岛，只是把计数换成求最大面积",
+        "dfs 返回值设计为连通块面积：1 + 四方向之和",
+        "沉岛（置 0）保证每个格子只被统计一次",
+        "本题是整数矩阵而非字符矩阵，判断条件注意区分"
+      ],
+      "structureTags": [
+        "dfs",
+        "recursion",
+        "matrix"
+      ],
+      "approaches": [
+        {
+          "name": "BFS 统计连通块大小",
+          "idea": "扫描遇到 1 就入队并置 0，BFS 整个连通块并统计出队次数即该岛面积；所有岛屿面积取最大值。",
+          "complexity": "时间 O(mn)，空间 O(min(m, n))",
+          "detail": "步骤拆解：\n1. 双重扫描遇 grid[i][j] == 1：置 0、area = 1、(i, j) 入队。\n2. BFS：出队 (x, y)，四邻在界内且为 1 → 置 0、area += 1、入队；计数与置 0 同步，每块陆地恰好计一次。\n3. 队空说明整座岛统计完：ans = max(ans, area)，继续扫描。\n\n示例走查：对 2×2 全 1 岛：起点 (0,0) 入队 area=1 → 出队后 (0,1)(1,0) 入队 area=3 → 出队 (0,1) 时 (1,1) 入队 area=4 → 出队 (1,0)(1,1) 无新增 → area=4。\n\n为什么正确：入队计数与置 0 同步进行保证每格恰好计一次；BFS 把整块清空后才与 ans 比较，不会把半座岛算进去。\n\n易错点：\n- 计数时机在入队时：出队时再数会漏掉起点、重复算邻居。\n- 置 0 必须与入队同时，否则同一格被多个邻居重复入队，面积虚高。\n- 多座岛之间是取 max 而不是累加，写错成 ans += area 是高频手误。",
+          "code": "from collections import deque\n\ndef maxAreaOfIsland(grid):\n    m, n = len(grid), len(grid[0])\n    ans = 0\n    for i in range(m):\n        for j in range(n):\n            if grid[i][j] == 1:         # 发现新岛屿\n                grid[i][j] = 0\n                q = deque([(i, j)])\n                area = 1                # 起点先计数\n                while q:\n                    x, y = q.popleft()\n                    for nx, ny in ((x+1, y), (x-1, y), (x, y+1), (x, y-1)):\n                        if 0 <= nx < m and 0 <= ny < n and grid[nx][ny] == 1:\n                            grid[nx][ny] = 0   # 沉岛与计数同步\n                            area += 1\n                            q.append((nx, ny))\n                ans = max(ans, area)    # 一座岛统计完再比较\n    return ans"
+        },
+        {
+          "name": "DFS 沉岛返回面积（最优）",
+          "idea": "与 200 题同一框架，把 dfs 设计成有返回值：越界或不是 1 返回 0；否则当前格置 0，返回 1 + 四个方向递归结果之和，即整座岛的面积。主循环对每个新岛屿调用 dfs 并取 max。",
+          "complexity": "时间 O(mn)，空间 O(mn)",
+          "optimal": true,
+          "detail": "步骤拆解：\n1. dfs(i, j) 设计成有返回值：越界或 grid[i][j] != 1 返回 0（不贡献面积；'0' 同时覆盖水与已沉格，隐式 visited）。\n2. 否则先 grid[i][j] = 0（沉岛，保证每格只统计一次），返回 1 + dfs(i+1,j) + dfs(i-1,j) + dfs(i,j+1) + dfs(i,j-1)——当前格 1 加四方向连通面积之和。\n3. 主循环遇 1 → ans = max(ans, dfs(i, j))。\n\n示例走查：对 1×3 横条 (0,0)(0,1)(0,2)：dfs(0,0) = 1 + dfs(0,1)；dfs(0,1) = 1 + dfs(0,2)；dfs(0,2) = 1 + 0 = 1；逐层回加得 3。\n\n为什么正确：每个格子恰好被 dfs 成功进入一次（进入即置 0），递归沿连通结构把整块面积求和返回——返回值设计把『统计』与『遍历』合一，代码最短、常数最小。\n\n易错点：\n- 本题是整数 1 不是字符 '1'，与 200 题区分，判断条件 grid[i][j] != 1。\n- 返回值求和里四个方向都要写，漏一个方向答案系统性偏小。\n- 沉岛要在求和前完成：先 grid[i][j]=0 再 return 1 + ...，写反当前格会被重复计入。",
+          "code": "def maxAreaOfIsland(grid):\n    m, n = len(grid), len(grid[0])\n\n    def dfs(i, j):\n        # 越界或踩到水/已访问格返回 0，不再贡献面积\n        if i < 0 or i >= m or j < 0 or j >= n or grid[i][j] != 1:\n            return 0\n        grid[i][j] = 0                  # 沉岛：先标记，保证每格只统计一次\n        # 当前格 1 + 四个方向连通块面积之和 = 整座岛的面积\n        return 1 + dfs(i + 1, j) + dfs(i - 1, j) + dfs(i, j + 1) + dfs(i, j - 1)\n\n    ans = 0\n    for i in range(m):                  # 扫描全图，每个连通块算一次面积\n        for j in range(n):\n            if grid[i][j] == 1:\n                ans = max(ans, dfs(i, j))   # 保留所有岛屿面积的最大值\n    return ans"
+        },
+        {
+          "name": "并查集",
+          "idea": "每个 1 初始化为大小 1 的独立集合，相邻的 1 合并时累加集合大小，答案为所有集合大小的最大值。适合动态加陆地的变体场景。",
+          "complexity": "时间 O(mn·α(mn))，空间 O(mn)",
+          "detail": "步骤拆解：\n1. size[x] 记录每个根所在集合的大小，初始每个 1 格 size=1；find 路径压缩。\n2. 扫描每个 1 格，与右、下方向的 1 邻居 union：union 内部按 size 合并（小挂大），合并成功后 size[新根] += size[旧根]，并返回新集合大小。\n3. ans 取所有『单格 1』与『每次合并后集合大小』的最大值。\n\n示例走查：2×2 全 1：4 块独立 → (0,0)-(0,1) 合并 size=2 → (0,0)-(1,0) size=3 → (0,1)-(1,1)（根不同）size=4 → ans=4。\n\n为什么正确：并查集天然维护『连通块大小』，每次有效合并把两块大小累加到新根；全图处理完后最大 size 即最大岛。适合『动态加陆地边问最大岛』的变体。\n\n易错点：\n- 合并方向上 size 要加给『合并后的根』，按 size 合并（小挂大）既优化复杂度又顺带维护块大小。\n- 全 0 矩阵没有任何合并发生，ans 初值必须是 0。\n- 与 200 题的并查集对比：这里每个根带 size，200 题只需要计数合并次数。",
+          "code": "class DSU:\n    def __init__(self, n):\n        self.p = list(range(n))\n        self.size = [1] * n             # 每个根的集合大小\n    def find(self, x):\n        while self.p[x] != x:           # 路径压缩\n            self.p[x] = self.p[self.p[x]]\n            x = self.p[x]\n        return x\n    def union(self, a, b):\n        ra, rb = self.find(a), self.find(b)\n        if ra == rb:\n            return 0                    # 已同集合，大小不变\n        if self.size[ra] < self.size[rb]:   # 小挂大（按大小合并）\n            ra, rb = rb, ra\n        self.p[rb] = ra\n        self.size[ra] += self.size[rb]  # 大小累加到新根\n        return self.size[ra]\n\ndef maxAreaOfIsland(grid):\n    m, n = len(grid), len(grid[0])\n    dsu = DSU(m * n)\n    ans = 0\n    for i in range(m):\n        for j in range(n):\n            if grid[i][j] != 1:\n                continue\n            ans = max(ans, 1)           # 单格也是一座岛\n            if j + 1 < n and grid[i][j+1] == 1:\n                ans = max(ans, dsu.union(i*n+j, i*n+j+1))\n            if i + 1 < m and grid[i+1][j] == 1:\n                ans = max(ans, dsu.union(i*n+j, (i+1)*n+j))\n    return ans"
+        }
+      ],
+      "code": "class Solution:\n    def maxAreaOfIsland(self, grid: List[List[int]]) -> int:\n        m, n = len(grid), len(grid[0])\n\n        def dfs(i: int, j: int) -> int:\n            # 越界或踩到水/已访问格返回 0，不再贡献面积\n            if i < 0 or i >= m or j < 0 or j >= n or grid[i][j] != 1:\n                return 0\n            grid[i][j] = 0              # 沉岛置 0，保证每格只统计一次\n            # 当前格 1 + 四个方向连通块面积之和 = 整座岛的面积\n            return 1 + dfs(i + 1, j) + dfs(i - 1, j) + dfs(i, j + 1) + dfs(i, j - 1)\n\n        ans = 0\n        for i in range(m):              # 扫描全图，每个连通块算一次面积\n            for j in range(n):\n                if grid[i][j] == 1:\n                    ans = max(ans, dfs(i, j))  # 保留所有岛屿面积的最大值\n        return ans",
+      "templates": [
+        "沉岛返回值模板：dfs 返回当前连通块的统计量（面积/周长/边数），1 + 四方向返回值之和聚合整块结果",
+        "求最大连通块模板：连通块计数框架 + max 聚合，扫描时对每个新连通块调用一次搜索"
+      ],
+      "companies": [
+        "字节跳动",
+        "美团",
+        "华为"
+      ],
+      "samples": [
+        {
+          "input": "grid = [[0,0,1,0,0,0,0,1,0,0,0,0,0],[0,0,0,0,0,0,0,1,1,1,0,0,0],[0,1,1,0,1,0,0,0,0,0,0,0,0],[0,1,0,0,1,1,0,0,1,0,1,0,0],[0,1,0,0,1,1,0,0,1,1,1,0,0],[0,0,0,0,0,0,0,0,0,0,1,0,0],[0,0,0,0,0,0,0,1,1,1,0,0,0],[0,0,0,0,0,0,0,1,1,0,0,0,0]]",
+          "output": "6",
+          "explain": "中部偏右的岛由第 3~5 行的 6 个 1 组成，是最大岛屿"
+        },
+        {
+          "input": "grid = [[0,0,0,0,0,0,0,0]]",
+          "output": "0",
+          "explain": "没有陆地，最大面积为 0"
+        }
+      ],
+      "acmCode": "# ACM 模式：完整可运行程序（stdin -> stdout）\n# 输入格式：\n#   第一行：n m（网格行数、列数）\n#   接下来 n 行：每行 m 个整数 0/1（空格分隔；1 陆地，0 水）\n# 输出格式：一个整数，最大岛屿面积\nimport sys\nsys.setrecursionlimit(10 ** 5)\n\ndef main():\n    data = sys.stdin.read().split()\n    n, m = int(data[0]), int(data[1])\n    grid = []\n    idx = 2\n    for i in range(n):\n        grid.append([int(x) for x in data[idx:idx + m]])\n        idx += m\n\n    def dfs(i, j):\n        # 越界或踩到水/已访问格返回 0，不再贡献面积\n        if i < 0 or i >= n or j < 0 or j >= m or grid[i][j] != 1:\n            return 0\n        grid[i][j] = 0                  # 沉岛：每格只统计一次\n        return 1 + dfs(i + 1, j) + dfs(i - 1, j) + dfs(i, j + 1) + dfs(i, j - 1)\n\n    ans = 0\n    for i in range(n):\n        for j in range(m):\n            if grid[i][j] == 1:\n                ans = max(ans, dfs(i, j))   # 各岛面积取最大\n    print(ans)\n\nif __name__ == '__main__':\n    main()",
+      "codeCpp": "class Solution {\npublic:\n    int maxAreaOfIsland(vector<vector<int>>& grid) {\n        int m = grid.size(), n = grid[0].size();\n        int ans = 0;\n        for (int i = 0; i < m; ++i) {  // 扫描全图，每个连通块算一次面积\n            for (int j = 0; j < n; ++j) {\n                if (grid[i][j] == 1) {\n                    ans = max(ans, dfs(grid, i, j));  // 保留所有岛屿面积的最大值\n                }\n            }\n        }\n        return ans;\n    }\n\nprivate:\n    // 越界或踩到水/已访问格返回 0，不再贡献面积\n    int dfs(vector<vector<int>>& grid, int i, int j) {\n        if (i < 0 || i >= (int)grid.size() || j < 0 || j >= (int)grid[0].size()\n            || grid[i][j] != 1) return 0;\n        grid[i][j] = 0;  // 沉岛置 0，保证每格只统计一次\n        // 当前格 1 + 四个方向连通块面积之和 = 整座岛的面积\n        return 1 + dfs(grid, i + 1, j) + dfs(grid, i - 1, j)\n                 + dfs(grid, i, j + 1) + dfs(grid, i, j - 1);\n    }\n};",
+      "acmCodeCpp": "// ACM 模式：完整可运行程序（stdin -> stdout）\n// 输入格式：\n//   第一行：n m（网格行数、列数）\n//   接下来 n 行：每行 m 个整数 0/1（空格分隔；1 陆地，0 水）\n// 输出格式：一个整数，最大岛屿面积\n#include <algorithm>\n#include <iostream>\n#include <vector>\n\nusing namespace std;\n\nint n, m;\nvector<vector<int>> grid;\n\n// 越界或踩到水/已访问格返回 0，不再贡献面积\nint dfs(int i, int j) {\n    if (i < 0 || i >= n || j < 0 || j >= m || grid[i][j] != 1) return 0;\n    grid[i][j] = 0;  // 沉岛：每格只统计一次\n    // 当前格 1 + 四个方向连通块面积之和 = 整座岛的面积\n    return 1 + dfs(i + 1, j) + dfs(i - 1, j) + dfs(i, j + 1) + dfs(i, j - 1);\n}\n\nint main() {\n    ios::sync_with_stdio(false);\n    cin.tie(nullptr);\n    cin >> n >> m;\n    grid.assign(n, vector<int>(m));\n    for (int i = 0; i < n; ++i) {\n        for (int j = 0; j < m; ++j) cin >> grid[i][j];\n    }\n\n    int ans = 0;\n    for (int i = 0; i < n; ++i) {  // 扫描全图，各岛面积取最大\n        for (int j = 0; j < m; ++j) {\n            if (grid[i][j] == 1) ans = max(ans, dfs(i, j));\n        }\n    }\n    cout << ans << endl;\n    return 0;\n}",
+      "codeJava": "class Solution {\n    public int maxAreaOfIsland(int[][] grid) {\n        int ans = 0;\n        for (int i = 0; i < grid.length; i++) {  // 扫描全图，每个连通块算一次面积\n            for (int j = 0; j < grid[0].length; j++) {\n                if (grid[i][j] == 1) {\n                    ans = Math.max(ans, dfs(grid, i, j));  // 保留所有岛屿面积的最大值\n                }\n            }\n        }\n        return ans;\n    }\n\n    // 越界或踩到水/已访问格返回 0，不再贡献面积\n    private int dfs(int[][] grid, int i, int j) {\n        if (i < 0 || i >= grid.length || j < 0 || j >= grid[0].length\n                || grid[i][j] != 1) return 0;\n        grid[i][j] = 0;  // 沉岛置 0，保证每格只统计一次\n        // 当前格 1 + 四个方向连通块面积之和 = 整座岛的面积\n        return 1 + dfs(grid, i + 1, j) + dfs(grid, i - 1, j)\n                + dfs(grid, i, j + 1) + dfs(grid, i, j - 1);\n    }\n}",
+      "codeJs": "/**\n * @param {number[][]} grid\n * @return {number}\n */\nvar maxAreaOfIsland = function (grid) {\n  const m = grid.length, n = grid[0].length;\n  // 越界或踩到水/已访问格返回 0，不再贡献面积\n  const dfs = (i, j) => {\n    if (i < 0 || i >= m || j < 0 || j >= n || grid[i][j] !== 1) return 0;\n    grid[i][j] = 0;  // 沉岛置 0，保证每格只统计一次\n    // 当前格 1 + 四个方向连通块面积之和 = 整座岛的面积\n    return 1 + dfs(i + 1, j) + dfs(i - 1, j) + dfs(i, j + 1) + dfs(i, j - 1);\n  };\n  let ans = 0;\n  for (let i = 0; i < m; i++) {  // 扫描全图，每个连通块算一次面积\n    for (let j = 0; j < n; j++) {\n      if (grid[i][j] === 1) {\n        ans = Math.max(ans, dfs(i, j));  // 保留所有岛屿面积的最大值\n      }\n    }\n  }\n  return ans;\n};",
+      "codeGo": "func maxAreaOfIsland(grid [][]int) int {\n\tm, n := len(grid), len(grid[0])\n\t// 越界或踩到水/已访问格返回 0，不再贡献面积\n\tvar dfs func(i, j int) int\n\tdfs = func(i, j int) int {\n\t\tif i < 0 || i >= m || j < 0 || j >= n || grid[i][j] != 1 {\n\t\t\treturn 0\n\t\t}\n\t\tgrid[i][j] = 0 // 沉岛置 0，保证每格只统计一次\n\t\t// 当前格 1 + 四个方向连通块面积之和 = 整座岛的面积\n\t\treturn 1 + dfs(i+1, j) + dfs(i-1, j) + dfs(i, j+1) + dfs(i, j-1)\n\t}\n\tans := 0\n\tfor i := 0; i < m; i++ { // 扫描全图，每个连通块算一次面积\n\t\tfor j := 0; j < n; j++ {\n\t\t\tif grid[i][j] == 1 {\n\t\t\t\tans = max(ans, dfs(i, j)) // 保留所有岛屿面积的最大值\n\t\t\t}\n\t\t}\n\t}\n\treturn ans\n}"
+    },
+    {
+      "id": 994,
+      "title": "Rotting Oranges",
+      "titleCn": "腐烂的橘子",
+      "difficulty": "medium",
+      "frequency": 4,
+      "question": "给你一个网格 grid，其中每个单元格是以下三个值之一：0 表示空单元格，1 表示新鲜橘子，2 表示腐烂橘子。每分钟，腐烂橘子周围 4 个方向上相邻的新鲜橘子都会腐烂。返回直到单元格中没有新鲜橘子为止所必须经过的最小分钟数。如果不可能，返回 -1。\n\n示例 1：输入 grid = [[2,1,1],[1,1,0],[0,1,1]]，输出 4。\n示例 2：输入 grid = [[2,1,1],[0,1,1],[1,0,1]]，输出 -1，左下角的橘子永远不会腐烂。\n示例 3：输入 grid = [[0,2]]，输出 0，一开始就没有新鲜橘子。",
+      "hints": [
+        "审题诀窍：这是多源最短路——所有腐烂橘子在第 0 分钟同时开始扩散，必须先把它们全部入队，而不是只入队一个。",
+        "审题诀窍：初始就没有新鲜橘子时答案是 0，这个分支要单独考虑；BFS 结束后还要再检查是否有新鲜橘子残留（返回 -1）。",
+        "突破口：BFS 按『分钟』分层扩散（for _ in range(len(q)) 处理完当前层即过去一分钟），轮数就是最晚被感染的时间；感染时立刻置 2，兼作 visited。",
+        "追问预备：若要输出每个橘子在第几分钟腐烂怎么办？（dist[i][j] 记录入队时的层号，最后仍为 0 的新鲜橘子即不可达）若腐烂规则变成对角相邻怎么改？（把四方向偏移数组扩成 8 个即可，框架不变）"
+      ],
+      "keyPoints": [
+        "多源 BFS：所有值为 2 的源点同时入队，等价于一个虚拟超级源点",
+        "BFS 的层数（分钟数）即新鲜橘子被感染的最晚时间",
+        "感染即置 2，兼作 visited 标记，无需额外数组",
+        "结束后用新鲜橘子计数校验：仍有残留则返回 -1"
+      ],
+      "structureTags": [
+        "bfs",
+        "queue",
+        "matrix"
+      ],
+      "approaches": [
+        {
+          "name": "逐分钟暴力模拟",
+          "idea": "每分钟扫描全图，把与腐烂橘子相邻的新鲜橘子标记为下一分钟腐烂，直到某一分钟没有新腐烂发生；若此时仍有新鲜橘子返回 -1。实现简单直观，但每轮都要全图扫描，重复劳动多。",
+          "complexity": "时间 O(m²n²)，空间 O(1)",
+          "detail": "步骤拆解：\n1. 每轮扫描全图：对每个腐烂橘子 (i,j) 检查四邻，把『值为 1 的邻居坐标』先收集进 to_rot 列表——注意是先收集后标记。\n2. to_rot 为空 → 扩散结束跳出循环；否则把 to_rot 里的格子统一置 2，minutes += 1。\n3. 结束后再扫一遍全图：仍有 1 → 返回 -1；否则返回 minutes。\n\n示例走查（示例 1）：第 1 轮收集 (0,1)(1,0)；第 2 轮收集 (0,2)(1,1)；第 3 轮收集 (2,1)；第 4 轮收集 (2,2)；第 5 轮 to_rot 为空 → 停止，全图无 1，返回 4。\n\n为什么正确：『先收集后统一标记』保证同一分钟内新腐烂的橘子不会在本轮继续传染下一格，与题意『每分钟同时扩散一层』语义一致。\n\n易错点：\n- 边扫边置 2 会把一条传染链在一轮内传完，分钟数系统性偏小。\n- 退出条件是『本轮无新腐烂』而不是『无新鲜橘子』——后者会在还有橘子时提前停，把剩余橘子误判为已处理。\n- 每轮 O(mn) 全扫，总 O(m²n²)，网格一大必然超时，这是引出多源 BFS 的动机。",
+          "code": "def orangesRotting(grid):\n    m, n = len(grid), len(grid[0])\n    minutes = 0\n    while True:\n        to_rot = []                     # 本分钟将腐烂的橘子（先收集后标记）\n        for i in range(m):\n            for j in range(n):\n                if grid[i][j] == 2:\n                    for ni, nj in ((i+1, j), (i-1, j), (i, j+1), (i, j-1)):\n                        if 0 <= ni < m and 0 <= nj < n and grid[ni][nj] == 1:\n                            to_rot.append((ni, nj))\n        if not to_rot:                  # 本轮无新增：扩散结束\n            break\n        for i, j in to_rot:\n            grid[i][j] = 2              # 统一标记，避免本轮连锁传染\n        minutes += 1\n    for i in range(m):                  # 校验是否全部腐烂\n        for j in range(n):\n            if grid[i][j] == 1:\n                return -1\n    return minutes"
+        },
+        {
+          "name": "多源 BFS（最优）",
+          "idea": "所有腐烂橘子是同时开始扩散的多个源头——先把它们全部入队（等价于添加虚拟超级源点），再逐分钟分层扩散：用 for _ in range(len(q)) 固定当前层，处理完一层即过去一分钟。BFS 结束后若新鲜橘子计数不为 0 则无解返回 -1，否则返回轮数。",
+          "complexity": "时间 O(mn)，空间 O(mn)",
+          "optimal": true,
+          "detail": "步骤拆解：\n1. 扫描建队：所有值为 2 的格子全部入队（多源，等价于一个虚拟超级源点），同时统计新鲜橘子数 fresh。\n2. while q and fresh：minutes += 1；用 for _ in range(len(q)) 固定本轮层大小，逐个出队 (i,j)，四邻中值为 1 的格子置 2（感染即 visited）、fresh -= 1、入队——它们属于下一分钟。\n3. 结束：fresh == 0 → 返回 minutes；仍有新鲜橘子 → 返回 -1。\n\n示例走查（示例 1）：初始队=[(0,0)]，fresh=6。第 1 层：出队 (0,0) → (0,1)(1,0) 入队，fresh=4。第 2 层：出队 (0,1) → (0,2)(1,1) 入队，fresh=2；出队 (1,0) 时 (1,1) 已是 2 跳过。第 3 层：出队 (0,2)(1,1) → (2,1) 入队，fresh=1。第 4 层：出队 (2,1) → (2,2) 入队，fresh=0。外层 while 因 fresh==0 退出，返回 4。\n\n为什么正确：多源同时扩散等价于虚拟超级源点的单源 BFS，BFS 层号就是该格子被感染的最早时间，最后一层的层号即全部烂完的分钟数；感染置 2 兼作 visited，无需额外数组。\n\n易错点：\n- 循环条件是 while q and fresh：fresh 减到 0 后再跑一轮会多加 1 分钟。\n- 初始就没有新鲜橘子（fresh==0）要返回 0，while 直接不进、恰好返回 0，但逻辑上必须想清楚这个分支。\n- 结束后必须校验 fresh 是否为 0 再决定返回 -1，不能只看队列空没空。",
+          "code": "from collections import deque\n\ndef orangesRotting(grid):\n    m, n = len(grid), len(grid[0])\n    q = deque()                         # 队列存当前这一分钟所有腐烂橘子\n    fresh = 0                           # 新鲜橘子计数，用于最终判定\n    for i in range(m):\n        for j in range(n):\n            if grid[i][j] == 2:\n                q.append((i, j))        # 多源 BFS：所有源点同时入队\n            elif grid[i][j] == 1:\n                fresh += 1\n\n    minutes = 0                         # 经过的分钟数 = BFS 扩散的层数\n    while q and fresh:                  # 没有新鲜橘子后无需继续扩散\n        minutes += 1                    # 处理一轮队列 = 过去一分钟\n        for _ in range(len(q)):         # 固定本轮长度，逐个处理同层节点\n            i, j = q.popleft()\n            for ni, nj in ((i+1, j), (i-1, j), (i, j+1), (i, j-1)):\n                if 0 <= ni < m and 0 <= nj < n and grid[ni][nj] == 1:\n                    grid[ni][nj] = 2    # 感染同时充当 visited 标记\n                    fresh -= 1\n                    q.append((ni, nj))\n    return minutes if fresh == 0 else -1   # 仍有新鲜橘子则永远烂不完"
+        }
+      ],
+      "code": "from collections import deque\nclass Solution:\n    def orangesRotting(self, grid: List[List[int]]) -> int:\n        m, n = len(grid), len(grid[0])\n        q = deque()                     # 队列存当前这一分钟所有腐烂橘子\n        fresh = 0                       # 新鲜橘子计数，用于最终判定\n        for i in range(m):\n            for j in range(n):\n                if grid[i][j] == 2:\n                    q.append((i, j))    # 多源 BFS：所有源点同时入队\n                elif grid[i][j] == 1:\n                    fresh += 1\n\n        minutes = 0                     # 经过的分钟数 = BFS 扩散的层数\n        while q and fresh:              # 没有新鲜橘子后无需继续扩散\n            minutes += 1                # 处理一轮队列 = 过去一分钟\n            for _ in range(len(q)):     # 固定本轮长度，逐个处理同层节点\n                i, j = q.popleft()\n                for di, dj in ((1, 0), (-1, 0), (0, 1), (0, -1)):\n                    ni, nj = i + di, j + dj\n                    if 0 <= ni < m and 0 <= nj < n and grid[ni][nj] == 1:\n                        grid[ni][nj] = 2  # 感染同时充当 visited 标记\n                        fresh -= 1\n                        q.append((ni, nj))\n        return minutes if fresh == 0 else -1  # 仍有新鲜橘子则永远烂不完",
+      "templates": [
+        "多源 BFS 模板：把所有源点先全部入队再开始扩散，等价于添加虚拟超级源点后做单源 BFS",
+        "BFS 层数即最短时间模板：for _ in range(len(q)) 按层处理，处理轮数即扩散分钟数；结束后单独校验不可达情况返回 -1"
+      ],
+      "companies": [
+        "美团",
+        "拼多多"
+      ],
+      "samples": [
+        {
+          "input": "grid = [[2,1,1],[1,1,0],[0,1,1]]",
+          "output": "4",
+          "explain": "第 1 分钟 (0,1)(1,0) 腐烂，第 2 分钟 (0,2)(1,1)，第 3 分钟 (2,1)，第 4 分钟 (2,2)"
+        },
+        {
+          "input": "grid = [[2,1,1],[0,1,1],[1,0,1]]",
+          "output": "-1",
+          "explain": "左下角 (2,0) 被空单元格隔开，永远无法腐烂"
+        },
+        {
+          "input": "grid = [[0,2]]",
+          "output": "0",
+          "explain": "一开始就没有新鲜橘子，直接返回 0"
+        }
+      ],
+      "acmCode": "# ACM 模式：完整可运行程序（stdin -> stdout）\n# 输入格式：\n#   第一行：n m（网格行数、列数）\n#   接下来 n 行：每行 m 个整数 0/1/2（空格分隔；0 空格、1 新鲜橘子、2 腐烂橘子）\n# 输出格式：一个整数，全部腐烂所需最小分钟数；无法全部腐烂输出 -1\nimport sys\nfrom collections import deque\n\ndef main():\n    data = sys.stdin.read().split()\n    n, m = int(data[0]), int(data[1])\n    grid = []\n    idx = 2\n    for i in range(n):\n        grid.append([int(x) for x in data[idx:idx + m]])\n        idx += m\n\n    q = deque()\n    fresh = 0\n    for i in range(n):\n        for j in range(m):\n            if grid[i][j] == 2:\n                q.append((i, j))        # 多源 BFS：所有腐烂橘子同时入队\n            elif grid[i][j] == 1:\n                fresh += 1\n\n    minutes = 0\n    while q and fresh:                  # 没有新鲜橘子后无需继续扩散\n        minutes += 1                    # 处理一轮 = 过去一分钟\n        for _ in range(len(q)):         # 固定本轮长度，逐层扩散\n            i, j = q.popleft()\n            for ni, nj in ((i+1, j), (i-1, j), (i, j+1), (i, j-1)):\n                if 0 <= ni < n and 0 <= nj < m and grid[ni][nj] == 1:\n                    grid[ni][nj] = 2    # 感染兼作 visited 标记\n                    fresh -= 1\n                    q.append((ni, nj))\n    print(minutes if fresh == 0 else -1)\n\nif __name__ == '__main__':\n    main()",
+      "codeCpp": "class Solution {\npublic:\n    int orangesRotting(vector<vector<int>>& grid) {\n        int m = grid.size(), n = grid[0].size();\n        const int dirs[4][2] = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}};\n        queue<pair<int, int>> q;  // 队列存当前这一分钟所有腐烂橘子\n        int fresh = 0;            // 新鲜橘子计数，用于最终判定\n        for (int i = 0; i < m; ++i) {\n            for (int j = 0; j < n; ++j) {\n                if (grid[i][j] == 2) q.push({i, j});  // 多源 BFS：所有源点同时入队\n                else if (grid[i][j] == 1) ++fresh;\n            }\n        }\n\n        int minutes = 0;                   // 经过的分钟数 = BFS 扩散的层数\n        while (!q.empty() && fresh > 0) {  // 没有新鲜橘子后无需继续扩散\n            ++minutes;                     // 处理一轮队列 = 过去一分钟\n            // 固定本轮长度 sz，逐个处理同一分钟的腐烂橘子（同层节点）\n            for (int sz = (int)q.size(); sz > 0; --sz) {\n                auto [i, j] = q.front();\n                q.pop();\n                for (auto& d : dirs) {     // 感染四邻中值仍为 1 的新鲜橘子\n                    int ni = i + d[0], nj = j + d[1];\n                    if (ni < 0 || ni >= m || nj < 0 || nj >= n || grid[ni][nj] != 1) continue;\n                    grid[ni][nj] = 2;      // 感染同时充当 visited 标记\n                    --fresh;\n                    q.push({ni, nj});\n                }\n            }\n        }\n        return fresh == 0 ? minutes : -1;  // 仍有新鲜橘子则永远烂不完\n    }\n};",
+      "acmCodeCpp": "// ACM 模式：完整可运行程序（stdin -> stdout）\n// 输入格式：\n//   第一行：n m（网格行数、列数）\n//   接下来 n 行：每行 m 个整数 0/1/2（空格分隔；0 空格、1 新鲜橘子、2 腐烂橘子）\n// 输出格式：一个整数，全部腐烂所需最小分钟数；无法全部腐烂输出 -1\n#include <iostream>\n#include <queue>\n#include <utility>\n#include <vector>\n\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);\n    cin.tie(nullptr);\n\n    int n, m;\n    cin >> n >> m;\n    vector<vector<int>> grid(n, vector<int>(m));\n    queue<pair<int, int>> q;  // 队列存当前这一分钟所有腐烂橘子\n    int fresh = 0;            // 新鲜橘子计数，用于最终判定\n    for (int i = 0; i < n; ++i) {\n        for (int j = 0; j < m; ++j) {\n            cin >> grid[i][j];\n            if (grid[i][j] == 2) q.push({i, j});  // 多源 BFS：所有源点同时入队\n            else if (grid[i][j] == 1) ++fresh;\n        }\n    }\n\n    const int dirs[4][2] = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}};\n    int minutes = 0;                   // 经过的分钟数 = BFS 扩散的层数\n    while (!q.empty() && fresh > 0) {  // 没有新鲜橘子后无需继续扩散\n        ++minutes;                     // 处理一轮队列 = 过去一分钟\n        for (int sz = (int)q.size(); sz > 0; --sz) {  // 固定本轮长度，逐层扩散\n            auto [i, j] = q.front();\n            q.pop();\n            for (auto& d : dirs) {     // 感染四邻中值仍为 1 的新鲜橘子\n                int ni = i + d[0], nj = j + d[1];\n                if (ni < 0 || ni >= n || nj < 0 || nj >= m || grid[ni][nj] != 1) continue;\n                grid[ni][nj] = 2;      // 感染兼作 visited 标记\n                --fresh;\n                q.push({ni, nj});\n            }\n        }\n    }\n    cout << (fresh == 0 ? minutes : -1) << endl;\n    return 0;\n}",
+      "codeJava": "class Solution {\n    public int orangesRotting(int[][] grid) {\n        int m = grid.length, n = grid[0].length;\n        int[][] dirs = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}};\n        Queue<int[]> q = new ArrayDeque<>();  // 队列存当前这一分钟所有腐烂橘子\n        int fresh = 0;                        // 新鲜橘子计数，用于最终判定\n        for (int i = 0; i < m; i++) {\n            for (int j = 0; j < n; j++) {\n                if (grid[i][j] == 2) q.offer(new int[]{i, j});  // 多源 BFS：所有源点同时入队\n                else if (grid[i][j] == 1) fresh++;\n            }\n        }\n\n        int minutes = 0;                     // 经过的分钟数 = BFS 扩散的层数\n        while (!q.isEmpty() && fresh > 0) {  // 没有新鲜橘子后无需继续扩散\n            minutes++;                       // 处理一轮队列 = 过去一分钟\n            for (int sz = q.size(); sz > 0; sz--) {  // 固定本轮长度，逐个处理同层节点\n                int[] cur = q.poll();\n                for (int[] d : dirs) {       // 感染四邻中值仍为 1 的新鲜橘子\n                    int ni = cur[0] + d[0], nj = cur[1] + d[1];\n                    if (ni < 0 || ni >= m || nj < 0 || nj >= n || grid[ni][nj] != 1) continue;\n                    grid[ni][nj] = 2;        // 感染同时充当 visited 标记\n                    fresh--;\n                    q.offer(new int[]{ni, nj});\n                }\n            }\n        }\n        return fresh == 0 ? minutes : -1;    // 仍有新鲜橘子则永远烂不完\n    }\n}",
+      "codeJs": "/**\n * @param {number[][]} grid\n * @return {number}\n */\nvar orangesRotting = function (grid) {\n  const m = grid.length, n = grid[0].length;\n  const q = [];   // 队列存当前这一分钟所有腐烂橘子\n  let fresh = 0;  // 新鲜橘子计数，用于最终判定\n  for (let i = 0; i < m; i++) {\n    for (let j = 0; j < n; j++) {\n      if (grid[i][j] === 2) {\n        q.push([i, j]);   // 多源 BFS：所有源点同时入队\n      } else if (grid[i][j] === 1) {\n        fresh++;\n      }\n    }\n  }\n\n  const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]];\n  let minutes = 0;                  // 经过的分钟数 = BFS 扩散的层数\n  while (q.length && fresh > 0) {   // 没有新鲜橘子后无需继续扩散\n    minutes++;                      // 处理一轮队列 = 过去一分钟\n    for (let sz = q.length; sz > 0; sz--) {  // 固定本轮长度，逐个处理同层节点\n      const [i, j] = q.shift();\n      for (const [di, dj] of dirs) {  // 感染四邻中值仍为 1 的新鲜橘子\n        const ni = i + di, nj = j + dj;\n        if (ni < 0 || ni >= m || nj < 0 || nj >= n || grid[ni][nj] !== 1) continue;\n        grid[ni][nj] = 2;  // 感染同时充当 visited 标记\n        fresh--;\n        q.push([ni, nj]);\n      }\n    }\n  }\n  return fresh === 0 ? minutes : -1;  // 仍有新鲜橘子则永远烂不完\n};",
+      "codeGo": "func orangesRotting(grid [][]int) int {\n\tm, n := len(grid), len(grid[0])\n\tdirs := [4][2]int{{1, 0}, {-1, 0}, {0, 1}, {0, -1}}\n\tq := [][2]int{} // 队列存当前这一分钟所有腐烂橘子\n\tfresh := 0      // 新鲜橘子计数，用于最终判定\n\tfor i := 0; i < m; i++ {\n\t\tfor j := 0; j < n; j++ {\n\t\t\tif grid[i][j] == 2 {\n\t\t\t\tq = append(q, [2]int{i, j}) // 多源 BFS：所有源点同时入队\n\t\t\t} else if grid[i][j] == 1 {\n\t\t\t\tfresh++\n\t\t\t}\n\t\t}\n\t}\n\n\tminutes := 0                  // 经过的分钟数 = BFS 扩散的层数\n\tfor len(q) > 0 && fresh > 0 { // 没有新鲜橘子后无需继续扩散\n\t\tminutes++ // 处理一轮队列 = 过去一分钟\n\t\t// 固定本轮长度 sz，逐个处理同一分钟的腐烂橘子（同层节点）\n\t\tfor sz := len(q); sz > 0; sz-- {\n\t\t\tcur := q[0]\n\t\t\tq = q[1:]\n\t\t\tfor _, d := range dirs { // 感染四邻中值仍为 1 的新鲜橘子\n\t\t\t\tni, nj := cur[0]+d[0], cur[1]+d[1]\n\t\t\t\tif ni < 0 || ni >= m || nj < 0 || nj >= n || grid[ni][nj] != 1 {\n\t\t\t\t\tcontinue\n\t\t\t\t}\n\t\t\t\tgrid[ni][nj] = 2 // 感染同时充当 visited 标记\n\t\t\t\tfresh--\n\t\t\t\tq = append(q, [2]int{ni, nj})\n\t\t\t}\n\t\t}\n\t}\n\tif fresh > 0 {\n\t\treturn -1 // 仍有新鲜橘子则永远烂不完\n\t}\n\treturn minutes\n}"
+    }
+  ]
+}

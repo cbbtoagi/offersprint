@@ -1,0 +1,593 @@
+{
+  "topic": "栈",
+  "problems": [
+    {
+      "id": 20,
+      "title": "Valid Parentheses",
+      "titleCn": "有效的括号",
+      "difficulty": "easy",
+      "frequency": 5,
+      "question": "给定一个只包括 '('，')'，'{'，'}'，'['，']' 的字符串 s，判断字符串是否有效。\n\n有效字符串需满足：左括号必须用相同类型的右括号闭合；左括号必须以正确的顺序闭合；每个右括号都有一个对应的相同类型的左括号。\n\n示例 1：输入 s = \"()\"，输出 true。\n示例 2：输入 s = \"()[]{}\"，输出 true。\n示例 3：输入 s = \"(]\"，输出 false。\n示例 4：输入 s = \"([)]\"，输出 false。\n示例 5：输入 s = \"{[]}\"，输出 true。",
+      "hints": [
+        "审题诀窍：注意『以正确的顺序闭合』——最近出现的未闭合左括号必须最先被闭合，这种后进先出的匹配关系天然指向栈。",
+        "审题诀窍：无效只有三种形态：右括号多余（栈空时遇到右括号）、类型不配对（栈顶不匹配）、左括号多余（扫完栈非空），三类全覆盖即可。",
+        "突破口：遇到右括号时，它必须与『离它最近的、还未匹配的左括号』配对——让这个左括号始终待在栈顶，就能 O(1) 完成检查。",
+        "追问预备：若求『最长有效括号子串』的长度怎么做？（栈存下标 + 哨兵 -1，即 LeetCode 32）；括号种类扩展到任意多对怎么办？（pair 字典加一行即可）"
+      ],
+      "keyPoints": [
+        "左括号直接入栈，右括号到来时检查栈顶是否为对应左括号",
+        "遇到右括号时栈为空，或栈顶类型不匹配，立即返回 false",
+        "用字典预存右括号->左括号的映射，避免为每种括号写一个分支",
+        "遍历结束后栈必须为空，否则还有左括号未被闭合"
+      ],
+      "structureTags": [
+        "stack",
+        "single_pass"
+      ],
+      "approaches": [
+        {
+          "name": "暴力替换",
+          "idea": "不断把字符串中的 '()'、'[]'、'{}' 替换成空串，直到一轮扫描没有任何替换发生；最终字符串为空则有效。每轮都要复制整个字符串，最坏要迭代 n/2 轮，仅作思维基线。",
+          "complexity": "时间 O(n²)，空间 O(n)",
+          "detail": "步骤拆解：\n1. 准备三种相邻配对模式 '()'、'[]'、'{}'。\n2. 每一轮用 str.replace 依次把三种子串替换为空串，字符串长度缩短。\n3. 若一整轮替换后字符串不再变化，说明到达不动点：剩余串中不含任何相邻配对。\n4. 最终串为空则有效，否则无效。\n\n示例走查：s = '([]{})'。第 1 轮：'()' 无相邻出现；'[]' 被删得 '({})'；'{}' 被删得 '()'。第 2 轮：'()' 被删得 ''。第 3 轮无变化，串为空 → true。再看 s = '([)]'：第 1 轮三种模式都找不到相邻出现，串不变即到不动点，非空 → false。\n\n为什么正确：有效串一定能不断从内向外消去相邻配对——最内层的括号对在串中必然相邻；无效串消到不动点后必残留字符。但它是 O(n²)：每轮 replace 都复制整个字符串，最坏要迭代 n/2 轮，只配当思维基线。\n\n易错点：\n- 循环条件用『替换前后字符串是否相同』判不动点，用『长度是否变化』容易写漏或死循环。\n- replace 只能消相邻配对，嵌套如 '(())' 必须靠多轮迭代逐步消，不能指望一次替换到位。",
+          "code": "def isValid_replace(s: str) -> bool:\n    pairs = ['()', '[]', '{}']          # 三种可消去的相邻配对\n    while True:\n        before = s\n        for p in pairs:                 # 一轮扫描：把所有相邻配对替换为空串\n            s = s.replace(p, '')\n        if s == before:                 # 本轮没有任何替换发生 -> 到达不动点\n            break\n    return s == ''                      # 全部消完则有效"
+        },
+        {
+          "name": "栈匹配",
+          "idea": "从左到右扫描：左括号入栈；遇到右括号时，若栈空或栈顶不是它对应的左括号则无效，否则弹出栈顶。扫描结束后栈为空才有效。每个字符最多入栈、出栈各一次。",
+          "complexity": "时间 O(n)，空间 O(n)",
+          "optimal": true,
+          "detail": "步骤拆解：\n1. 建映射 pair = {')': '(', ']': '[', '}': '{'}，统一处理三种括号，避免为每种括号写一个分支。\n2. 从左到右扫 s：字符不在 pair 中即左括号，append 入栈等待闭合。\n3. 字符在 pair 中即右括号：若栈空（没有左括号可配）或 stack[-1] != pair[ch]（配对类型错）立即返回 False，否则 pop 栈顶完成配对。\n4. 扫描结束后 return not stack：还有剩余左括号则无效。\n\n示例走查：s = '([)]'。'(' 入栈得 ['(']；'[' 入栈得 ['(', '[']；')' 到来，pair[')'] = '('，而栈顶是 '['，不匹配 → 返回 false ✓。再看 s = '{[]}'：'{'、'[' 依次入栈；']' 与栈顶 '[' 配对弹出；'}' 与栈顶 '{' 配对弹出；栈空 → true ✓。\n\n为什么正确：合法嵌套中，右括号必须与『离它最近的、尚未闭合的左括号』配对——这个左括号恰好总在栈顶，O(1) 即可完成检查。三类无效形态被三个判断分别覆盖：右括号多余（栈空判 False）、类型不配（栈顶不匹配判 False）、左括号多余（结束后栈非空判 False）。每个字符进出栈各一次，O(n)。\n\n易错点：\n- 遇右括号必须先判栈空再读 stack[-1]，顺序反了空栈时会越界报错。\n- 结束后必须检查栈为空，只看中途没返回 false 会漏掉 '(()' 这类左括号多余输入。\n- pair 是右括号 -> 左括号方向，写反后 pair[ch] 查不到键。",
+          "code": "def isValid_stack(s: str) -> bool:\n    pair = {')': '(', ']': '[', '}': '{'}   # 右括号 -> 应与其配对的左括号\n    stack = []                              # 栈中保存尚未闭合的左括号\n    for ch in s:\n        if ch in pair:                      # 右括号：必须立刻与最近的左括号配对\n            if not stack or stack[-1] != pair[ch]:\n                return False                # 栈空=右括号多余；不匹配=顺序错误\n            stack.pop()                     # 配对成功，弹出该左括号\n        else:                               # 左括号：等待未来的右括号来闭合\n            stack.append(ch)\n    return not stack                        # 扫完栈非空说明左括号多余"
+        }
+      ],
+      "code": "class Solution:\n    def isValid(self, s: str) -> bool:\n        # pair: 右括号 -> 应与其配对的左括号，统一处理三种括号\n        pair = {')': '(', ']': '[', '}': '{'}\n        stack = []                       # 栈中保存还未被闭合的左括号\n        for ch in s:\n            if ch in pair:               # 遇到右括号，必须立刻与最近的左括号配对\n                # 栈空说明没有左括号可配；栈顶不匹配说明闭合顺序错误\n                if not stack or stack[-1] != pair[ch]:\n                    return False\n                stack.pop()              # 配对成功，弹出该左括号\n            else:                        # 遇到左括号，等待未来的右括号来闭合\n                stack.append(ch)\n        # 扫描结束后栈必须为空，否则仍有左括号没被闭合\n        return not stack",
+      "templates": [
+        "括号匹配模板：左括号入栈；右括号查栈顶配对（栈空或不配即 false）；结束后要求栈空",
+        "凡是『最近未处理的元素优先参与匹配/抵消』的问题（括号、路径回退、表达式化简）都优先考虑栈"
+      ],
+      "companies": [
+        "腾讯",
+        "美团",
+        "拼多多"
+      ],
+      "samples": [
+        {
+          "input": "s = \"()\"",
+          "output": "true",
+          "explain": "左括号 ( 与右括号 ) 一一配对"
+        },
+        {
+          "input": "s = \"([)]\"",
+          "output": "false",
+          "explain": "') 到来时栈顶是 [，闭合顺序错误"
+        },
+        {
+          "input": "s = \"{[]}\"",
+          "output": "true",
+          "explain": "嵌套结构：内层 [] 先闭合，外层 {} 再闭合"
+        }
+      ],
+      "acmCode": "# ACM 模式：完整可运行程序（stdin -> stdout）\n# 输入格式：一行一个仅含 ()[]{} 六种字符的字符串 s（括号串，无空格）\n# 输出格式：一行，有效输出 true，无效输出 false\nimport sys\n\ndef main():\n    data = sys.stdin.read().split()\n    s = data[0] if data else ''         # 括号串不含空格，取第一个 token\n    pair = {')': '(', ']': '[', '}': '{'}\n    stack = []\n    ok = True\n    for ch in s:\n        if ch in pair:                  # 右括号：必须立刻配对\n            if not stack or stack[-1] != pair[ch]:\n                ok = False\n                break\n            stack.pop()\n        else:                           # 左括号：入栈等待闭合\n            stack.append(ch)\n    print('true' if ok and not stack else 'false')\n\nif __name__ == '__main__':\n    main()",
+      "codeCpp": "class Solution {\npublic:\n    bool isValid(string s) {\n        // pair: 右括号 -> 应与其配对的左括号，统一处理三种括号\n        unordered_map<char, char> pair{{')', '('}, {']', '['}, {'}', '{'}};\n        vector<char> stk;                    // 栈中保存尚未被闭合的左括号\n        for (char ch : s) {\n            auto it = pair.find(ch);\n            if (it != pair.end()) {          // 右括号：必须立刻与最近的左括号配对\n                // 栈空说明没有左括号可配；栈顶不匹配说明闭合顺序错误\n                if (stk.empty() || stk.back() != it->second) return false;\n                stk.pop_back();              // 配对成功，弹出该左括号\n            } else {\n                stk.push_back(ch);           // 左括号：等待未来的右括号来闭合\n            }\n        }\n        // 扫描结束后栈必须为空，否则仍有左括号没被闭合\n        return stk.empty();\n    }\n};",
+      "acmCodeCpp": "// ACM 模式：完整可运行程序（stdin -> stdout）\n// 输入格式：一行一个仅含 ()[]{} 六种字符的字符串 s（括号串，无空格）\n// 输出格式：一行，有效输出 true，无效输出 false\n#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);   // 关闭同步，读入更快\n    cin.tie(nullptr);\n\n    string s;\n    cin >> s;                      // 括号串不含空格，直接读一个 token\n    unordered_map<char, char> pair{{')', '('}, {']', '['}, {'}', '{'}};\n    vector<char> stk;              // 栈中保存尚未被闭合的左括号\n    bool ok = true;\n    for (char ch : s) {\n        auto it = pair.find(ch);\n        if (it != pair.end()) {    // 右括号：必须立刻配对\n            if (stk.empty() || stk.back() != it->second) {  // 栈空/不配对均无效\n                ok = false;\n                break;\n            }\n            stk.pop_back();        // 配对成功，弹出该左括号\n        } else {\n            stk.push_back(ch);     // 左括号：入栈等待闭合\n        }\n    }\n    // 有效要求中途没失败，且扫描结束后栈为空（左括号不多余）\n    cout << ((ok && stk.empty()) ? \"true\" : \"false\") << endl;\n    return 0;\n}",
+      "codeJava": "class Solution {\n    public boolean isValid(String s) {\n        // pair: 右括号 -> 应与其配对的左括号，统一处理三种括号\n        Map<Character, Character> pair = Map.of(')', '(', ']', '[', '}', '{');\n        Deque<Character> stack = new ArrayDeque<>();   // 栈中保存尚未被闭合的左括号\n        for (char ch : s.toCharArray()) {\n            if (pair.containsKey(ch)) {    // 右括号：必须立刻与最近的左括号配对\n                // 栈空说明没有左括号可配；栈顶不匹配说明闭合顺序错误\n                if (stack.isEmpty() || !stack.peek().equals(pair.get(ch))) return false;\n                stack.pop();               // 配对成功，弹出该左括号\n            } else {\n                stack.push(ch);            // 左括号：等待未来的右括号来闭合\n            }\n        }\n        // 扫描结束后栈必须为空，否则仍有左括号没被闭合\n        return stack.isEmpty();\n    }\n}",
+      "codeJs": "/**\n * @param {string} s\n * @return {boolean}\n */\nvar isValid = function (s) {\n  const pair = { ')': '(', ']': '[', '}': '{' }; // 右括号 -> 应配对的左括号\n  const stack = [];                  // 栈中保存尚未被闭合的左括号\n  for (const ch of s) {\n    if (pair[ch]) {\n      // 右括号：栈空说明左括号多余；栈顶不匹配说明闭合顺序错误\n      if (stack.length === 0 || stack[stack.length - 1] !== pair[ch]) return false;\n      stack.pop();                   // 配对成功，弹出该左括号\n    } else {\n      stack.push(ch);                // 左括号：等待未来的右括号来闭合\n    }\n  }\n  // 扫描结束后栈必须为空，否则仍有左括号没被闭合\n  return stack.length === 0;\n};",
+      "codeGo": "func isValid(s string) bool {\n\tpair := map[byte]byte{')': '(', ']': '[', '}': '{'} // 右括号 -> 应配对的左括号\n\tstack := make([]byte, 0, len(s))                    // 栈中保存尚未被闭合的左括号\n\tfor i := 0; i < len(s); i++ {\n\t\tch := s[i]\n\t\tif left, ok := pair[ch]; ok { // 右括号：必须立刻与最近的左括号配对\n\t\t\t// 栈空说明没有左括号可配；栈顶不匹配说明闭合顺序错误\n\t\t\tif len(stack) == 0 || stack[len(stack)-1] != left {\n\t\t\t\treturn false\n\t\t\t}\n\t\t\tstack = stack[:len(stack)-1] // 配对成功，弹出该左括号\n\t\t} else {\n\t\t\tstack = append(stack, ch) // 左括号：等待未来的右括号来闭合\n\t\t}\n\t}\n\t// 扫描结束后栈必须为空，否则仍有左括号没被闭合\n\treturn len(stack) == 0\n}"
+    },
+    {
+      "id": 71,
+      "title": "Simplify Path",
+      "titleCn": "简化路径",
+      "difficulty": "medium",
+      "frequency": 3,
+      "question": "给你一个字符串 path，表示指向某一文件或目录的 Unix 风格绝对路径（以 '/' 开头），请你将它转化为更加简洁的规范路径。\n\n规范路径必须满足：以单斜杠 '/' 开头；任意两个目录名之间恰好有一个斜杠 '/'；最后一个目录名（如果存在）后面不能以 '/' 结尾。此外，路径中 '.' 表示当前目录本身，'..' 表示把目录切换到上一级（根目录的上一级仍然是根目录）。\n\n示例 1：输入 path = \"/home/\"，输出 \"/home\"（末尾多余的斜杠去掉）。\n示例 2：输入 path = \"/../\"，输出 \"/\"（根目录的上一级还是根目录）。\n示例 3：输入 path = \"/home//foo/\"，输出 \"/home/foo\"（连续斜杠等价于一个）。\n示例 4：输入 path = \"/a/./b/../../c/\"，输出 \"/c\"。",
+      "hints": [
+        "审题诀窍：先按 '/' 切分，切出来的成分只有四类——空串（连续斜杠所致）、'.'（当前目录，忽略）、'..'（回退一级）、普通名字（进入该目录）。分类讨论就不会漏。",
+        "审题诀窍：'..' 在根目录时无效（根的上一级还是根），回退前必须判断栈是否为空。",
+        "突破口：『进入目录』和『回到上一级』正好对应栈的压入与弹出——最后把栈里的目录用 '/' 连起来就是规范路径。",
+        "追问预备：路径里连续多个 '..' 或 '..' 与目录交错时为什么仍正确？（每个 '..' 独立弹一层，语义可组合）；Windows 风格反斜杠分隔符怎么适配？（先统一替换分隔符，栈逻辑不变）"
+      ],
+      "keyPoints": [
+        "path.split('/') 得到目录成分，空串与 '.' 直接跳过",
+        "遇到 '..'：栈非空则弹栈回退一级，栈空则保持不变",
+        "普通名字（包括 '...' 这种多个点的合法目录名）正常入栈",
+        "结果为 '/' + '/'.join(stack)，栈空时恰好得到 '/'"
+      ],
+      "structureTags": [
+        "stack"
+      ],
+      "approaches": [
+        {
+          "name": "反复字符串替换",
+          "idea": "不断把 '//' 替换成 '/'、删除 '/./'、处理 '/xxx/../' 等模式，直到字符串不再变化。规则之间会互相影响（例如 '/...' 是合法目录名不能删、'/../' 处理顺序敏感），极易出错，仅作反面教材。",
+          "complexity": "时间 O(n²)，空间 O(n)",
+          "detail": "步骤拆解：\n1. 先在串尾补一个 '/'，让末尾的 '.' 与 '..' 也能套用『中间段』的替换规则，收尾再去掉。\n2. 循环执行替换规则：'/./' 换成 '/'（消去当前目录段）；连续斜杠压成一个；再用正则找一段 '/目录/..'（目录可缺省，对应根上的 '..'）整体删除。\n3. 每轮检查字符串是否变化，不再变化即到不动点。\n4. 去掉补的尾斜杠，空串补成 '/'。\n\n示例走查：path = '/a/./b/../../c/'。补尾斜杠后：消 '/./' 得 '/a/b/../../c/'；正则匹配 '/a/../' 整段删除得 '/../c/'；再匹配开头的 '/../' 删除得 '/c/'；不动点后去尾斜杠 → '/c' ✓。\n\n为什么正确：'目录/..' 恰好互相抵消一层目录，根上的 '..' 无效可直接删；替换到不动点时串中已不存在可消解模式，剩下的就是规范形式。但规则之间互相影响、顺序高度敏感——这正是它只配当反面教材的原因：'/...' 是合法目录名不能被误删、根上的 '..' 与目录后的 '..' 要区分处理，漏一条规则就错。\n\n易错点：\n- '/...' 这类连续点的目录名是合法目录，替换规则必须保证不误删它。\n- 忘了补尾斜杠，末尾的 '..' 处理不到；忘了收尾去斜杠，结果多一个 '/'。\n- 三条规则的执行顺序影响收敛速度，但不影响不动点结果——前提是每轮都把三条都跑一遍。",
+          "code": "import re\n\ndef simplifyPath_replace(path: str) -> str:\n    # 反面教材：直接在字符串上做规则替换，规则互相影响、必须循环到不动点\n    path += '/'                                   # 补尾斜杠：让末尾的 . 和 .. 也能套用中间规则\n    while True:\n        before = path\n        path = re.sub(r'/\\./', '/', path)         # 消去当前目录段 /./\n        path = re.sub(r'//+', '/', path)          # 连续斜杠压成一个\n        m = re.search(r'(/[^/]+)?/\\.\\./', path)   # 找 '/目录/..'（目录可缺省 = 根上的 ..）\n        if m:\n            path = path[:m.start()] + '/' + path[m.end():]   # 目录连同 '..' 整段删除\n            continue\n        if path == before:                        # 本轮无任何变化 -> 到达不动点\n            break\n    path = path[:-1]                              # 去掉补的尾斜杠\n    if not path:                                  # 整条路径被清空 -> 就是根目录\n        path = '/'\n    return path"
+        },
+        {
+          "name": "切分 + 栈",
+          "idea": "按 '/' 把路径切分成目录成分，逐个处理：空串和 '.' 跳过；'..' 在栈非空时弹栈、栈空时忽略；其余入栈。最后用 '/' 连接栈内目录并补上开头的根斜杠。一遍切分加一遍遍历完成。",
+          "complexity": "时间 O(n)，空间 O(n)",
+          "optimal": true,
+          "detail": "步骤拆解：\n1. parts = path.split('/')：得到目录名、'.'、'..'，以及连续斜杠产生的空串。\n2. 逐个处理成分：空串或 '.' 直接 continue；'..' 在栈非空时 pop（回退一级）、栈空时忽略（根的上一级还是根）；其余字符串入栈（包括 '...' 这类合法目录名）。\n3. 返回 '/' + '/'.join(stack)：栈空时 join 结果为空串，恰好得到根 '/'。\n\n示例走查：path = '/a/./b/../../c/'。split 得 ['', 'a', '.', 'b', '..', '..', 'c', '']。空串跳过；'a' 入栈；'.' 跳过；'b' 入栈；第一个 '..' 弹出 'b'；第二个 '..' 弹出 'a'；'c' 入栈。栈 = ['c']，结果 '/' + 'c' = '/c' ✓。\n\n为什么正确：目录树天然是栈结构——进入目录是 push、'..' 是 pop；split 把『连续斜杠等价一个』『末尾斜杠』这些边角情况统一转化成空串跳过，无需任何特判。每个成分只处理一次，O(n)。\n\n易错点：\n- '//' 切分产生的空串必须跳过，否则空目录名会被 join 进结果。\n- '..' 回退前必须判栈空，'/../' 在根目录要保持原地不动。\n- 结果别忘了开头的根斜杠：'/' + '/'.join(stack)，栈空时它恰好单独构成 '/'。",
+          "code": "def simplifyPath_stack(path: str) -> str:\n    parts = path.split('/')       # 得到目录名、'.'、'..' 以及连续斜杠产生的空串\n    stack = []                    # 栈里保存最终保留的每一级目录\n    for part in parts:\n        if part == '' or part == '.':\n            continue              # 空串（连续斜杠）和当前目录 '.' 直接跳过\n        if part == '..':\n            if stack:             # 回退一级；已在根目录（栈空）则保持不变\n                stack.pop()\n        else:                     # '...' 这类多个点的名字是合法目录名，正常入栈\n            stack.append(part)\n    return '/' + '/'.join(stack)  # 栈空时 join 为空串，结果恰是根 '/' "
+        }
+      ],
+      "code": "class Solution:\n    def simplifyPath(self, path: str) -> str:\n        # 按 '/' 切分：得到目录名、'.'、'..'，以及连续斜杠产生的空串\n        parts = path.split('/')\n        stack = []                    # 栈里保存最终保留的每一级目录\n        for part in parts:\n            if part == '' or part == '.':\n                continue              # 空串（连续斜杠）和当前目录 '.' 直接跳过\n            if part == '..':\n                if stack:             # 回退一级；已在根目录（栈空）则保持不变\n                    stack.pop()\n            else:                     # '...' 这类多个点的名字是合法目录名，正常入栈\n                stack.append(part)\n        # 每级目录之间恰好一个 '/'，以根 '/' 开头；栈空时结果正是 '/'\n        return '/' + '/'.join(stack)",
+      "templates": [
+        "路径化简模板：split('/') 后按『空串/. 跳过、.. 弹栈（栈非空时）、其余入栈』处理，最后 '/' + '/'.join(stack)",
+        "凡涉及『回退到上一个状态』（目录栈、编辑器撤销、浏览器后退）都可建模为栈"
+      ],
+      "companies": [
+        "字节跳动",
+        "华为",
+        "腾讯"
+      ],
+      "samples": [
+        {
+          "input": "path = \"/home/\"",
+          "output": "\"/home\"",
+          "explain": "去掉末尾多余的斜杠"
+        },
+        {
+          "input": "path = \"/a/./b/../../c/\"",
+          "output": "\"/c\"",
+          "explain": "进入 a、b 后连续两次 .. 回到根，再进入 c"
+        },
+        {
+          "input": "path = \"/../\"",
+          "output": "\"/\"",
+          "explain": "根目录的上一级还是根目录"
+        }
+      ],
+      "acmCode": "# ACM 模式：完整可运行程序（stdin -> stdout）\n# 输入格式：一行一个 Unix 风格绝对路径 path（以 '/' 开头，不含空格）\n# 输出格式：一行，化简后的规范路径\nimport sys\n\ndef main():\n    path = sys.stdin.read().strip()   # 只有一行输入，去掉首尾空白\n    parts = path.split('/')\n    stack = []\n    for part in parts:\n        if part == '' or part == '.':\n            continue                  # 连续斜杠产生的空串与 '.' 跳过\n        if part == '..':\n            if stack:                 # 回退一级；根目录上保持不变\n                stack.pop()\n        else:\n            stack.append(part)        # '...' 等合法目录名正常入栈\n    print('/' + '/'.join(stack))\n\nif __name__ == '__main__':\n    main()",
+      "codeCpp": "class Solution {\npublic:\n    string simplifyPath(string path) {\n        vector<string> stk;    // 栈里保存最终保留的每一级目录\n        string part;           // 当前正在累积的目录成分（相邻两个 '/' 之间的内容）\n        // 手工按 '/' 切分：得到目录名、'.'、'..'，连续斜杠产生的空串直接跳过\n        for (int i = 0; i <= (int)path.size(); ++i) {\n            if (i < (int)path.size() && path[i] != '/') {\n                part += path[i];      // 普通字符累积进当前成分\n                continue;\n            }\n            // 到达分隔符或串尾：结算当前成分\n            if (part == \"..\") {\n                if (!stk.empty()) stk.pop_back();  // 回退一级；根目录上保持不变\n            } else if (!part.empty() && part != \".\") {\n                stk.push_back(part);  // '...' 等多个点的名字是合法目录名，正常入栈\n            }\n            part.clear();\n        }\n        // 每级目录间恰好一个 '/'，以根 '/' 开头；栈空时结果恰是 '/'\n        string ans;\n        for (const string& dir : stk) ans += \"/\" + dir;\n        return ans.empty() ? \"/\" : ans;\n    }\n};",
+      "acmCodeCpp": "// ACM 模式：完整可运行程序（stdin -> stdout）\n// 输入格式：一行一个 Unix 风格绝对路径 path（以 '/' 开头，不含空格）\n// 输出格式：一行，化简后的规范路径\n#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);   // 关闭同步，读入更快\n    cin.tie(nullptr);\n\n    string path;\n    getline(cin, path);            // 路径只有一行，整行读入\n    while (!path.empty() && (path.back() == '\\r' || path.back() == ' '))\n        path.pop_back();           // 去掉行尾残留\n\n    vector<string> stk;            // 栈里保存最终保留的每一级目录\n    string part;                   // 当前正在累积的目录成分\n    // 手工按 '/' 切分：得到目录名、'.'、'..'，连续斜杠产生的空串直接跳过\n    for (int i = 0; i <= (int)path.size(); ++i) {\n        if (i < (int)path.size() && path[i] != '/') {\n            part += path[i];       // 普通字符累积进当前成分\n            continue;\n        }\n        // 到达分隔符或串尾：结算当前成分\n        if (part == \"..\") {\n            if (!stk.empty()) stk.pop_back();   // 回退一级；根目录上保持不变\n        } else if (!part.empty() && part != \".\") {\n            stk.push_back(part);   // '...' 等合法目录名正常入栈\n        }\n        part.clear();\n    }\n    // 每级目录间恰好一个 '/'，以根 '/' 开头；栈空时结果恰是 '/'\n    string ans;\n    for (const string& dir : stk) ans += \"/\" + dir;\n    if (ans.empty()) ans = \"/\";\n    cout << ans << endl;\n    return 0;\n}",
+      "codeJava": "class Solution {\n    public String simplifyPath(String path) {\n        // 按 '/' 切分：得到目录名、'.'、'..'，以及连续斜杠产生的空串\n        String[] parts = path.split(\"/\");\n        Deque<String> stack = new ArrayDeque<>();   // 栈里保存最终保留的每一级目录\n        for (String part : parts) {\n            if (part.isEmpty() || part.equals(\".\")) continue; // 空串与当前目录跳过\n            if (part.equals(\"..\")) {\n                if (!stack.isEmpty()) stack.pollLast();   // 回退一级；根目录上保持不变\n            } else {\n                stack.addLast(part);                      // '...' 等合法目录名正常入栈\n            }\n        }\n        // 每级目录之间恰好一个 '/'，以根 '/' 开头；栈空时结果正是 '/'\n        StringBuilder sb = new StringBuilder();\n        for (String dir : stack) sb.append('/').append(dir);\n        return sb.length() == 0 ? \"/\" : sb.toString();\n    }\n}",
+      "codeJs": "/**\n * @param {string} path\n * @return {string}\n */\nvar simplifyPath = function (path) {\n  const parts = path.split('/'); // 得到目录名、'.'、'..' 及连续斜杠产生的空串\n  const stack = [];              // 栈里保存最终保留的每一级目录\n  for (const part of parts) {\n    if (part === '' || part === '.') continue; // 空串与当前目录 '.' 直接跳过\n    if (part === '..') {\n      if (stack.length) stack.pop();           // 回退一级；根目录上保持不变\n    } else {\n      stack.push(part);                        // '...' 这类名字是合法目录名\n    }\n  }\n  // 每级目录之间恰好一个 '/'，以根 '/' 开头；栈空时结果正是 '/'\n  return '/' + stack.join('/');\n};",
+      "codeGo": "func simplifyPath(path string) string {\n\t// 完整文件需 import \"strings\"（此处按惯例省略 import）\n\tparts := strings.Split(path, \"/\") // 得到目录名、'.'、'..' 及连续斜杠产生的空串\n\tstack := make([]string, 0)        // 栈里保存最终保留的每一级目录\n\tfor _, part := range parts {\n\t\tif part == \"\" || part == \".\" {\n\t\t\tcontinue // 空串（连续斜杠）与当前目录 '.' 直接跳过\n\t\t}\n\t\tif part == \"..\" {\n\t\t\tif len(stack) > 0 { // 回退一级；已在根目录（栈空）则保持不变\n\t\t\t\tstack = stack[:len(stack)-1]\n\t\t\t}\n\t\t} else {\n\t\t\tstack = append(stack, part) // '...' 这类多个点的名字是合法目录名\n\t\t}\n\t}\n\t// 每级目录之间恰好一个 '/'，以根 '/' 开头；栈空时结果正是 '/'\n\treturn \"/\" + strings.Join(stack, \"/\")\n}"
+    },
+    {
+      "id": 155,
+      "title": "Min Stack",
+      "titleCn": "最小栈",
+      "difficulty": "medium",
+      "frequency": 5,
+      "question": "请你设计一个支持 push、pop、top 操作，并能在常数时间内检索到最小元素的栈。\n\n实现 MinStack 类：MinStack() 初始化堆栈对象；void push(int val) 将元素 val 推入堆栈；void pop() 删除堆栈顶部的元素；int top() 获取堆栈顶部的元素；int getMin() 获取堆栈中的最小元素。每个函数的时间复杂度均应为 O(1)。\n\n示例：输入 [\"MinStack\",\"push\",\"push\",\"push\",\"getMin\",\"pop\",\"top\",\"getMin\"]，[[],[-2],[0],[-3],[],[],[],[]]，输出 [null,null,null,null,-3,null,0,-2]（push -2、push 0、push -3 后最小值 -3；pop 后栈顶为 0，最小值变为 -2）。",
+      "hints": [
+        "审题诀窍：注意 getMin 也要求 O(1)——不能在查询时才遍历，必须在 push/pop 的过程中就把最小值信息维护好。",
+        "审题诀窍：最小值可能藏在栈中间，pop 掉栈顶后最小值会变——所以要为『每一层栈』记录『该层入栈时整个栈的最小值』，随栈顶一起弹出。",
+        "突破口：辅助栈与主栈同步压入/弹出，辅助栈顶永远是当前主栈的最小值；也可用 (值, 当前最小值) 二元组单栈实现，本质相同。",
+        "追问预备：若还要 O(1) 取最大值？（再加一个同步 max 辅助栈即可，思想完全一样）；若数据量极大想省空间？（口述差值存储变体，栈中存 val - min）"
+      ],
+      "keyPoints": [
+        "辅助栈与主栈同步 push/pop，辅助栈顶始终等于当前主栈内所有元素的最小值",
+        "push x 时新的最小值 = min(x, 辅助栈当前栈顶)；辅助栈空时就是 x 本身",
+        "pop 时两个栈同时弹出，保证辅助栈顶始终对应主栈当前状态",
+        "getMin 直接读辅助栈栈顶，top 直接读主栈栈顶，均为 O(1)"
+      ],
+      "structureTags": [
+        "stack"
+      ],
+      "approaches": [
+        {
+          "name": "getMin 时遍历",
+          "idea": "只维护一个普通栈，getMin 时线性扫描栈内所有元素求最小值。实现最简单，但 getMin 是 O(n)，不满足题目 O(1) 要求，仅作对照基线。",
+          "complexity": "时间 push/pop/top O(1)、getMin O(n)，空间 O(n)",
+          "detail": "步骤拆解：\n1. 只维护一个普通数组栈：push 时 append、pop 时 pop、top 读 stack[-1]。\n2. getMin 不做任何额外维护，被调用时才 min(stack) 全量扫描求最小值。\n\n示例走查：依次 push -2、0、-3 后栈为 [-2, 0, -3]。getMin 被调用时才扫描：min([-2, 0, -3]) 遍历 3 个元素返回 -3 ✓；pop 后栈为 [-2, 0]，再次 getMin 又要重新扫 2 个元素得 -2。每次查询都是全量重算，没有任何复用。\n\n为什么它不够好：push/pop/top 三个操作确实 O(1)，但 getMin 是 O(n)——题目明确要求每个函数 O(1)。它留在题解里的价值是对照：一旦发现『查询很频繁却每次重算』，就该想到把统计量在 push/pop 的过程中顺手维护好，而不是查询时现算。\n\n易错点：\n- Python 的 min(stack) 语法简洁，但正是 O(n) 所在，别被简洁骗过。\n- 面试口头提这个基线时，务必立刻接上『getMin 不满足 O(1)，需要辅助栈』，展示你知道差距在哪。",
+          "code": "class MinStackNaive:\n    def __init__(self):\n        self.stack = []          # 只有一个普通栈\n\n    def push(self, val: int) -> None:\n        self.stack.append(val)\n\n    def pop(self) -> None:\n        self.stack.pop()\n\n    def top(self) -> int:\n        return self.stack[-1]\n\n    def getMin(self) -> int:\n        # getMin 时才全量扫描：O(n)，不满足题目 O(1) 要求\n        return min(self.stack)"
+        },
+        {
+          "name": "同步辅助栈",
+          "idea": "额外维护一个与主栈同步压入/弹出的辅助栈：每次 push x 时，辅助栈压入 min(x, 辅助栈当前栈顶)。两栈任意时刻元素一一对应，辅助栈栈顶就是当前主栈的最小值，四个操作全部 O(1)。",
+          "complexity": "时间所有操作 O(1)，空间 O(n)",
+          "optimal": true,
+          "detail": "步骤拆解：\n1. 两个数组：stack 存数据，min_stack 与它逐层对应，第 i 层记录『主栈前 i 个元素的最小值』。\n2. push(val)：stack.append(val)；cur_min = val（min_stack 为空时）或 min(val, min_stack[-1])，append 进 min_stack。\n3. pop()：两栈同时 pop——这是同步性的关键，保证 min_stack[-1] 永远对应主栈当前状态。\n4. top() 读 stack[-1]，getMin() 读 min_stack[-1]，全部 O(1)。\n\n示例走查：依次 push -2、0、-3：stack = [-2, 0, -3]，min_stack = [-2, -2, -3]（压 0 时 min(0, -2) = -2，压 -3 时 min(-3, -2) = -3）。getMin 读 min_stack 顶 = -3 ✓；pop 后 stack = [-2, 0]、min_stack = [-2, -2]；top 读 0 ✓；getMin 读 -2 ✓。\n\n为什么正确：辅助栈第 i 层保存的是『前 i 个元素的最小值』这一历史快照，pop 一个元素恰好回退一层快照，历史信息不丢失也不污染；这是用 O(n) 额外空间换全部操作 O(1) 的标准权衡，也是『栈 + 同步辅助栈维护统计量』一族问题（含 min 栈、max 栈等变体）的统一骨架。\n\n易错点：\n- pop 必须两栈同步弹出，只弹主栈会让 min_stack 顶残留已失效的最小值。\n- push 时 min_stack 必须每层都压（最小值没变也要再压一遍旧值），否则层数错位、pop 后对不上。\n- getMin 在空栈时调用会越界；LeetCode 保证操作合法，ACM 版可加空栈保护。",
+          "code": "class MinStackSync:\n    def __init__(self):\n        self.stack = []          # 主栈：存放所有元素\n        self.min_stack = []      # 辅助栈：第 i 层 = 前 i 个元素的最小值快照\n\n    def push(self, val: int) -> None:\n        self.stack.append(val)\n        cur_min = val if not self.min_stack else min(val, self.min_stack[-1])\n        self.min_stack.append(cur_min)   # 每层都必须压，保证两栈同步\n\n    def pop(self) -> None:\n        self.stack.pop()\n        self.min_stack.pop()     # 两栈同步弹出，辅助栈顶重新对应当前状态\n\n    def top(self) -> int:\n        return self.stack[-1]\n\n    def getMin(self) -> int:\n        return self.min_stack[-1]"
+        },
+        {
+          "name": "差值存储",
+          "idea": "进阶：只保留一个变量 min 记录当前最小值，栈中存 val - min 的差值；差值 < 0 说明 val 是新的最小值。pop 时差值非负则恢复 min + diff，为负则恢复 push 前的 min。比同步辅助栈少用一个栈，但可读性差，面试口头提一句即可。",
+          "complexity": "时间 O(1)，空间 O(n)（每个元素仍占一格，但省去辅助栈，仅多一个变量）",
+          "detail": "步骤拆解：\n1. 只有一个栈 stack，另设变量 cur_min 表示当前最小值；栈中不存 val 本身，存 diff = val - cur_min（入栈时刻的最小值）。\n2. push(val)：首个元素特殊处理（cur_min = val，存 0）；否则 diff = val - cur_min 入栈，若 diff < 0 说明 val 打破历史最小，更新 cur_min = val。\n3. pop()：弹出 diff，若 diff < 0 说明该层刷新过最小值，恢复 cur_min -= diff（旧最小 = 新最小 - diff）。\n4. top()：栈顶 diff < 0 时返回 cur_min，否则返回 cur_min + diff；getMin() 直接返回 cur_min。\n\n示例走查：push -2 → cur_min = -2，存 0；push 0 → diff = 2，存 2；push -3 → diff = -1 < 0 → cur_min = -3，存 -1。getMin = -3 ✓；pop：diff = -1 → cur_min = -3 - (-1) = -2；top：栈顶 diff = 2 → -2 + 2 = 0 ✓；getMin = -2 ✓。\n\n为什么正确：diff 隐式编码了两层信息——diff ≥ 0 时真实值 = cur_min + diff（cur_min 未被该层改变）；diff < 0 时该层真实值就是新 cur_min 本身，且 -diff 恰好是回退所需的差量。相比同步辅助栈省掉一个栈，但可读性差、状态隐晦，面试口头提一句即可，落笔还是写同步辅助栈。\n\n易错点：\n- cur_min 初值不能设 float('inf')，首元素 diff 会算成 -inf，必须用 None 特判首元素。\n- pop 后若栈空要把 cur_min 复位为 None，否则下次 push 会带上脏状态。\n- top 必须按 diff 正负分两种情况，直接 cur_min + diff 对负 diff 是错的。",
+          "code": "class MinStackDiff:\n    def __init__(self):\n        self.stack = []          # 保存 diff = val - 入栈时刻的最小值\n        self.cur_min = None      # 当前栈内最小值（用 None 而非 inf，防首元素 diff 溢出语义）\n\n    def push(self, val: int) -> None:\n        if self.cur_min is None:         # 首个元素：它自己就是最小值\n            self.cur_min = val\n            self.stack.append(0)         # diff = val - val = 0\n        else:\n            diff = val - self.cur_min\n            self.stack.append(diff)\n            if diff < 0:                 # diff < 0 说明 val 打破历史最小\n                self.cur_min = val\n\n    def pop(self) -> None:\n        diff = self.stack.pop()\n        if diff < 0:                     # 该层刷新过最小值，还原上一个最小值\n            self.cur_min -= diff\n        if not self.stack:\n            self.cur_min = None          # 栈空复位，避免脏状态\n\n    def top(self) -> int:\n        diff = self.stack[-1]\n        return self.cur_min if diff < 0 else self.cur_min + diff\n\n    def getMin(self) -> int:\n        return self.cur_min"
+        }
+      ],
+      "code": "class MinStack:\n    def __init__(self):\n        self.stack = []      # 主栈：存放所有元素\n        self.min_stack = []  # 辅助栈：与主栈同步，栈顶始终是当前主栈的最小值\n\n    def push(self, val: int) -> None:\n        self.stack.append(val)\n        # 新最小值 = min(新元素, 压入前栈内最小值)；辅助栈空时最小值就是 val 本身\n        cur_min = val if not self.min_stack else min(val, self.min_stack[-1])\n        self.min_stack.append(cur_min)\n\n    def pop(self) -> None:\n        # 两栈必须同步弹出，否则辅助栈顶不再对应主栈当前状态\n        self.stack.pop()\n        self.min_stack.pop()\n\n    def top(self) -> int:\n        return self.stack[-1]\n\n    def getMin(self) -> int:\n        # 辅助栈顶即当前栈内最小值，O(1) 直接读取\n        return self.min_stack[-1]",
+      "templates": [
+        "『栈 + 辅助栈同步维护统计量』模板：主栈存数据，辅助栈逐层保存『到该层为止的 min/max/…』，任意查询 O(1)",
+        "设计类题目先给每个操作定复杂度目标，再反推需要额外维护哪些冗余信息"
+      ],
+      "companies": [
+        "字节跳动",
+        "华为"
+      ],
+      "samples": [
+        {
+          "input": "[\"MinStack\",\"push\",\"push\",\"push\",\"getMin\",\"pop\",\"top\",\"getMin\"], [[],[-2],[0],[-3],[],[],[],[]]",
+          "output": "[null,null,null,null,-3,null,0,-2]",
+          "explain": "push -2、0、-3 后最小值为 -3；pop 后栈顶 0，最小值变为 -2"
+        },
+        {
+          "input": "[\"MinStack\",\"push\",\"push\",\"getMin\",\"pop\",\"top\",\"getMin\"], [[],[5],[2],[],[],[],[]]",
+          "output": "[null,null,null,2,null,5,5]",
+          "explain": "弹出 2 后最小值回退为 5，体现『每层快照』的作用"
+        }
+      ],
+      "acmCode": "# ACM 模式：完整可运行程序（stdin -> stdout）\n# 输入格式：\n#   第一行：m（操作次数）\n#   接下来 m 行，每行一个操作：\n#     push x   —— 将 x 入栈\n#     pop      —— 弹出栈顶\n#     top      —— 查询栈顶元素\n#     getMin   —— 查询栈内最小元素\n# 输出格式：每个 top / getMin 操作输出一行结果\nimport sys\n\ndef main():\n    data = sys.stdin.read().split()\n    m = int(data[0])\n    idx = 1\n    st, mn = [], []              # 主栈 + 同步辅助栈（栈顶 = 当前最小值）\n    out = []\n    for _ in range(m):\n        op = data[idx]\n        idx += 1\n        if op == 'push':\n            x = int(data[idx])\n            idx += 1\n            st.append(x)\n            mn.append(x if not mn else min(x, mn[-1]))\n        elif op == 'pop':\n            st.pop()\n            mn.pop()             # 两栈同步弹出\n        elif op == 'top':\n            out.append(str(st[-1]))\n        else:                    # getMin\n            out.append(str(mn[-1]))\n    print('\\n'.join(out))\n\nif __name__ == '__main__':\n    main()",
+      "codeCpp": "class MinStack {\n    vector<int> stk;    // 主栈：存放所有元素\n    vector<int> mins;   // 辅助栈：与主栈同步，栈顶始终是当前主栈的最小值\npublic:\n    MinStack() {}\n\n    void push(int val) {\n        stk.push_back(val);\n        // 新最小值 = min(新元素, 压入前栈内最小值)；辅助栈空时就是 val 本身\n        int cur = mins.empty() ? val : min(mins.back(), val);\n        mins.push_back(cur);          // 每层都必须压，保证两栈同步\n    }\n\n    void pop() {\n        // 两栈必须同步弹出，否则辅助栈顶不再对应当前状态\n        stk.pop_back();\n        mins.pop_back();\n    }\n\n    int top() {\n        return stk.back();            // 主栈顶即栈顶元素\n    }\n\n    int getMin() {\n        // 辅助栈顶即当前栈内最小值，O(1) 直接读取\n        return mins.back();\n    }\n};",
+      "acmCodeCpp": "// ACM 模式：完整可运行程序（stdin -> stdout）\n// 输入格式：\n//   第一行：m（操作次数）\n//   接下来 m 行，每行一个操作：\n//     push x   —— 将 x 入栈\n//     pop      —— 弹出栈顶\n//     top      —— 查询栈顶元素\n//     getMin   —— 查询栈内最小元素\n// 输出格式：每个 top / getMin 操作输出一行结果\n#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);   // 关闭同步，读入更快\n    cin.tie(nullptr);\n\n    int m;\n    cin >> m;\n    vector<int> stk, mins;         // 主栈 + 同步辅助栈（栈顶 = 当前最小值）\n    while (m--) {\n        string op;\n        cin >> op;\n        if (op == \"push\") {\n            int x;\n            cin >> x;\n            stk.push_back(x);\n            // 新最小值 = min(新元素, 压入前栈内最小值)；每层都必须压\n            mins.push_back(mins.empty() ? x : min(x, mins.back()));\n        } else if (op == \"pop\") {\n            stk.pop_back();        // 两栈同步弹出\n            mins.pop_back();\n        } else if (op == \"top\") {\n            cout << stk.back() << \"\\n\";    // 主栈顶即栈顶元素\n        } else {                   // getMin\n            cout << mins.back() << \"\\n\";   // 辅助栈顶即当前最小值\n        }\n    }\n    return 0;\n}",
+      "codeJava": "class MinStack {\n    private Deque<Integer> stack = new ArrayDeque<>();  // 主栈：存放所有元素\n    private Deque<Integer> mins = new ArrayDeque<>();   // 辅助栈：栈顶始终是当前最小值\n\n    public MinStack() {}\n\n    public void push(int val) {\n        stack.push(val);\n        // 新最小值 = min(新元素, 压入前栈内最小值)；辅助栈空时就是 val 本身\n        int cur = mins.isEmpty() ? val : Math.min(val, mins.peek());\n        mins.push(cur);               // 每层都必须压，保证两栈同步\n    }\n\n    public void pop() {\n        // 两栈必须同步弹出，否则辅助栈顶不再对应当前状态\n        stack.pop();\n        mins.pop();\n    }\n\n    public int top() {\n        return stack.peek();          // 主栈顶即栈顶元素\n    }\n\n    public int getMin() {\n        // 辅助栈顶即当前栈内最小值，O(1) 直接读取\n        return mins.peek();\n    }\n}",
+      "codeJs": "/**\n * 最小栈：push/pop/top/getMin 均为 O(1)，用同步辅助栈维护每层最小值快照\n */\nvar MinStack = function () {\n  this.stack = []; // 主栈：存放所有元素\n  this.mins = [];  // 辅助栈：与主栈同步，栈顶始终是当前主栈的最小值\n};\n\n/**\n * @param {number} val\n * @return {void}\n */\nMinStack.prototype.push = function (val) {\n  this.stack.push(val);\n  // 新最小值 = min(新元素, 压入前栈内最小值)；辅助栈空时就是 val 本身\n  const cur =\n    this.mins.length === 0 ? val : Math.min(val, this.mins[this.mins.length - 1]);\n  this.mins.push(cur); // 每层都必须压，保证两栈同步\n};\n\n/**\n * @return {void}\n */\nMinStack.prototype.pop = function () {\n  // 两栈必须同步弹出，否则辅助栈顶不再对应当前状态\n  this.stack.pop();\n  this.mins.pop();\n};\n\n/**\n * @return {number}\n */\nMinStack.prototype.top = function () {\n  return this.stack[this.stack.length - 1]; // 主栈顶即栈顶元素\n};\n\n/**\n * @return {number}\n */\nMinStack.prototype.getMin = function () {\n  return this.mins[this.mins.length - 1]; // 辅助栈顶即当前最小值\n};",
+      "codeGo": "// MinStack：主栈 + 同步辅助栈，push/pop/top/getMin 均为 O(1)\ntype MinStack struct {\n\tstack []int // 主栈：存放所有元素\n\tmins  []int // 辅助栈：与主栈同步，栈顶始终是当前主栈的最小值\n}\n\nfunc Constructor() MinStack {\n\treturn MinStack{}\n}\n\nfunc (this *MinStack) Push(val int) {\n\tthis.stack = append(this.stack, val)\n\t// 新最小值 = min(新元素, 压入前栈内最小值)；辅助栈空时就是 val 本身\n\tcur := val\n\tif len(this.mins) > 0 && this.mins[len(this.mins)-1] < cur {\n\t\tcur = this.mins[len(this.mins)-1]\n\t}\n\tthis.mins = append(this.mins, cur) // 每层都必须压，保证两栈同步\n}\n\nfunc (this *MinStack) Pop() {\n\t// 两栈必须同步弹出，否则辅助栈顶不再对应当前状态\n\tthis.stack = this.stack[:len(this.stack)-1]\n\tthis.mins = this.mins[:len(this.mins)-1]\n}\n\nfunc (this *MinStack) Top() int {\n\treturn this.stack[len(this.stack)-1] // 主栈顶即栈顶元素\n}\n\nfunc (this *MinStack) GetMin() int {\n\t// 辅助栈顶即当前栈内最小值，O(1) 直接读取\n\treturn this.mins[len(this.mins)-1]\n}"
+    },
+    {
+      "id": 150,
+      "title": "Evaluate Reverse Polish Notation",
+      "titleCn": "逆波兰表达式求值",
+      "difficulty": "medium",
+      "frequency": 4,
+      "question": "给你一个字符串数组 tokens，表示一个根据逆波兰表示法（后缀表达式）表示的算术表达式。请你计算该表达式，返回一个表示表达式值的整数。\n\n注意：有效的运算符包括 '+'、'-'、'*' 和 '/'。每个操作数可以是整数，也可以是另一个表达式的结果。两个整数之间的除法总是向零截断（即 5 / 2 = 2，-5 / 2 = -2）。不存在除数为零的情况。表达式中不含前缀或后缀一元运算符。\n\n示例 1：输入 tokens = [\"2\",\"1\",\"+\",\"3\",\"*\"]，输出 9（等价于 (2 + 1) * 3 = 9）。\n示例 2：输入 tokens = [\"4\",\"13\",\"5\",\"/\",\"+\"]，输出 6（等价于 (4 + 13) / 5 = 6）。",
+      "hints": [
+        "审题诀窍：后缀表达式的运算符紧跟在两个操作数之后——遇到运算符时，它作用的对象正是『最近算出来的两个数』，与栈的用法完全吻合。",
+        "审题诀窍：出栈顺序有讲究——先弹出的是右操作数 b，后弹出的是左操作数 a，计算 a op b；减法和除法写反会得到完全不同的结果。",
+        "审题诀窍：Python 的 // 是向负无穷取整（-5 // 2 = -3），而本题要求向零截断，必须用 int(a / b) 或 math.trunc(a / b)。",
+        "追问预备：中缀表达式（含优先级）怎么直接求值？（双栈：运算符栈 + 操作数栈，按优先级弹栈结算，见 224/227）；token 是变量名要先查表怎么办？（先替换成数值再走同一套栈流程）"
+      ],
+      "keyPoints": [
+        "数字 token 直接入栈；遇到运算符弹出两个操作数，计算后把结果压回栈",
+        "先弹出的栈顶是右操作数，后弹出的是左操作数",
+        "除法用 int(a / b) 实现向零截断，不能直接用 //",
+        "遍历结束后栈中剩下的唯一元素就是表达式的值"
+      ],
+      "structureTags": [
+        "stack"
+      ],
+      "approaches": [
+        {
+          "name": "递归求值",
+          "idea": "从 tokens 末尾反向读取（用一个共享下标指针）：读到运算符就先递归求出它的两个操作数再运算；读到数字直接返回。逻辑清晰但每个 token 都有一次函数调用，需要小心维护指针位置。",
+          "complexity": "时间 O(n)，空间 O(n)（递归栈深）",
+          "detail": "步骤拆解：\n1. 从 tokens 末尾反向读取（共享下标 idx 从 0 递增，取 tokens[n-1-idx]）：后缀表达式的最后一个 token 一定是整个表达式的运算符。\n2. 读到运算符：先递归 helper() 求出靠后的操作数（逆序读时先遇到它，它是右操作数 b），再递归求出靠前的（左操作数 a），返回 a op b。\n3. 读到数字 token 直接转 int 返回。\n\n示例走查：tokens = ['2', '1', '+', '3', '*']。helper 读 '*' → 先递归读 '3' 返回 3（右操作数）；再递归读 '+' → 进入子递归读 '1'、读 '2'，返回 2 + 1 = 3。最终 3 * 3 = 9 ✓。\n\n为什么正确：后缀式语法树中，每个运算符的两个操作数子树在 token 序列里紧挨在它前面（逆序读取时最先遇到）；递归严格按语法树结构消费 token，每个 token 恰被读一次。减法除法方向靠『先递归的是右操作数』保证。\n\n易错点：\n- 逆序读取时第一次递归拿到的是右操作数，写反后 3-2 会算成 2-3。\n- 共享下标 idx 必须 nonlocal（或改成返回新下标），否则每层递归都从 0 开始读，全乱。\n- 除法仍要 int(a/b) 向零截断，不能顺手写 //。",
+          "code": "def evalRPN_recursive(tokens) -> int:\n    n = len(tokens)\n    idx = 0                      # 共享下标指针：从末尾向前消费 token\n    def helper() -> int:\n        nonlocal idx\n        t = tokens[n - 1 - idx]  # 取当前 token\n        idx += 1\n        if t not in ('+', '-', '*', '/'):\n            return int(t)        # 操作数：直接返回\n        b = helper()             # 逆序读，先拿到的是右操作数\n        a = helper()             # 再拿到的是左操作数\n        if t == '+':\n            return a + b\n        if t == '-':\n            return a - b\n        if t == '*':\n            return a * b\n        return int(a / b)        # 除法向零截断\n    return helper()"
+        },
+        {
+          "name": "栈模拟",
+          "idea": "从左到右扫描 tokens：数字入栈；遇到运算符就弹出栈顶两个数（先弹的是右操作数），计算 a op b 后把结果压回栈中。扫描完毕时栈里剩下的唯一元素就是答案，一遍线性扫描完成，无递归开销。",
+          "complexity": "时间 O(n)，空间 O(n)",
+          "optimal": true,
+          "detail": "步骤拆解：\n1. 建空栈 stack，从左到右遍历 tokens。\n2. token 是数字（不在 {'+', '-', '*', '/'} 中）：int(t) 入栈。\n3. token 是运算符：先 pop 得 b（右操作数），再 pop 得 a（左操作数），计算 a op b 后把结果 append 回栈。\n4. 遍历结束栈中剩下的唯一元素就是表达式值。\n\n示例走查：tokens = ['4', '13', '5', '/', '+']。4、13、5 依次入栈得 [4, 13, 5]；'/'：b = 5、a = 13，int(13/5) = 2，得 [4, 2]；'+'：b = 2、a = 4，得 6。输出 6 ✓。\n\n为什么正确：后缀表达式中，运算符作用的正是『最近算出的两个值』——栈顶恰好保存着这两个值；运算结果又成为后续运算的操作数压回栈中。表达式合法时栈的进出完全平衡，一遍线性扫描 O(n) 完成，无递归开销。减除方向靠『先弹为右』的口诀保证。\n\n易错点：\n- b = pop() 在前、a = pop() 在后；写反后 6/-132 这类会算成 -132/6。\n- Python 的 // 向负无穷取整（-11 // 3 = -4），本题要向零截断，必须 int(a/b) 或 math.trunc。\n- 判断 token 是否为运算符要整体比较 t in ops，不能用 t[0]（负数 '-11' 首字符是 '-' 会误判）。",
+          "code": "def evalRPN_stack(tokens) -> int:\n    stack = []                   # 保存尚未参与运算的操作数与中间结果\n    ops = {'+', '-', '*', '/'}\n    for t in tokens:\n        if t in ops:             # 整体比较，负数 '-11' 不会被误判为运算符\n            b = stack.pop()      # 先弹出的是右操作数\n            a = stack.pop()      # 后弹出的是左操作数\n            if t == '+':\n                stack.append(a + b)\n            elif t == '-':\n                stack.append(a - b)\n            elif t == '*':\n                stack.append(a * b)\n            else:\n                stack.append(int(a / b))   # 向零截断，不能用 //\n        else:\n            stack.append(int(t)) # 数字（可能带负号）直接入栈\n    return stack[0]              # 合法后缀式结束时栈中恰剩一个元素"
+        }
+      ],
+      "code": "class Solution:\n    def evalRPN(self, tokens: List[str]) -> int:\n        # 栈中保存尚未参与运算的操作数与中间结果\n        stack = []\n        ops = {'+', '-', '*', '/'}\n        for t in tokens:\n            if t in ops:\n                # 注意顺序：先弹出的是右操作数，后弹出的是左操作数\n                b = stack.pop()\n                a = stack.pop()\n                if t == '+':\n                    stack.append(a + b)\n                elif t == '-':\n                    stack.append(a - b)\n                elif t == '*':\n                    stack.append(a * b)\n                else:\n                    # Python 的 // 向负无穷取整，本题要求向零截断，必须用 int(a / b)\n                    stack.append(int(a / b))\n            else:\n                stack.append(int(t))     # 操作数（可能带负号）直接入栈\n        # 表达式合法时栈中恰好剩一个元素，即最终结果\n        return stack[0]",
+      "templates": [
+        "后缀表达式求值模板：数字入栈；运算符弹出两个数计算后压回，先弹为右操作数",
+        "『新元素总要与最近若干个元素发生关系』的题（表达式求值、嵌套结构、配对消除）优先考虑栈"
+      ],
+      "companies": [
+        "字节跳动",
+        "华为",
+        "快手"
+      ],
+      "samples": [
+        {
+          "input": "tokens = [\"2\",\"1\",\"+\",\"3\",\"*\"]",
+          "output": "9",
+          "explain": "等价于 (2 + 1) * 3 = 9"
+        },
+        {
+          "input": "tokens = [\"4\",\"13\",\"5\",\"/\",\"+\"]",
+          "output": "6",
+          "explain": "等价于 (4 + 13) / 5 = 6，除法向零截断"
+        },
+        {
+          "input": "tokens = [\"10\",\"6\",\"9\",\"3\",\"+\",\"-11\",\"*\",\"/\",\"*\",\"17\",\"+\",\"5\",\"+\"]",
+          "output": "22",
+          "explain": "6 / (9 + 3) * -11 = -132 → 10 * (6 / -132) 中 6/-132 向零截断为 0 → 0 + 17 + 5 = 22"
+        }
+      ],
+      "acmCode": "# ACM 模式：完整可运行程序（stdin -> stdout）\n# 输入格式：\n#   第一行：n（token 个数）\n#   第二行：n 个 token，空格分隔（数字或 + - * /，数字可能带负号）\n# 输出格式：一行，表达式求值结果（除法向零截断）\nimport sys\n\ndef main():\n    data = sys.stdin.read().split()\n    n = int(data[0])\n    tokens = data[1:1 + n]\n    ops = {'+', '-', '*', '/'}\n    stack = []\n    for t in tokens:\n        if t in ops:\n            b = stack.pop()      # 先弹出的是右操作数\n            a = stack.pop()\n            if t == '+':\n                stack.append(a + b)\n            elif t == '-':\n                stack.append(a - b)\n            elif t == '*':\n                stack.append(a * b)\n            else:\n                stack.append(int(a / b))   # 向零截断\n        else:\n            stack.append(int(t))\n    print(stack[0])\n\nif __name__ == '__main__':\n    main()",
+      "codeCpp": "class Solution {\npublic:\n    int evalRPN(vector<string>& tokens) {\n        vector<int> stk;                 // 保存尚未参与运算的操作数与中间结果\n        for (const string& t : tokens) {\n            // 整体比较四则运算符；负数 \"-11\" 的首字符也是 '-'，不能只看首字符\n            if (t == \"+\" || t == \"-\" || t == \"*\" || t == \"/\") {\n                int b = stk.back(); stk.pop_back();   // 先弹出的是右操作数\n                int a = stk.back(); stk.pop_back();   // 后弹出的是左操作数\n                if (t == \"+\") stk.push_back(a + b);\n                else if (t == \"-\") stk.push_back(a - b);\n                else if (t == \"*\") stk.push_back(a * b);\n                else stk.push_back(a / b);            // C++ 整数除法天然向零截断\n            } else {\n                stk.push_back(stoi(t));  // 操作数（可能带负号）直接入栈\n            }\n        }\n        // 表达式合法时栈中恰好剩一个元素，即最终结果\n        return stk[0];\n    }\n};",
+      "acmCodeCpp": "// ACM 模式：完整可运行程序（stdin -> stdout）\n// 输入格式：\n//   第一行：n（token 个数）\n//   第二行：n 个 token，空格分隔（数字或 + - * /，数字可能带负号）\n// 输出格式：一行，表达式求值结果（除法向零截断）\n#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);   // 关闭同步，读入更快\n    cin.tie(nullptr);\n\n    int n;\n    cin >> n;\n    vector<int> stk;               // 保存尚未参与运算的操作数与中间结果\n    for (int i = 0; i < n; ++i) {\n        string t;\n        cin >> t;\n        // 整体比较运算符；负数 \"-11\" 的首字符也是 '-'，不能只看首字符\n        if (t == \"+\" || t == \"-\" || t == \"*\" || t == \"/\") {\n            int b = stk.back(); stk.pop_back();   // 先弹出的是右操作数\n            int a = stk.back(); stk.pop_back();   // 后弹出的是左操作数\n            if (t == \"+\") stk.push_back(a + b);\n            else if (t == \"-\") stk.push_back(a - b);\n            else if (t == \"*\") stk.push_back(a * b);\n            else stk.push_back(a / b);            // C++ 整数除法向零截断\n        } else {\n            stk.push_back(stoi(t));  // 操作数（可能带负号）直接入栈\n        }\n    }\n    cout << stk[0] << endl;        // 表达式合法时栈中恰剩一个元素\n    return 0;\n}",
+      "codeJava": "class Solution {\n    public int evalRPN(String[] tokens) {\n        Deque<Integer> stack = new ArrayDeque<>();  // 保存尚未参与运算的操作数\n        for (String t : tokens) {\n            switch (t) {\n                // 整体比较运算符；负数 \"-11\" 的首字符也是 '-'，不能只看首字符\n                case \"+\", \"-\", \"*\", \"/\" -> {\n                    // 注意顺序：先弹出的是右操作数，后弹出的是左操作数\n                    int b = stack.pop();\n                    int a = stack.pop();\n                    if (t.equals(\"+\")) stack.push(a + b);\n                    else if (t.equals(\"-\")) stack.push(a - b);\n                    else if (t.equals(\"*\")) stack.push(a * b);\n                    else stack.push(a / b);  // Java 整数除法向零截断，符合题意\n                }\n                default -> stack.push(Integer.parseInt(t));  // 操作数入栈\n            }\n        }\n        // 表达式合法时栈中恰好剩一个元素，即最终结果\n        return stack.peek();\n    }\n}",
+      "codeJs": "/**\n * @param {string[]} tokens\n * @return {number}\n */\nvar evalRPN = function (tokens) {\n  const stack = [];                    // 保存尚未参与运算的操作数与中间结果\n  const ops = new Set(['+', '-', '*', '/']);\n  for (const t of tokens) {\n    if (ops.has(t)) {                  // 整体比较，负数 '-11' 不会被误判为运算符\n      const b = stack.pop();           // 先弹出的是右操作数\n      const a = stack.pop();           // 后弹出的是左操作数\n      if (t === '+') stack.push(a + b);\n      else if (t === '-') stack.push(a - b);\n      else if (t === '*') stack.push(a * b);\n      else stack.push(Math.trunc(a / b)); // JS 除法是浮点除法，必须向零截断成整数\n    } else {\n      stack.push(parseInt(t, 10));     // 操作数（可能带负号）直接入栈\n    }\n  }\n  return stack[0];                     // 合法后缀式结束时栈中恰剩一个元素\n};",
+      "codeGo": "func evalRPN(tokens []string) int {\n\tstack := []int{} // 保存尚未参与运算的操作数与中间结果\n\tisOp := func(t string) bool {\n\t\treturn t == \"+\" || t == \"-\" || t == \"*\" || t == \"/\"\n\t}\n\tfor _, t := range tokens {\n\t\tif isOp(t) { // 整体比较，负数 \"-11\" 不会被误判为运算符\n\t\t\tb := stack[len(stack)-1] // 先弹出的是右操作数\n\t\t\tstack = stack[:len(stack)-1]\n\t\t\ta := stack[len(stack)-1] // 后弹出的是左操作数\n\t\t\tstack = stack[:len(stack)-1]\n\t\t\tswitch t {\n\t\t\tcase \"+\":\n\t\t\t\tstack = append(stack, a+b)\n\t\t\tcase \"-\":\n\t\t\t\tstack = append(stack, a-b)\n\t\t\tcase \"*\":\n\t\t\t\tstack = append(stack, a*b)\n\t\t\tdefault:\n\t\t\t\tstack = append(stack, a/b) // Go 整数除法向零截断，符合题意\n\t\t\t}\n\t\t} else {\n\t\t\t// 操作数（可能带负号）直接入栈；完整文件需 import \"strconv\"\n\t\t\tn, _ := strconv.Atoi(t)\n\t\t\tstack = append(stack, n)\n\t\t}\n\t}\n\treturn stack[0] // 合法后缀式结束时栈中恰剩一个元素\n}"
+    },
+    {
+      "id": 394,
+      "title": "Decode String",
+      "titleCn": "字符串解码",
+      "difficulty": "medium",
+      "frequency": 5,
+      "question": "给定一个经过编码的字符串，返回它解码后的字符串。\n\n编码规则为：k[encoded_string]，表示方括号内的 encoded_string 正好重复 k 次。k 保证为正整数。\n\n你可以认为输入字符串总是有效的：输入中没有额外的空格，方括号总是符合格式要求的；原始数据不包含数字，数字只用于表示重复次数 k（例如不会出现 3a 或 2[4] 这样的输入）。\n\n示例 1：输入 s = \"3[a]2[bc]\"，输出 \"aaabcbc\"。\n示例 2：输入 s = \"3[a2[c]]\"，输出 \"accaccacc\"（嵌套结构：先解码内层 a2[c] = acc，再重复 3 次）。\n示例 3：输入 s = \"2[abc]3[cd]ef\"，输出 \"abcabccdcdcdef\"。",
+      "hints": [
+        "审题诀窍：k 可能是多位数（如 12[ab]），读数字时用 num = num * 10 + int(ch) 累积，不能只看单个字符。",
+        "审题诀窍：括号可以任意嵌套——遇到 '[' 要把『当前字符串』和『当前数字』这两层现场保存起来开新层，遇到 ']' 再还原上层，正是栈的用武之地。",
+        "突破口：维护当前字符串 cur 和当前次数 num；'[' 时压栈保存 (cur, num) 并重置，']' 时弹出后令 cur = 保存的串 + num * cur。",
+        "追问预备：方括号外混排普通字符（如 2[a3[b]c]）怎么办？（字母走默认分支，天然支持）；迭代版能不能换成单栈存 (cur, num) 二元组？（可以，本质相同只是打包方式不同）"
+      ],
+      "keyPoints": [
+        "连续数字字符累积成完整的倍数 num（可能多位）",
+        "遇到 '['：把 (cur, num) 压栈，然后重置 cur = ''、num = 0 开新层",
+        "遇到 ']'：弹出 (prev, k)，令 cur = prev + k * cur，把本层结果接回外层",
+        "普通字母直接追加到 cur 末尾，最后返回 cur"
+      ],
+      "structureTags": [
+        "stack"
+      ],
+      "approaches": [
+        {
+          "name": "递归解析",
+          "idea": "把 '[' 看作进入递归、']' 看作递归出口：用一个全局下标指针扫描字符串，遇到 '[' 就递归解析括号内子串并返回结果，外层拼接。逻辑与栈等价，但递归深度受嵌套层数影响，且要小心共享指针的推进。",
+          "complexity": "时间 O(S)（S 为输出串长度），空间 O(嵌套深度)",
+          "detail": "步骤拆解：\n1. 共享下标 i 从 0 开始；parse() 负责解析『当前位置到配对 ] 之前』的一段，返回该层字符串。\n2. 循环读字符：数字则 num = num * 10 + int(ch) 累积多位数；普通字母直接追加到 cur。\n3. 遇 [ 时：i 跳过 [，递归 parse() 拿到内层串，再跳过 ]，执行 cur += inner * num。\n4. 遇 ] 或扫到串尾时返回 cur。\n\n示例走查：s = '3[a2[c]]'。外层读 '3' 累积 num = 3，跳过 [，递归进入内层：读 'a' 追加；读 '2' 累积 num = 2，跳 [ 再递归读 'c' 得 'c'，跳 ]，内层 cur = 'a' + 'c'*2 = 'acc'；遇 ] 返回 'acc'。外层跳 ]，cur = '' + 'acc'*3 = 'accaccacc' ✓。\n\n为什么正确：[ 天然对应递归进入、] 对应递归返回——递归调用栈就是『保存外层现场』的容器，与双栈迭代完全同构；多位数在递归前完整累积保证 k 正确。每个字符恰被消费一次，时间 O(S)（S 为输出串长度）。\n\n易错点：\n- i 是共享指针，必须 nonlocal；递归返回后要分别跳过 [ 与 ] 各一次。\n- 数字可能多位（12[ab]），逐位累积而不是 int(s[i])。\n- 内层结果要乘 num 后拼回外层 cur，乘法别丢在递归里。",
+          "code": "def decodeString_recursive(s: str) -> str:\n    n = len(s)\n    i = 0                        # 共享扫描指针\n    def parse() -> str:\n        nonlocal i\n        cur = ''                 # 当前层拼好的字符串\n        while i < n and s[i] != ']':\n            if s[i].isdigit():\n                num = 0\n                while s[i].isdigit():     # 累积多位数字，如 '1''2' -> 12\n                    num = num * 10 + int(s[i])\n                    i += 1\n                i += 1                    # 跳过 '['\n                inner = parse()           # 递归解析括号内子串\n                i += 1                    # 跳过 ']'\n                cur += inner * num        # 本段重复 num 次接回当前层\n            else:\n                cur += s[i]               # 普通字母直接追加\n                i += 1\n        return cur\n    return parse()"
+        },
+        {
+          "name": "双栈迭代",
+          "idea": "用两个栈迭代处理：数字栈存每层的重复次数、字符串栈存进入该层前已拼好的字符串。扫到数字累积 num；扫到 '[' 把 cur 与 num 分别压栈并重置；扫到 ']' 弹出 k 与 prev，令 cur = prev + k * cur；字母直接追加到 cur。一遍扫描，天然处理任意层嵌套。",
+          "complexity": "时间 O(S)（S 为输出串长度），空间 O(S)",
+          "optimal": true,
+          "detail": "步骤拆解：\n1. 准备 num_stack（每层重复次数）与 str_stack（进入该层前外层已拼好的串），cur = ''、num = 0。\n2. 遇数字：num = num * 10 + int(ch) 累积多位数。\n3. 遇 [：num_stack.append(num)、str_stack.append(cur)，然后 num、cur 重置为 0、''——保存外层现场、开新层。\n4. 遇 ]：k = num_stack.pop()、prev = str_stack.pop()，cur = prev + cur * k——本层结果乘 k 接回外层。\n5. 普通字母直接 cur += ch；结束时返回 cur。\n\n示例走查：s = '2[abc]3[cd]ef'。'2' 累积 num = 2；[ 压 (2, '') 重置；'abc' 追加到 cur = 'abc'；] 弹 k = 2、prev = '' → cur = 'abcabc'；'3' → num = 3；[ 压 (3, 'abcabc') 重置；'cd' → cur = 'cd'；] → cur = 'abcabc' + 'cd'*3 = 'abcabccdcdcd'；'ef' 追加 → 'abcabccdcdcdef' ✓。\n\n为什么正确：两个栈分别保存『外层的重复次数』与『外层的已拼串』，[ 与 ] 严格配对使压弹完全对称；任意嵌套深度只是压更多层现场，一遍扫描 O(S)（S 为输出长度），天然处理任意层嵌套。\n\n易错点：\n- cur = prev + cur * k 的乘加对象别写反，也不能写成 prev * k + cur。\n- 多位数字必须 num * 10 累积；[ 入栈后记得把 num 清零，否则下一层会带上旧数。\n- 字母是追加到当前层 cur，不是压栈。",
+          "code": "def decodeString_stack(s: str) -> str:\n    num_stack = []               # 每层的重复次数\n    str_stack = []               # 进入该层前外层已拼好的字符串\n    cur = ''                     # 当前层正在拼接的串\n    num = 0                      # 当前层正在累积的倍数（可能多位）\n    for ch in s:\n        if ch.isdigit():\n            num = num * 10 + int(ch)   # 多位数累积\n        elif ch == '[':\n            num_stack.append(num)      # 保存外层现场\n            str_stack.append(cur)\n            num, cur = 0, ''           # 重置，开新层\n        elif ch == ']':\n            k = num_stack.pop()\n            prev = str_stack.pop()\n            cur = prev + cur * k       # 本层结果乘 k 接回外层\n        else:\n            cur += ch                  # 普通字母追加到当前层\n    return cur"
+        }
+      ],
+      "code": "class Solution:\n    def decodeString(self, s: str) -> str:\n        # num_stack 存每层的重复次数，str_stack 存进入该层前已拼好的字符串\n        num_stack = []\n        str_stack = []\n        cur = ''      # 当前层正在拼接的字符串\n        num = 0       # 当前层正在累积的重复次数（可能是多位数）\n        for ch in s:\n            if ch.isdigit():\n                num = num * 10 + int(ch)   # 多位数：如字符 '1''2' 累积成 12\n            elif ch == '[':\n                # 进入新一层：先保存外层现场，再重置状态\n                num_stack.append(num)\n                str_stack.append(cur)\n                num, cur = 0, ''\n            elif ch == ']':\n                # 本层结束：弹出外层现场，外层串 + 重复 k 次的本层串\n                k = num_stack.pop()\n                prev = str_stack.pop()\n                cur = prev + cur * k\n            else:\n                cur += ch                  # 普通字母追加到当前层\n        return cur",
+      "templates": [
+        "嵌套结构解析模板：遇 '[' 压栈保存外层 (状态)，遇 ']' 弹出还原，普通字符原地更新当前层",
+        "多位数字用 num = num * 10 + int(ch) 累积；字符串重复直接用 Python 的 cur * k"
+      ],
+      "companies": [
+        "字节跳动",
+        "美团"
+      ],
+      "samples": [
+        {
+          "input": "s = \"3[a]2[bc]\"",
+          "output": "\"aaabcbc\"",
+          "explain": "3 个 a 接 2 个 bc"
+        },
+        {
+          "input": "s = \"3[a2[c]]\"",
+          "output": "\"accaccacc\"",
+          "explain": "嵌套：内层 a2[c] = acc，再重复 3 次"
+        },
+        {
+          "input": "s = \"2[abc]3[cd]ef\"",
+          "output": "\"abcabccdcdcdef\"",
+          "explain": "两段编码拼接后接未编码的 ef"
+        }
+      ],
+      "acmCode": "# ACM 模式：完整可运行程序（stdin -> stdout）\n# 输入格式：一行一个编码字符串 s（形如 3[a2[c]]，保证合法、无空格）\n# 输出格式：一行，解码后的字符串\nimport sys\n\ndef main():\n    s = sys.stdin.read().strip()   # 只有一行输入\n    num_stack, str_stack = [], []\n    cur, num = '', 0\n    for ch in s:\n        if ch.isdigit():\n            num = num * 10 + int(ch)   # 多位数累积\n        elif ch == '[':\n            num_stack.append(num)\n            str_stack.append(cur)\n            num, cur = 0, ''\n        elif ch == ']':\n            k = num_stack.pop()\n            cur = str_stack.pop() + cur * k\n        else:\n            cur += ch\n    print(cur)\n\nif __name__ == '__main__':\n    main()",
+      "codeCpp": "class Solution {\npublic:\n    string decodeString(string s) {\n        // num_stack 存每层的重复次数，str_stack 存进入该层前已拼好的字符串\n        vector<int> numStack;\n        vector<string> strStack;\n        string cur;   // 当前层正在拼接的字符串\n        int num = 0;  // 当前层正在累积的重复次数（可能是多位数）\n        for (char ch : s) {\n            if (isdigit(ch)) {\n                num = num * 10 + (ch - '0');      // 多位数：'1''2' 累积成 12\n            } else if (ch == '[') {\n                // 进入新一层：先保存外层现场，再重置状态\n                numStack.push_back(num);\n                strStack.push_back(cur);\n                num = 0;\n                cur.clear();\n            } else if (ch == ']') {\n                // 本层结束：弹出外层现场，外层串 + 重复 k 次的本层串\n                int k = numStack.back(); numStack.pop_back();\n                string prev = strStack.back(); strStack.pop_back();\n                for (int i = 0; i < k; ++i) prev += cur;   // 本层串重复 k 次\n                cur = prev;\n            } else {\n                cur += ch;                        // 普通字母追加到当前层\n            }\n        }\n        return cur;\n    }\n};",
+      "acmCodeCpp": "// ACM 模式：完整可运行程序（stdin -> stdout）\n// 输入格式：一行一个编码字符串 s（形如 3[a2[c]]，保证合法、无空格）\n// 输出格式：一行，解码后的字符串\n#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);   // 关闭同步，读入更快\n    cin.tie(nullptr);\n\n    string s;\n    cin >> s;                      // 编码串不含空格，直接读一个 token\n    vector<int> numStack;          // 每层的重复次数\n    vector<string> strStack;       // 进入该层前外层已拼好的字符串\n    string cur;                    // 当前层正在拼接的字符串\n    int num = 0;                   // 当前层正在累积的倍数（可能是多位数）\n    for (char ch : s) {\n        if (isdigit(ch)) {\n            num = num * 10 + (ch - '0');   // 多位数累积\n        } else if (ch == '[') {\n            numStack.push_back(num);       // 保存外层现场\n            strStack.push_back(cur);\n            num = 0;                       // 重置，开新层\n            cur.clear();\n        } else if (ch == ']') {\n            // 本层结束：弹出外层现场，外层串 + 重复 k 次的本层串\n            int k = numStack.back(); numStack.pop_back();\n            string prev = strStack.back(); strStack.pop_back();\n            for (int i = 0; i < k; ++i) prev += cur;\n            cur = prev;\n        } else {\n            cur += ch;             // 普通字母追加到当前层\n        }\n    }\n    cout << cur << endl;\n    return 0;\n}",
+      "codeJava": "class Solution {\n    public String decodeString(String s) {\n        // num_stack 存每层的重复次数，str_stack 存进入该层前已拼好的字符串\n        Deque<Integer> numStack = new ArrayDeque<>();\n        Deque<StringBuilder> strStack = new ArrayDeque<>();\n        StringBuilder cur = new StringBuilder();  // 当前层正在拼接的字符串\n        int num = 0;                              // 当前层正在累积的倍数（可能多位）\n        for (char ch : s.toCharArray()) {\n            if (Character.isDigit(ch)) {\n                num = num * 10 + (ch - '0');      // 多位数累积\n            } else if (ch == '[') {\n                // 进入新一层：先保存外层现场，再重置状态\n                numStack.push(num);\n                strStack.push(cur);\n                num = 0;\n                cur = new StringBuilder();\n            } else if (ch == ']') {\n                // 本层结束：弹出外层现场，外层串 + 重复 k 次的本层串\n                int k = numStack.pop();\n                StringBuilder prev = strStack.pop();\n                for (int i = 0; i < k; ++i) prev.append(cur);  // 重复 k 次接回\n                cur = prev;\n            } else {\n                cur.append(ch);                   // 普通字母追加到当前层\n            }\n        }\n        return cur.toString();\n    }\n}",
+      "codeJs": "/**\n * @param {string} s\n * @return {string}\n */\nvar decodeString = function (s) {\n  const numStack = []; // 每层的重复次数\n  const strStack = []; // 进入该层前外层已拼好的字符串\n  let cur = '';        // 当前层正在拼接的字符串\n  let num = 0;         // 当前层正在累积的倍数（可能是多位数）\n  for (const ch of s) {\n    if (ch >= '0' && ch <= '9') {\n      num = num * 10 + Number(ch); // 多位数累积\n    } else if (ch === '[') {\n      numStack.push(num);          // 保存外层现场\n      strStack.push(cur);\n      num = 0;                     // 重置，开新层\n      cur = '';\n    } else if (ch === ']') {\n      const k = numStack.pop();\n      const prev = strStack.pop();\n      cur = prev + cur.repeat(k);  // 本层结果重复 k 次接回外层\n    } else {\n      cur += ch;                   // 普通字母追加到当前层\n    }\n  }\n  return cur;\n};",
+      "codeGo": "func decodeString(s string) string {\n\tnumStack := []int{}    // 每层的重复次数\n\tstrStack := []string{} // 进入该层前外层已拼好的字符串\n\tcur := \"\"              // 当前层正在拼接的字符串\n\tnum := 0               // 当前层正在累积的倍数（可能是多位数）\n\tfor _, ch := range s {\n\t\tif ch >= '0' && ch <= '9' {\n\t\t\tnum = num*10 + int(ch-'0') // 多位数累积\n\t\t} else if ch == '[' {\n\t\t\tnumStack = append(numStack, num) // 保存外层现场\n\t\t\tstrStack = append(strStack, cur)\n\t\t\tnum, cur = 0, \"\" // 重置，开新层\n\t\t} else if ch == ']' {\n\t\t\tk := numStack[len(numStack)-1]\n\t\t\tnumStack = numStack[:len(numStack)-1]\n\t\t\tprev := strStack[len(strStack)-1]\n\t\t\tstrStack = strStack[:len(strStack)-1]\n\t\t\t// 本层结果重复 k 次接回外层；完整文件需 import \"strings\"\n\t\t\tcur = prev + strings.Repeat(cur, k)\n\t\t} else {\n\t\t\tcur += string(ch) // 普通字母追加到当前层\n\t\t}\n\t}\n\treturn cur\n}"
+    },
+    {
+      "id": 224,
+      "title": "Basic Calculator",
+      "titleCn": "基本计算器",
+      "difficulty": "hard",
+      "frequency": 3,
+      "question": "给你一个字符串表达式 s，请你实现一个基本计算器来计算并返回它的值。\n\ns 由数字、'+'、'-'、'('、')' 和空格 ' ' 组成，是一个有效的表达式；'+' 不作为一元运算符，'-' 可以作为一元负号出现在表达式开头或 '(' 之后；数字可能是多位数。\n\n示例 1：输入 s = \"1 + 1\"，输出 2。\n示例 2：输入 s = \" 2-1 + 2 \"，输出 3。\n示例 3：输入 s = \"(1+(4+5+2)-3)+(6+8)\"，输出 23。",
+      "hints": [
+        "审题诀窍：本题只有加减和括号，没有乘除——不需要处理运算符优先级，难点只有两个：括号改变符号的作用范围、以及可能的一元负号。",
+        "审题诀窍：把表达式看成『一串带符号的数相加』，例如 a-(b-c) = a + (-1)*b + (+1)*c——进入括号时把当前符号与已累计的和存起来，出来时还原。",
+        "突破口：每进入一层括号，就把『进入前的累计和 result』与『进入前的符号 sign』压栈；遇到 ')' 先结算本层最后一个数，再乘回括号前符号、加回括号前累计和。",
+        "追问预备：加上 * / 与优先级怎么扩展？（运算符栈按优先级弹栈结算，见 227）；只有加减没有括号呢？（227 前置版，sign/num 两个变量即可）"
+      ],
+      "keyPoints": [
+        "遍历中维护三个量：result（本层已累计的和）、sign（下一个数的符号）、num（正在读取的多位数）",
+        "遇到 '('：把 (result, sign) 压栈并重置为 (0, 1)，进入新的一层",
+        "遇到 ')'：先 result += sign * num 结算最后一个数，再 result = result * 弹出的符号 + 弹出的累计和",
+        "结束时返回 result + sign * num，别漏掉最后一个数；一元负号被 sign 变量天然覆盖"
+      ],
+      "structureTags": [
+        "stack",
+        "math"
+      ],
+      "approaches": [
+        {
+          "name": "递归下降解析",
+          "idea": "写一个递归解析器：遇到 '(' 就递归求出括号内表达式的值再继续；需要额外处理一元负号与下标推进。逻辑正确但代码繁琐，递归深度等于最大括号嵌套层数。",
+          "complexity": "时间 O(n)，空间 O(嵌套深度)（递归栈）",
+          "detail": "步骤拆解：\n1. 共享指针 i；parse_expr() 解析『一层括号内或整个表达式』：循环读字符直到 ) 或串尾，返回该层累加和 total。\n2. 遇 '+' / '-'：记录 sign = ±1，作用于下一个数字或括号块——天然支持一元负号（开头或 ( 后直接读到 '-'，sign 变 -1）。\n3. 遇 '('：i 跳过后递归 parse_expr() 求括号内值，total += sign * 括号值，再跳过 ')'，sign 复位 1。\n4. 遇数字：多位累积后 total += sign * num；空格直接跳过。\n\n示例走查：s = '(1+(4+5+2)-3)+(6+8)'。外层遇 (：递归内层——'1' → total = 1；'+' sign = 1；再遇 ( 递归得 4+5+2 = 11 → total = 12；'-' sign = -1；'3' → total = 9；遇 ) 返回 9。外层 total = 9；继续 '+' 与 (：递归得 14 → total = 23 ✓。\n\n为什么正确：递归下降按文法『表达式 = 若干带符号的项之和』逐层消费字符，括号把作用域切成子表达式递归求解，sign 正确地作用到整个括号块上；递归调用栈承担『保存外层进度』的职责。每个字符恰消费一次，O(n)。\n\n易错点：\n- 递归返回后要跳过 ')'，且外层 total += sign * 内层值 的 sign 别丢。\n- 括号块结算后 sign 要复位 1，否则后续数字会沿用旧符号。\n- 空格要显式跳过，否则会落到未知分支。",
+          "code": "def calculate_recursive(s: str) -> int:\n    n = len(s)\n    i = 0                        # 共享扫描指针\n    def parse_expr() -> int:\n        nonlocal i\n        total = 0                # 本层已累计的和\n        sign = 1                 # 下一个数字/括号块的符号\n        while i < n and s[i] != ')':\n            ch = s[i]\n            if ch == ' ':\n                i += 1\n            elif ch == '+':\n                sign = 1\n                i += 1\n            elif ch == '-':      # 一元负号（开头/括号后）也走这里\n                sign = -1\n                i += 1\n            elif ch == '(':\n                i += 1                       # 跳过 '('\n                total += sign * parse_expr() # 递归求括号内值\n                i += 1                       # 跳过 ')'\n                sign = 1                     # 结算后复位符号\n            else:\n                num = 0\n                while i < n and s[i].isdigit():   # 多位数累积\n                    num = num * 10 + int(s[i])\n                    i += 1\n                total += sign * num\n                sign = 1\n        return total\n    return parse_expr()"
+        },
+        {
+          "name": "栈 + 符号展开",
+          "idea": "把表达式整体看成带符号的数列求和：维护本层累计 result 与当前符号 sign；遇到 '(' 就把 (result, sign) 压栈后从零开始计算括号内，遇到 ')' 先结算本层最后一个数，再乘以栈中弹出的符号、加上弹出的累计和。一遍扫描完成，天然处理嵌套与一元负号。",
+          "complexity": "时间 O(n)，空间 O(n)",
+          "optimal": true,
+          "detail": "步骤拆解：\n1. 维护 result（本层已累计和）、sign（下一个数的符号）、num（正在读的多位数）；stack 保存每层括号进入前的 result 与 sign（先压 result 再压 sign）。\n2. 数字累积 num；'+' / '-' 先 result += sign * num 结算上一个数，再设 sign = ±1、num = 0——一元负号（开头或 ( 后）被这套机制天然覆盖。\n3. '('：压 result、压 sign，然后 result、sign、num 重置为 0、1、0，进入新层。\n4. ')'：先 result += sign * num 结算括号内最后一个数，再 result *= stack.pop()（弹出括号前符号）、result += stack.pop()（加回括号前累计和）。\n5. 结束返回 result + sign * num，补上最后一个数。\n\n示例走查：s = '-(2+3)'。'-'：结算 sign*num = 0，sign = -1；(：压 (0, -1)，重置；'2' num = 2；'+'：result = 0 + 1*2 = 2，sign = 1；'3' num = 3；)：result = 2 + 3 = 5，乘弹出符号 -1 得 -5，加弹出和 0 得 -5。返回 -5 + 1*0 = -5 ✓。\n\n为什么正确：把表达式看成带符号数列求和，a-(b-c) = a - b + c——进入括号前把累计和与符号存档，括号内局部和出来后先乘括号前符号、再加回累计和，符号作用域严格正确。压栈顺序 result、sign 决定弹出时先拿符号乘、再加回和。\n\n易错点：\n- 结束时 result + sign * num 容易漏，最后一个数没结算答案就少一截。\n- 压栈顺序是 result、sign，弹出时第一个 pop 出来的是 sign——先乘后加，顺序错全盘错。\n- 不要给 '-' 写一元负号特判，『遇 - 先结算再置 sign = -1』已经覆盖。",
+          "code": "def calculate_stack(s: str) -> int:\n    stack = []    # 每进入一层括号前压入 (result, sign)：先压 result 再压 sign\n    result = 0    # 当前层括号内已累计的和\n    sign = 1      # 下一个数字的符号\n    num = 0       # 正在读取的（多位）数字\n    for ch in s:\n        if ch.isdigit():\n            num = num * 10 + int(ch)\n        elif ch == '+':\n            result += sign * num     # 结算上一个数\n            num, sign = 0, 1\n        elif ch == '-':\n            result += sign * num     # 一元负号也走这里\n            num, sign = 0, -1\n        elif ch == '(':\n            stack.append(result)     # 保存进入括号前的累计和\n            stack.append(sign)       # 保存进入括号前的符号\n            result, sign, num = 0, 1, 0\n        elif ch == ')':\n            result += sign * num     # 结算括号内最后一个数\n            num = 0\n            result *= stack.pop()    # 先弹出括号前符号\n            result += stack.pop()    # 再加回括号前累计和\n        # 空格不落入任何分支，自动跳过\n    return result + sign * num       # 收尾：结算最后一个数"
+        }
+      ],
+      "code": "class Solution:\n    def calculate(self, s: str) -> int:\n        stack = []    # 保存每进入一层括号前的 (累计和, 符号)，交替压栈\n        result = 0    # 当前层括号内已经累计的和\n        sign = 1      # 下一个数字的符号：1 为正，-1 为负\n        num = 0       # 正在读取的（多位）数字\n        for ch in s:\n            if ch.isdigit():\n                num = num * 10 + int(ch)   # 多位数累积，如 '4''5' -> 45\n            elif ch == '+':\n                result += sign * num       # 结算上一个数，随后准备正号\n                num, sign = 0, 1\n            elif ch == '-':\n                result += sign * num       # 结算上一个数；开头/括号后的一元负号也走这里\n                num, sign = 0, -1\n            elif ch == '(':\n                # 进入新一层括号：保存当前层的累计和与符号，从零开始算括号内\n                stack.append(result)\n                stack.append(sign)\n                result, sign, num = 0, 1, 0\n            elif ch == ')':\n                result += sign * num       # 结算括号内最后一个数\n                num = 0\n                result *= stack.pop()      # 先弹出括号前的符号，作用到本层结果上\n                result += stack.pop()      # 再加回进入括号前的累计和\n            # 空格不落入任何分支，自动跳过\n        return result + sign * num         # 收尾：别忘了结算最后一个数",
+      "templates": [
+        "只含加减与括号的表达式模板：result / sign / num 三变量 + 遇 '(' 压栈保存 (result, sign)、遇 ')' 弹出还原",
+        "嵌套层数不定的解析问题：『进入前保存现场、退出时恢复现场』就是栈的语义"
+      ],
+      "companies": [
+        "字节跳动",
+        "华为",
+        "拼多多"
+      ],
+      "samples": [
+        {
+          "input": "s = \"1 + 1\"",
+          "output": "2",
+          "explain": "两个数直接相加，空格忽略"
+        },
+        {
+          "input": "s = \"(1+(4+5+2)-3)+(6+8)\"",
+          "output": "23",
+          "explain": "内层 11、外层 9 与 14 相加"
+        },
+        {
+          "input": "s = \"-(2+3)\"",
+          "output": "-5",
+          "explain": "- 作一元负号作用于整个括号块"
+        }
+      ],
+      "acmCode": "# ACM 模式：完整可运行程序（stdin -> stdout）\n# 输入格式：一行一个表达式字符串 s（由数字、+ - ( ) 和空格组成；- 可作一元负号）\n# 输出格式：一行，表达式的值\nimport sys\n\ndef main():\n    s = sys.stdin.readline().strip()   # 只有一行表达式，内部空格由算法跳过\n    stack = []\n    result, sign, num = 0, 1, 0\n    for ch in s:\n        if ch.isdigit():\n            num = num * 10 + int(ch)\n        elif ch == '+':\n            result += sign * num\n            num, sign = 0, 1\n        elif ch == '-':\n            result += sign * num\n            num, sign = 0, -1\n        elif ch == '(':\n            stack.append(result)\n            stack.append(sign)\n            result, sign, num = 0, 1, 0\n        elif ch == ')':\n            result += sign * num\n            num = 0\n            result *= stack.pop()\n            result += stack.pop()\n    print(result + sign * num)\n\nif __name__ == '__main__':\n    main()",
+      "codeCpp": "class Solution {\npublic:\n    int calculate(string s) {\n        vector<long long> stk;  // 保存每进入一层括号前的 (累计和, 符号)，交替压栈\n        long long result = 0;   // 当前层括号内已经累计的和\n        long long sign = 1;     // 下一个数字的符号：1 为正，-1 为负\n        long long num = 0;      // 正在读取的（多位）数字\n        for (char ch : s) {\n            if (isdigit(ch)) {\n                num = num * 10 + (ch - '0');   // 多位数累积\n            } else if (ch == '+') {\n                result += sign * num;          // 结算上一个数，随后准备正号\n                num = 0; sign = 1;\n            } else if (ch == '-') {\n                result += sign * num;          // 结算上一个数；一元负号也走这里\n                num = 0; sign = -1;\n            } else if (ch == '(') {\n                // 进入新一层括号：保存当前层的累计和与符号，从零开始算括号内\n                stk.push_back(result);\n                stk.push_back(sign);\n                result = 0; sign = 1; num = 0;\n            } else if (ch == ')') {\n                result += sign * num;          // 结算括号内最后一个数\n                num = 0;\n                result *= stk.back(); stk.pop_back();  // 先乘括号前的符号\n                result += stk.back(); stk.pop_back();  // 再加回括号前累计和\n            }\n            // 空格不落入任何分支，自动跳过\n        }\n        return (int)(result + sign * num);     // 收尾：结算最后一个数\n    }\n};",
+      "acmCodeCpp": "// ACM 模式：完整可运行程序（stdin -> stdout）\n// 输入格式：一行一个表达式字符串 s（由数字、+ - ( ) 和空格组成；- 可作一元负号）\n// 输出格式：一行，表达式的值\n#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    string s;\n    getline(cin, s);               // 表达式只有一行（内部含空格），整行读入\n    while (!s.empty() && (s.back() == '\\r' || s.back() == ' '))\n        s.pop_back();              // 去掉行尾残留\n\n    vector<long long> stk;         // 保存每层括号进入前的 (累计和, 符号)，交替压栈\n    long long result = 0;          // 当前层括号内已经累计的和\n    long long sign = 1;            // 下一个数字的符号\n    long long num = 0;             // 正在读取的（多位）数字\n    for (char ch : s) {\n        if (isdigit(ch)) {\n            num = num * 10 + (ch - '0');   // 多位数累积\n        } else if (ch == '+') {\n            result += sign * num;  // 结算上一个数\n            num = 0; sign = 1;\n        } else if (ch == '-') {\n            result += sign * num;  // 结算上一个数；一元负号也走这里\n            num = 0; sign = -1;\n        } else if (ch == '(') {\n            stk.push_back(result); // 保存括号前的累计和\n            stk.push_back(sign);   // 保存括号前的符号\n            result = 0; sign = 1; num = 0;\n        } else if (ch == ')') {\n            result += sign * num;  // 结算括号内最后一个数\n            num = 0;\n            result *= stk.back(); stk.pop_back();  // 先乘括号前符号\n            result += stk.back(); stk.pop_back();  // 再加括号前累计和\n        }\n        // 空格不落入任何分支，自动跳过\n    }\n    cout << result + sign * num << endl;   // 收尾：结算最后一个数\n    return 0;\n}",
+      "codeJava": "class Solution {\n    public int calculate(String s) {\n        Deque<Long> stack = new ArrayDeque<>();  // 保存每层括号进入前的 (累计和, 符号)\n        long result = 0;   // 当前层括号内已经累计的和\n        long sign = 1;     // 下一个数字的符号：1 为正，-1 为负\n        long num = 0;      // 正在读取的（多位）数字\n        for (char ch : s.toCharArray()) {\n            if (Character.isDigit(ch)) {\n                num = num * 10 + (ch - '0');   // 多位数累积\n            } else if (ch == '+') {\n                result += sign * num;          // 结算上一个数，随后准备正号\n                num = 0; sign = 1;\n            } else if (ch == '-') {\n                result += sign * num;          // 结算上一个数；一元负号也走这里\n                num = 0; sign = -1;\n            } else if (ch == '(') {\n                // 进入新一层括号：保存当前层的累计和与符号，从零开始算括号内\n                stack.push(result);\n                stack.push(sign);\n                result = 0; sign = 1; num = 0;\n            } else if (ch == ')') {\n                result += sign * num;          // 结算括号内最后一个数\n                num = 0;\n                result *= stack.pop();         // 先弹出括号前的符号\n                result += stack.pop();         // 再加回括号前累计和\n            }\n            // 空格不落入任何分支，自动跳过\n        }\n        return (int) (result + sign * num);    // 收尾：结算最后一个数\n    }\n}",
+      "codeJs": "/**\n * @param {string} s\n * @return {number}\n */\nvar calculate = function (s) {\n  const stack = []; // 保存每层括号进入前的 (累计和, 符号)，交替压栈\n  let result = 0;   // 当前层括号内已经累计的和\n  let sign = 1;     // 下一个数字的符号：1 为正，-1 为负\n  let num = 0;      // 正在读取的（多位）数字\n  for (const ch of s) {\n    if (ch >= '0' && ch <= '9') {\n      num = num * 10 + Number(ch); // 多位数累积\n    } else if (ch === '+') {\n      result += sign * num;        // 结算上一个数，随后准备正号\n      num = 0; sign = 1;\n    } else if (ch === '-') {\n      result += sign * num;        // 结算上一个数；一元负号也走这里\n      num = 0; sign = -1;\n    } else if (ch === '(') {\n      // 进入新一层括号：保存当前层的累计和与符号，从零开始算括号内\n      stack.push(result);\n      stack.push(sign);\n      result = 0; sign = 1; num = 0;\n    } else if (ch === ')') {\n      result += sign * num;        // 结算括号内最后一个数\n      num = 0;\n      result *= stack.pop();       // 先弹出括号前的符号\n      result += stack.pop();       // 再加回括号前的累计和\n    }\n    // 空格不落入任何分支，自动跳过\n  }\n  return result + sign * num;      // 收尾：别忘了结算最后一个数\n};",
+      "codeGo": "func calculate(s string) int {\n\tvar stack []int64 // 保存每层括号进入前的 (累计和, 符号)，交替压栈\n\tvar result int64  // 当前层括号内已经累计的和\n\tvar sign int64    // 下一个数字的符号：1 为正，-1 为负\n\tvar num int64     // 正在读取的（多位）数字\n\tfor _, ch := range s {\n\t\tswitch {\n\t\tcase ch >= '0' && ch <= '9':\n\t\t\tnum = num*10 + int64(ch-'0') // 多位数累积\n\t\tcase ch == '+':\n\t\t\tresult += sign * num // 结算上一个数，随后准备正号\n\t\t\tnum, sign = 0, 1\n\t\tcase ch == '-':\n\t\t\tresult += sign * num // 结算上一个数；一元负号也走这里\n\t\t\tnum, sign = 0, -1\n\t\tcase ch == '(':\n\t\t\t// 进入新一层：保存当前层的累计和与符号，从零开始算括号内\n\t\t\tstack = append(stack, result, sign)\n\t\t\tresult, sign, num = 0, 1, 0\n\t\tcase ch == ')':\n\t\t\tresult += sign * num // 结算括号内最后一个数\n\t\t\tnum = 0\n\t\t\tresult *= stack[len(stack)-1] // 先弹出括号前的符号\n\t\t\tstack = stack[:len(stack)-1]\n\t\t\tresult += stack[len(stack)-1] // 再加回括号前的累计和\n\t\t\tstack = stack[:len(stack)-1]\n\t\t}\n\t\t// 空格不落入任何分支，自动跳过\n\t}\n\treturn int(result + sign*num) // 收尾：结算最后一个数\n}"
+    },
+    {
+      "id": 739,
+      "title": "Daily Temperatures",
+      "titleCn": "每日温度",
+      "difficulty": "medium",
+      "frequency": 5,
+      "question": "给定一个整数数组 temperatures 表示每天的温度，返回一个数组 answer，其中 answer[i] 是指：对于第 i 天，下一个更高温度出现在几天后。如果气温在这之后都不会升高，请在该位置用 0 来代替。\n\n示例 1：输入 temperatures = [73,74,75,71,69,72,76,73]，输出 [1,1,4,2,1,1,0,0]。\n示例 2：输入 temperatures = [30,40,50,60]，输出 [1,1,1,0]。\n示例 3：输入 temperatures = [30,60,90]，输出 [1,1,0]。",
+      "hints": [
+        "审题诀窍：本质是『下一个更大元素』的变形——对每个位置找右侧第一个比它大的元素的位置，单调栈是这类问题的标准武器。",
+        "审题诀窍：栈里要存下标而不是温度值，因为弹出时需要用『当前下标 - 栈顶下标』直接算出天数差。",
+        "突破口：维护一个温度从栈底到栈顶递减的下标栈；当前温度比栈顶高时，栈顶那天的答案就是当前下标减去它。",
+        "追问预备：环形版本（503，下一个更大元素 II）怎么做？（遍历 2n-1 次、下标取模）；若要求『下一个更高或相等』？（比较条件改成 <=，栈允许相等残留）"
+      ],
+      "keyPoints": [
+        "栈保存下标，栈内对应温度从栈底到栈顶严格递减",
+        "当前温度 > 栈顶温度时，连续弹出并把 answer[j] = i - j 填入",
+        "始终没有遇到更高温的日子，答案保持初始化的 0",
+        "每个下标最多入栈、出栈各一次，整体均摊 O(n)"
+      ],
+      "structureTags": [
+        "stack",
+        "single_pass"
+      ],
+      "approaches": [
+        {
+          "name": "暴力向右扫描",
+          "idea": "对每一天向右逐个查看后续温度，直到找到第一个更高温的位置，记录天数差。温度递减的输入下每个位置都要扫到数组末尾，整体 O(n²)，n 到 10⁵ 会超时。",
+          "complexity": "时间 O(n²)，空间 O(1)（不计输出数组）",
+          "detail": "步骤拆解：\n1. 对每个 i，从 i+1 向右找第一个 temperatures[j] > temperatures[i] 的 j。\n2. 找到则 answer[i] = j - i；找不到保持初始化的 0。\n\n示例走查：temperatures = [30, 40, 50, 60]。i = 0：向右 1 步见 40 → answer[0] = 1；i = 1：1 步见 50 → 1；i = 2：1 步见 60 → 1；i = 3：右边没有更高温 → 0。输出 [1,1,1,0] ✓。但输入若是 [60,50,40,30] 这类递减序列，i = 0 要一路扫到末尾，整体 O(n²)。\n\n为什么它只是基线：题意直译、正确性显然；但它没有复用任何已算出的信息，温度单调的输入形态直接把它打成 O(n²)，n = 10^5 时约 10^10 次比较必然超时——这正是单调栈的切入点：让每个『等待答案』的日期在别人升温时被一次性结算。\n\n易错点：\n- 内层找的是『严格更高』（>），写成 >= 会把等温天误当答案。\n- 找不到保持 0 靠初始化 answer 全 0，循环里不要再赋值。",
+          "code": "def dailyTemperatures_brute(temperatures) -> list:\n    n = len(temperatures)\n    answer = [0] * n            # 默认 0：之后没有更高温\n    for i in range(n):\n        for j in range(i + 1, n):       # 向右找第一个更高温\n            if temperatures[j] > temperatures[i]:\n                answer[i] = j - i       # 天数差 = 下标差\n                break                   # 找到即停，不再向右\n    return answer"
+        },
+        {
+          "name": "单调递减栈",
+          "idea": "从左到右遍历，栈中存下标且对应温度递减。当天温度高于栈顶时，说明栈顶那天的『下一个更高温』就是今天，弹出并记录 i - j；比不过就入栈继续等待。一遍扫描，每个元素最多进出栈各一次。",
+          "complexity": "时间 O(n)，空间 O(n)",
+          "optimal": true,
+          "detail": "步骤拆解：\n1. answer 初始化全 0（之后没有更高温的日期保持 0）；stack 存下标，对应温度从栈底到栈顶严格递减。\n2. 遍历每天 (i, t)：while 栈非空且 temperatures[stack[-1]] < t：j = stack.pop()，answer[j] = i - j——今天正是栈顶那天的『下一个更高温』。\n3. while 结束后 stack.append(i)，今天入栈等待未来的高温来结算它。\n\n示例走查：temperatures = [73,74,75,71,69,72,76,73]。i=0 (73) 入栈 [0]；i=1 (74)>73 → 弹 0，answer[0]=1，入栈 [1]；i=2 (75)>74 → 弹 1，answer[1]=1，入栈 [2]；i=3 (71) 不高于 75，入栈 [2,3]；i=4 (69) 入栈 [2,3,4]；i=5 (72)>69 → 弹 4，answer[4]=1；>71 → 弹 3，answer[3]=2；入栈 [2,5]；i=6 (76)>72 → 弹 5，answer[5]=1；>75 → 弹 2，answer[2]=4；入栈 [6]；i=7 (73) 不高于 76，入栈。最终 [1,1,4,2,1,1,0,0] ✓。\n\n为什么正确：栈中残留的都是『还没等到更高温』的日子，温度递减保证弹出与结算的一致性；每个下标入栈一次、至多弹出一次，均摊 O(n)。存下标而非温度值，是因为答案要的是天数差 i - j。\n\n易错点：\n- 栈存下标，比较时写 temperatures[stack[-1]]，别把栈顶元素直接当温度。\n- 弹出条件是严格小于（< t），等温天不能结算——73 对 73 不算『更高温』。\n- answer 默认 0 由初始化保证，扫描中不要重复赋值覆盖。",
+          "code": "def dailyTemperatures_stack(temperatures) -> list:\n    n = len(temperatures)\n    answer = [0] * n            # 默认 0：始终没等到更高温的日子\n    stack = []                  # 单调递减栈：存下标，对应温度从底到顶递减\n    for i, t in enumerate(temperatures):\n        while stack and temperatures[stack[-1]] < t:\n            j = stack.pop()     # 栈顶那天的『下一个更高温』就是今天\n            answer[j] = i - j   # 天数差 = 下标差\n        stack.append(i)         # 今天入栈，等待未来更高的温度结算\n    return answer"
+        }
+      ],
+      "code": "class Solution:\n    def dailyTemperatures(self, temperatures: List[int]) -> List[int]:\n        n = len(temperatures)\n        answer = [0] * n          # 默认 0：之后没有更高温的日子\n        stack = []                # 单调递减栈：存下标，对应温度从底到顶递减\n        for i, t in enumerate(temperatures):\n            # 当前温度比栈顶日子高 -> 栈顶那天的『下一个更高温』就是今天\n            while stack and temperatures[stack[-1]] < t:\n                j = stack.pop()\n                answer[j] = i - j        # 天数差 = 下标差\n            stack.append(i)              # 今天入栈，等待未来更高的温度来结算\n        return answer",
+      "templates": [
+        "『下一个更大/更小元素』单调栈模板：栈存下标保持单调，新元素破坏单调性时弹栈结算答案",
+        "单调栈均摊分析：每个元素最多进出栈一次，常能把 O(n²) 的两两比较降为 O(n)"
+      ],
+      "companies": [
+        "腾讯",
+        "拼多多"
+      ],
+      "samples": [
+        {
+          "input": "temperatures = [73,74,75,71,69,72,76,73]",
+          "output": "[1,1,4,2,1,1,0,0]",
+          "explain": "例如 75 那天要等 4 天才遇到 76"
+        },
+        {
+          "input": "temperatures = [30,40,50,60]",
+          "output": "[1,1,1,0]",
+          "explain": "温度递增，每天次日即更高；最后一天之后无更高温"
+        },
+        {
+          "input": "temperatures = [30,60,90]",
+          "output": "[1,1,0]",
+          "explain": "同上，末位保持 0"
+        }
+      ],
+      "acmCode": "# ACM 模式：完整可运行程序（stdin -> stdout）\n# 输入格式：\n#   第一行：n（天数）\n#   第二行：n 个整数（每日温度）\n# 输出格式：一行 n 个整数，空格分隔，为答案数组\nimport sys\n\ndef main():\n    data = sys.stdin.read().split()\n    n = int(data[0])\n    temps = [int(x) for x in data[1:1 + n]]\n    answer = [0] * n\n    stack = []                   # 单调递减栈：存下标\n    for i, t in enumerate(temps):\n        while stack and temps[stack[-1]] < t:\n            j = stack.pop()\n            answer[j] = i - j\n        stack.append(i)\n    print(' '.join(map(str, answer)))\n\nif __name__ == '__main__':\n    main()",
+      "codeCpp": "class Solution {\npublic:\n    vector<int> dailyTemperatures(vector<int>& temperatures) {\n        int n = (int)temperatures.size();\n        vector<int> answer(n, 0);    // 默认 0：之后没有更高温的日子\n        vector<int> stk;             // 单调递减栈：存下标，对应温度从底到顶递减\n        for (int i = 0; i < n; ++i) {\n            // 当前温度比栈顶日子高 -> 栈顶那天的『下一个更高温』就是今天\n            while (!stk.empty() && temperatures[stk.back()] < temperatures[i]) {\n                int j = stk.back(); stk.pop_back();\n                answer[j] = i - j;   // 天数差 = 下标差\n            }\n            stk.push_back(i);        // 今天入栈，等待未来更高的温度来结算\n        }\n        return answer;\n    }\n};",
+      "acmCodeCpp": "// ACM 模式：完整可运行程序（stdin -> stdout）\n// 输入格式：\n//   第一行：n（天数）\n//   第二行：n 个整数（每日温度）\n// 输出格式：一行 n 个整数，空格分隔，为答案数组\n#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);   // 关闭同步，读入更快\n    cin.tie(nullptr);\n\n    int n;\n    cin >> n;\n    vector<int> temps(n);\n    for (auto& t : temps) cin >> t;\n\n    vector<int> answer(n, 0);      // 默认 0：之后没有更高温的日子\n    vector<int> stk;               // 单调递减栈：存下标，对应温度从底到顶递减\n    for (int i = 0; i < n; ++i) {\n        // 当前温度比栈顶日子高 -> 栈顶那天的『下一个更高温』就是今天\n        while (!stk.empty() && temps[stk.back()] < temps[i]) {\n            answer[stk.back()] = i - stk.back();   // 天数差 = 下标差\n            stk.pop_back();\n        }\n        stk.push_back(i);          // 今天入栈，等待未来更高的温度来结算\n    }\n    for (int i = 0; i < n; ++i) {\n        if (i) cout << ' ';        // 空格分隔\n        cout << answer[i];\n    }\n    cout << endl;\n    return 0;\n}",
+      "codeJava": "class Solution {\n    public int[] dailyTemperatures(int[] temperatures) {\n        int n = temperatures.length;\n        int[] answer = new int[n];   // 默认 0：之后没有更高温的日子\n        Deque<Integer> stack = new ArrayDeque<>();  // 单调递减栈：存下标\n        for (int i = 0; i < n; i++) {\n            // 当前温度比栈顶日子高 -> 栈顶那天的『下一个更高温』就是今天\n            while (!stack.isEmpty() && temperatures[stack.peek()] < temperatures[i]) {\n                int j = stack.pop();\n                answer[j] = i - j;   // 天数差 = 下标差\n            }\n            stack.push(i);           // 今天入栈，等待未来更高的温度来结算\n        }\n        return answer;\n    }\n}",
+      "codeJs": "/**\n * @param {number[]} temperatures\n * @return {number[]}\n */\nvar dailyTemperatures = function (temperatures) {\n  const n = temperatures.length;\n  const answer = new Array(n).fill(0); // 默认 0：之后没有更高温的日子\n  const stack = [];                    // 单调递减栈：存下标，对应温度从底到顶递减\n  for (let i = 0; i < n; i++) {\n    // 当前温度比栈顶日子高 -> 栈顶那天的『下一个更高温』就是今天\n    while (\n      stack.length &&\n      temperatures[stack[stack.length - 1]] < temperatures[i]\n    ) {\n      const j = stack.pop();\n      answer[j] = i - j;               // 天数差 = 下标差\n    }\n    stack.push(i);                     // 今天入栈，等待未来更高的温度来结算\n  }\n  return answer;\n};",
+      "codeGo": "func dailyTemperatures(temperatures []int) []int {\n\tn := len(temperatures)\n\tanswer := make([]int, n) // 默认 0：之后没有更高温的日子\n\tstack := []int{}         // 单调递减栈：存下标，对应温度从底到顶递减\n\tfor i := 0; i < n; i++ {\n\t\t// 当前温度比栈顶日子高 -> 栈顶那天的『下一个更高温』就是今天\n\t\tfor len(stack) > 0 && temperatures[stack[len(stack)-1]] < temperatures[i] {\n\t\t\tj := stack[len(stack)-1]\n\t\t\tstack = stack[:len(stack)-1]\n\t\t\tanswer[j] = i - j // 天数差 = 下标差\n\t\t}\n\t\tstack = append(stack, i) // 今天入栈，等待未来更高的温度来结算\n\t}\n\treturn answer\n}"
+    },
+    {
+      "id": 84,
+      "title": "Largest Rectangle in Histogram",
+      "titleCn": "柱状图中最大的矩形",
+      "difficulty": "hard",
+      "frequency": 4,
+      "question": "给定 n 个非负整数，用来表示柱状图中各个柱子的高度。每个柱子彼此相邻，且宽度为 1。求在该柱状图中，能够勾勒出来的矩形的最大面积。\n\n示例 1：输入 heights = [2,1,5,6,2,3]，输出 10（最大的矩形为下标 2 和 3 两根柱子组成，面积 2 × 5 = 10）。\n示例 2：输入 heights = [2,4]，输出 4。",
+      "hints": [
+        "审题诀窍：换个角度想——最大矩形的高度一定是『某一根柱子』的高度；于是问题变成：以每根柱子为最矮柱，它能向左右各延伸多远。",
+        "审题诀窍：柱子 i 能延伸到的范围，由『左侧第一个比它矮的位置』和『右侧第一个比它矮的位置』决定——又是『下一个更小元素』，单调栈登场。",
+        "突破口：维护高度递增的下标栈；当前柱比栈顶矮时弹栈结算：高度 = 弹出柱高度，宽度 = i - 新栈顶 - 1；栈底放哨兵 -1、末尾补高度 0，统一收尾。",
+        "追问预备：二维 01 矩阵中的最大矩形（85）怎么做？（逐行累计每列高度，每行跑一遍本题算法）；若要求最大矩形个数或周长呢？（弹栈结算时按高度分组累计）"
+      ],
+      "keyPoints": [
+        "栈存下标，对应高度从栈底到栈顶单调递增",
+        "遇到更矮的柱子弹栈结算：高度 = heights[弹出下标]，宽度 = i - stack[-1] - 1",
+        "弹出后栈空（只剩哨兵 -1）说明左边界是 -1，宽度为 i",
+        "末尾追加一根高度 0 的哨兵柱，保证所有柱子都会被弹栈结算"
+      ],
+      "structureTags": [
+        "stack",
+        "single_pass"
+      ],
+      "approaches": [
+        {
+          "name": "暴力枚举",
+          "idea": "枚举每一对左右边界，取区间内最小高度乘以宽度；或对每根柱子向左右两侧扩展到第一个更矮的位置。两种写法都是 O(n²)，n 达 10⁵ 时会超时。",
+          "complexity": "时间 O(n²)，空间 O(1)",
+          "detail": "步骤拆解：\n1. 对每根柱子 i，把它当作目标矩形的最矮柱：向左延伸到第一个比 heights[i] 矮的柱子（left），向右延伸到第一个更矮的（right）。\n2. 以 i 为最矮柱的最大矩形面积 = heights[i] * (right - left + 1)，对所有 i 取最大。\n\n示例走查：heights = [2,1,5,6,2,3]。i = 2（高 5）：左邻 1 < 5 停，右邻 6 ≥ 5 延伸、再右 2 < 5 停 → 宽 2，面积 10；i = 3（高 6）：左右邻都更矮 → 面积 6；i = 4（高 2）：向左延伸过 6、5 到下标 2（1 < 2 停），向右到下标 5 → 宽 4，面积 8。全局最大 10（在 i = 2 取得）✓。\n\n为什么正确：最大矩形的高度一定是『某一根柱子』的高度——否则要么能继续增高、要么该柱子根本不在矩形内，矛盾；固定最矮柱后向两侧延伸到第一个更矮处，即得该高度下的最大宽度。双重延伸最坏 O(n²)，n = 10^5 时超时。\n\n易错点：\n- 延伸条件是 ≥（等高柱允许跨过），用 > 会在等高平台处算漏最大矩形。\n- 别只算部分柱子，答案必须取遍所有 i 的最大值。",
+          "code": "def largestRectangleArea_brute(heights) -> int:\n    n = len(heights)\n    ans = 0\n    for i in range(n):              # 枚举每根柱子作为矩形的最矮柱\n        left = i\n        while left > 0 and heights[left - 1] >= heights[i]:\n            left -= 1               # 向左延伸到第一个更矮的柱子\n        right = i\n        while right < n - 1 and heights[right + 1] >= heights[i]:\n            right += 1              # 向右延伸到第一个更矮的柱子\n        ans = max(ans, heights[i] * (right - left + 1))\n    return ans"
+        },
+        {
+          "name": "预处理左右边界",
+          "idea": "分别用一次单调栈求出每根柱子左右两侧第一个更矮柱子的下标 left[i] 与 right[i]，再线性扫一遍计算 (right[i] - left[i] - 1) * heights[i] 取最大值。思路清晰好写，常数是三次遍历。",
+          "complexity": "时间 O(n)，空间 O(n)",
+          "detail": "步骤拆解：\n1. 用一次从左到右的单调（非严格递增）栈求 left[i] = 左侧第一个更矮柱的下标（没有则 -1）：栈顶高度 ≥ 当前就弹。\n2. 用一次从右到左的同样流程求 right[i] = 右侧第一个更矮下标（没有则 n）。\n3. 答案 = max(heights[i] * (right[i] - left[i] - 1))。\n\n示例走查：heights = [2,1,5,6,2,3]。左边界 left = [-1,-1,1,2,1,4]，右边界 right = [1,6,4,4,6,6]。以 i = 2（高 5）为例：宽 = 4 - 1 - 1 = 2，面积 10；i = 1（高 1）：宽 = 6 - (-1) - 1 = 6，面积 6。全局最大 10 ✓。\n\n为什么正确：『以 i 为最矮柱的最大矩形』宽度恰好被左右第一个更矮柱夹出，单调栈求『下一个更小元素』每根柱子进出栈各一次；三次线性扫描互相独立、各自正确，合起来即全局最大。三遍扫描常数大于一遍版，但结构清晰不易错，适合面试先写它、再提一遍优化。\n\n易错点：\n- left 默认 -1、right 默认 n（两个越界哨兵），宽度公式统一为 right - left - 1，别把默认值写混。\n- 求右边界要反向遍历，弹栈比较方向不变（仍是弹掉 ≥ 当前的）。\n- heights 全 0 的输入面积为 0，公式自动给出，无需特判。",
+          "code": "def largestRectangleArea_two_pass(heights) -> int:\n    n = len(heights)\n    left = [-1] * n                  # left[i]: 左侧第一个更矮柱的下标（无则 -1）\n    right = [n] * n                  # right[i]: 右侧第一个更矮柱的下标（无则 n）\n    st = []\n    for i in range(n):               # 从左到右：单调递增栈求左边界\n        while st and heights[st[-1]] >= heights[i]:\n            st.pop()\n        left[i] = st[-1] if st else -1\n        st.append(i)\n    st = []\n    for i in range(n - 1, -1, -1):   # 从右到左：同样流程求右边界\n        while st and heights[st[-1]] >= heights[i]:\n            st.pop()\n        right[i] = st[-1] if st else n\n        st.append(i)\n    return max(heights[i] * (right[i] - left[i] - 1) for i in range(n))"
+        },
+        {
+          "name": "单调栈一遍扫描",
+          "idea": "维护高度递增的下标栈，遇到更矮的柱子就把栈顶柱子弹出并立即结算：以弹出柱高度为高、左右边界恰好是当前下标与新栈顶之间，宽度 = i - stack[-1] - 1。栈底放哨兵 -1，末尾补一根高度 0 的哨兵柱把栈清空。一遍扫描完成，每根柱子进出栈各一次。",
+          "complexity": "时间 O(n)，空间 O(n)",
+          "optimal": true,
+          "detail": "步骤拆解：\n1. heights 末尾追加一根高度 0 的哨兵柱，保证遍历结束时所有柱子都被弹出结算；stack = [-1] 作为栈底哨兵（表示左边界到 -1）。\n2. 遍历每根柱 (i, h)：while stack[-1] != -1 且 heights[stack[-1]] >= h：弹栈顶 j，height = heights[j]，width = i - stack[-1] - 1，用 height * width 更新答案。\n3. 当前下标 i 入栈。\n\n示例走查：heights = [2,1,5,6,2,3,0]。i=0 (2) 入栈 [-1,0]；i=1 (1)：弹 0 → 高 2、宽 = 1-(-1)-1 = 1，面积 2；入栈 [-1,1]；i=2 (5)、i=3 (6) 入栈 [-1,1,2,3]；i=4 (2)：弹 3 → 高 6、宽 1，面积 6；弹 2 → 高 5、宽 = 4-1-1 = 2，面积 10；入栈 [-1,1,4]；i=5 (3) 入栈；i=6 (0)：弹 5 → 高 3、宽 1，面积 3；弹 4 → 高 2、宽 = 6-1-1 = 4，面积 8；弹 1 → 高 1、宽 = 6-(-1)-1 = 6，面积 6。最大 10 ✓。\n\n为什么正确：弹出 j 的时刻，它的左边界恰是新栈顶（第一个更矮的）、右边界恰是当前 i（第一个更矮的）——单调栈把『两侧第一个更小元素』的查询摊平进一遍扫描；哨兵 0 保证任何高度的柱子都会被弹出结算、哨兵 -1 保证栈底时宽度公式不越界。每根柱子进出栈各一次，O(n)。\n\n易错点：\n- 宽度是 i - stack[-1] - 1，不是 i - j，也不是 i - stack[-1]；新栈顶才是左开边界。\n- 弹出条件用 >= 时，等高柱中先弹的宽度偏小，但最后一根会以全宽结算，最大值不丢。\n- 忘加末尾哨兵 0 的话，递增输入（如 [2,4]）结束后栈中残留柱子没被结算，答案错。",
+          "code": "def largestRectangleArea_stack(heights) -> int:\n    heights = heights + [0]     # 末尾哨兵柱：保证遍历结束时所有柱子都被结算\n    stack = [-1]                # 栈底哨兵 -1：默认左边界；栈存下标且高度递增\n    ans = 0\n    for i, h in enumerate(heights):\n        while stack[-1] != -1 and heights[stack[-1]] >= h:\n            height = heights[stack.pop()]\n            width = i - stack[-1] - 1   # 右边界 i 与左边界 stack[-1] 之间\n            ans = max(ans, height * width)\n        stack.append(i)         # 当前柱入栈，等未来更矮的柱子来结算\n    return ans"
+        }
+      ],
+      "code": "class Solution:\n    def largestRectangleArea(self, heights: List[int]) -> int:\n        # 末尾加一根高度 0 的哨兵柱，保证遍历结束时所有柱子都被弹栈结算\n        heights = heights + [0]\n        stack = [-1]     # 栈底哨兵：默认左边界为 -1；栈存下标且对应高度递增\n        ans = 0\n        for i, h in enumerate(heights):\n            # 当前柱比栈顶矮 -> 栈顶柱的左右边界都已确定，立即结算它\n            while stack[-1] != -1 and heights[stack[-1]] >= h:\n                height = heights[stack.pop()]\n                # 宽度 = 右边界 i 与左边界 stack[-1] 之间的柱子数（不含两端）\n                width = i - stack[-1] - 1\n                ans = max(ans, height * width)\n            stack.append(i)   # 当前柱入栈，等待未来更矮的柱子来结算它\n        return ans",
+      "templates": [
+        "直方图/柱状图类模板：单调递增栈 + 双哨兵（栈底 -1、末尾补 0），弹栈时用 i - stack[-1] - 1 计算宽度",
+        "『以每个元素为最小值能扩展多远』的问题：等价于求两侧第一个更小元素，单调栈 O(n) 解决"
+      ],
+      "companies": [
+        "字节跳动",
+        "华为"
+      ],
+      "samples": [
+        {
+          "input": "heights = [2,1,5,6,2,3]",
+          "output": "10",
+          "explain": "下标 2、3 两根 5、6 的柱子组成 2×5 = 10 的矩形"
+        },
+        {
+          "input": "heights = [2,4]",
+          "output": "4",
+          "explain": "两根柱子都能构成高度 2 的矩形，2×2 = 4"
+        }
+      ],
+      "acmCode": "# ACM 模式：完整可运行程序（stdin -> stdout）\n# 输入格式：\n#   第一行：n（柱子数）\n#   第二行：n 个非负整数（各柱高度，宽度均为 1）\n# 输出格式：一行，能勾勒出的最大矩形面积\nimport sys\n\ndef main():\n    data = sys.stdin.read().split()\n    n = int(data[0])\n    heights = [int(x) for x in data[1:1 + n]] + [0]   # 末尾高度 0 哨兵柱\n    stack = [-1]                 # 栈底哨兵 -1\n    ans = 0\n    for i, h in enumerate(heights):\n        while stack[-1] != -1 and heights[stack[-1]] >= h:\n            height = heights[stack.pop()]\n            width = i - stack[-1] - 1\n            ans = max(ans, height * width)\n        stack.append(i)\n    print(ans)\n\nif __name__ == '__main__':\n    main()",
+      "codeCpp": "class Solution {\npublic:\n    int largestRectangleArea(vector<int>& heights) {\n        // 末尾加一根高度 0 的哨兵柱，保证遍历结束时所有柱子都被弹栈结算\n        heights.push_back(0);\n        vector<int> stk;     // 栈底哨兵：默认左边界为 -1；栈存下标且对应高度递增\n        stk.push_back(-1);\n        int ans = 0;\n        for (int i = 0; i < (int)heights.size(); ++i) {\n            // 当前柱比栈顶矮 -> 栈顶柱的左右边界都已确定，立即结算它\n            while (stk.back() != -1 && heights[stk.back()] >= heights[i]) {\n                int height = heights[stk.back()]; stk.pop_back();\n                // 宽度 = 右边界 i 与左边界 stk.back() 之间的柱子数（不含两端）\n                int width = i - stk.back() - 1;\n                ans = max(ans, height * width);\n            }\n            stk.push_back(i);   // 当前柱入栈，等待未来更矮的柱子来结算它\n        }\n        heights.pop_back();     // 弹出补进去的哨兵柱，还原输入数组\n        return ans;\n    }\n};",
+      "acmCodeCpp": "// ACM 模式：完整可运行程序（stdin -> stdout）\n// 输入格式：\n//   第一行：n（柱子数）\n//   第二行：n 个非负整数（各柱高度，宽度均为 1）\n// 输出格式：一行，能勾勒出的最大矩形面积\n#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);   // 关闭同步，读入更快\n    cin.tie(nullptr);\n\n    int n;\n    cin >> n;\n    vector<int> heights(n);\n    for (auto& h : heights) cin >> h;\n    heights.push_back(0);          // 末尾高度 0 哨兵柱，保证所有柱子都被结算\n\n    vector<int> stk;               // 栈底哨兵 -1：默认左边界；栈存下标且高度递增\n    stk.push_back(-1);\n    int ans = 0;\n    for (int i = 0; i < (int)heights.size(); ++i) {\n        // 当前柱比栈顶矮 -> 栈顶柱的左右边界都已确定，立即结算它\n        while (stk.back() != -1 && heights[stk.back()] >= heights[i]) {\n            int height = heights[stk.back()]; stk.pop_back();\n            // 宽度 = 右边界 i 与左边界 stk.back() 之间的柱子数（不含两端）\n            int width = i - stk.back() - 1;\n            ans = max(ans, height * width);\n        }\n        stk.push_back(i);          // 当前柱入栈，等待未来更矮的柱子来结算它\n    }\n    cout << ans << endl;\n    return 0;\n}",
+      "codeJava": "class Solution {\n    public int largestRectangleArea(int[] heights) {\n        // 末尾加一根高度 0 的哨兵柱，保证遍历结束时所有柱子都被弹栈结算\n        int[] hs = Arrays.copyOf(heights, heights.length + 1);\n        hs[heights.length] = 0;\n        Deque<Integer> stack = new ArrayDeque<>();  // 栈底哨兵 -1：默认左边界\n        stack.push(-1);\n        int ans = 0;\n        for (int i = 0; i < hs.length; i++) {\n            // 当前柱比栈顶矮 -> 栈顶柱的左右边界都已确定，立即结算它\n            while (stack.peek() != -1 && hs[stack.peek()] >= hs[i]) {\n                int height = hs[stack.pop()];\n                // 宽度 = 右边界 i 与左边界 stack.peek() 之间的柱子数（不含两端）\n                int width = i - stack.peek() - 1;\n                ans = Math.max(ans, height * width);\n            }\n            stack.push(i);   // 当前柱入栈，等待未来更矮的柱子来结算它\n        }\n        return ans;\n    }\n}",
+      "codeJs": "/**\n * @param {number[]} heights\n * @return {number}\n */\nvar largestRectangleArea = function (heights) {\n  const hs = [...heights, 0]; // 末尾追加高度 0 哨兵柱，保证所有柱子都被结算\n  const stack = [-1];         // 栈底哨兵 -1：默认左边界；栈存下标且高度递增\n  let ans = 0;\n  for (let i = 0; i < hs.length; i++) {\n    // 当前柱比栈顶矮 -> 栈顶柱的左右边界都已确定，立即结算它\n    while (\n      stack[stack.length - 1] !== -1 &&\n      hs[stack[stack.length - 1]] >= hs[i]\n    ) {\n      const height = hs[stack.pop()];\n      // 宽度 = 右边界 i 与左边界 stack 栈顶之间的柱子数（不含两端）\n      const width = i - stack[stack.length - 1] - 1;\n      ans = Math.max(ans, height * width);\n    }\n    stack.push(i);            // 当前柱入栈，等待未来更矮的柱子来结算它\n  }\n  return ans;\n};",
+      "codeGo": "func largestRectangleArea(heights []int) int {\n\t// 末尾追加高度 0 的哨兵柱，保证遍历结束时所有柱子都被弹栈结算\n\ths := append(append([]int{}, heights...), 0)\n\tstack := []int{-1} // 栈底哨兵 -1：默认左边界；栈存下标且对应高度递增\n\tans := 0\n\tfor i := 0; i < len(hs); i++ {\n\t\t// 当前柱比栈顶矮 -> 栈顶柱的左右边界都已确定，立即结算它\n\t\tfor stack[len(stack)-1] != -1 && hs[stack[len(stack)-1]] >= hs[i] {\n\t\t\theight := hs[stack[len(stack)-1]]\n\t\t\tstack = stack[:len(stack)-1]\n\t\t\t// 宽度 = 右边界 i 与左边界 stack 栈顶之间的柱子数（不含两端）\n\t\t\twidth := i - stack[len(stack)-1] - 1\n\t\t\tif height*width > ans {\n\t\t\t\tans = height * width\n\t\t\t}\n\t\t}\n\t\tstack = append(stack, i) // 当前柱入栈，等待未来更矮的柱子来结算它\n\t}\n\treturn ans\n}"
+    }
+  ]
+}
