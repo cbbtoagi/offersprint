@@ -49,6 +49,9 @@ bash scripts/ios_install.sh       # iPhone 真机一键安装
 flutter build apk --release       # Android APK
 ```
 
+
+> **网络提示**：构建会从 GitHub 拉取 `sqlite3` 原生库与 SwiftPM 依赖，网络不稳时建议配置代理或 `git config --global http.version HTTP/1.1` 并重试；`flutter test` 触发的宿主构建失败多为该下载问题。
+
 仓库结构：`lib/`（冲刺Offer 应用，含 `lib/algo/` 算法冲刺模块）· `assets/content/`（八股 442 条）· `assets/algo/content/`（LeetCode 162 题）· `src_raw/`（八股内容源文件，Python）· `scripts/convert.py`（内容校验转换）· `scripts/make_icon.py`（图标生成）
 
 > 内容管线：编辑 `src_raw/<域名>.py` → `python3 scripts/convert.py` → 重新构建即更新题库。
